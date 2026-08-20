@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.payments.fund.service.infrastructure.persistence.LedgerEntryMapper">
+  <resultMap id="LedgerEntryResultMap"
+             type="com.example.payments.fund.service.infrastructure.persistence.LedgerEntryEntity">
+    <id property="id" column="id" />
+    <result property="entryId" column="entry_id" />
+    <result property="accountId" column="account_id" />
+    <result property="orderId" column="order_id" />
+    <result property="refundId" column="refund_id" />
+    <result property="entryType" column="entry_type" />
+    <result property="debitCredit" column="debit_credit" />
+    <result property="amount" column="amount" />
+    <result property="currency" column="currency" />
+    <result property="availableAt" column="available_at" />
+    <result property="idempotencyKey" column="idempotency_key" />
+    <result property="reversalOf" column="reversal_of" />
+    <result property="createdAt" column="created_at" />
+  </resultMap>
+
+  <select id="findByIdempotency" resultMap="LedgerEntryResultMap">
+    SELECT id, entry_id, account_id, order_id, refund_id, entry_type,
+           debit_credit, amount, currency, available_at, idempotency_key,
+           reversal_of, created_at
+    FROM ledger_entry
+    WHERE idempotency_key = #{key}
+    LIMIT 1
+  </select>
+</mapper>

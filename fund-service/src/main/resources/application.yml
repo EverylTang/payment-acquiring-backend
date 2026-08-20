@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: fund-service
+  profiles:
+    active: dev
+  config:
+    import:
+      - optional:nacos:application.yml?group=${NACOS_GROUP:PAYMENT_GROUP}&refreshEnabled=true
+      - optional:nacos:${spring.application.name}-${spring.profiles.active}.yml?group=${NACOS_GROUP:PAYMENT_GROUP}&refreshEnabled=true
+  cloud:
+    nacos:
+      server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        namespace: ${NACOS_NAMESPACE:payment}
+        group: ${NACOS_GROUP:PAYMENT_GROUP}
+        metadata:
+          environment: ${spring.profiles.active}
+          version: ${APP_VERSION:0.1.0}
+      config:
+        namespace: ${NACOS_NAMESPACE:payment}
+        group: ${NACOS_GROUP:PAYMENT_GROUP}
+        file-extension: yml
