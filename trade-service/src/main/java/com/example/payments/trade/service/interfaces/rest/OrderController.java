@@ -1,6 +1,7 @@
 package com.example.payments.trade.service.interfaces.rest;
 
 import com.example.payments.trade.service.application.OrderService;
+import com.example.payments.trade.service.application.PaymentAttemptService;
 import com.example.payments.trade.service.domain.OrderStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -21,9 +22,11 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api/v1/payments/orders")
 public class OrderController {
   private final OrderService orderService;
+  private final PaymentAttemptService paymentAttemptService;
 
-  public OrderController(OrderService orderService) {
+  public OrderController(OrderService orderService, PaymentAttemptService paymentAttemptService) {
     this.orderService = orderService;
+    this.paymentAttemptService = paymentAttemptService;
   }
 
   @GetMapping("/health")
@@ -59,6 +62,15 @@ public class OrderController {
     return OrderDtos.OrderResponse.from(orderService.cancel(orderId));
   }
 
+  @PostMapping("/{orderId}/attempts")
+  public Map<String, Object> createAttempt(@PathVariable(name = "orderId") String orderId,
+      @RequestParam(name = "behavior", required = false) String behavior) {
+    var order = orderService.markPaying(orderId);
+    var attempt = paymentAttemptService.create(order, behavior);
+    return Map.of("attemptId", attempt.attemptId(), "orderId", attempt.orderId(), "channelId", attempt.channelId(),
+        "channelOrderId", attempt.channelRequestNo(), "status", attempt.status().name(), "responseSnapshot", attempt.responseSnapshot());
+  }
+
   @PostMapping("/{orderId}/callback")
   public OrderDtos.OrderResponse callback(@PathVariable(name = "orderId") String orderId, @RequestParam(name = "status") @NotBlank String status) {
     try {
@@ -67,4 +79,42 @@ public class OrderController {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unsupported status", exception);
     }
   }
+
+  @GetMapping("/{orderId}/attempts/{attemptId}")
+  public Map<String, Object> getAttempt(@PathVariable String orderId, @PathVariable String attemptId) {
+    var attempt = paymentAttemptService.get(attemptId, orderId);
+    return attemptResponse(attempt);
+  }
+
+  @PostMapping("/{orderId}/attempts/{attemptId}/query")
+  public Map<String, Object> queryAttempt(@PathVariable String orderId, @PathVariable String attemptId) {
+    return attemptResponse(paymentAttemptService.query(paymentAttemptService.get(attemptId, orderId).attemptId()));
+  }
+
+  @PostMapping("/{orderId}/attempts/{attemptId}/cancel")
+  public Map<String, Object> cancelAttempt(@PathVariable String orderId, @PathVariable String attemptId) {
+    paymentAttemptService.get(attemptId, orderId);
+    return attemptResponse(paymentAttemptService.cancel(attemptId));
+  }
+
+  @PostMapping("/{orderId}/attempts/{attemptId}/retry")
+  public Map<String, Object> retryAttempt(@PathVariable String orderId, @PathVariable String attemptId) {
+    var order = orderService.get(orderId);
+    return attemptResponse(paymentAttemptService.retry(attemptId, order));
+  }
+
+  private static Map<String, Object> attemptResponse(com.example.payments.trade.service.domain.PaymentAttempt attempt) {
+    return Map.of("attemptId", attempt.attemptId(), "orderId", attempt.orderId(), "channelId", attempt.channelId(),
+        "channelOrderId", attempt.channelRequestNo(), "attemptNo", attempt.attemptNo(), "status", attempt.status().name(),
+        "responseSnapshot", attempt.responseSnapshot() == null ? "" : attempt.responseSnapshot());
+  }
+
+  @PostMapping("/attempts/callback")
+  public Map<String, Object> attemptCallback(@Valid @RequestBody CallbackRequest request) {
+    var attempt = paymentAttemptService.callback(request.rawPayload(), request.signature(), request.callbackId());
+    return Map.of("attemptId", attempt.attemptId(), "orderId", attempt.orderId(), "status", attempt.status().name(),
+        "responseSnapshot", attempt.responseSnapshot());
+  }
+
+  public record CallbackRequest(@NotBlank String callbackId, @NotBlank String rawPayload, @NotBlank String signature) {}
 }

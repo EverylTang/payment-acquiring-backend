@@ -1,296 +1,666 @@
-# 项目现状、Nacos 配置与内部管理后台开发计划
+# 支付收单系统项目状态与开发计划
 
 > 更新时间：2026-08-21
 >
 > 适用仓库：`payment-acquiring-backend`
 >
-> 本文记录当前代码、Nacos 配置约定、已实现能力、内部管理后台规划和下一步优先级。Nacos 中的实际配置以配置中心为准，本文不保存真实密码、渠道密钥或商户 API Key。
+> 本文以当前代码为准，记录已实现能力、第二阶段验收差距、收尾任务和第三阶段开发路线。Nacos 中的真实密码、渠道密钥、商户 API Key 等敏感信息不写入本文。
 
-## 1. 当前系统概览
+## 1. 当前结论
 
-后端采用 Maven 多模块和 Spring Boot 微服务结构：
+项目已完成平台配置、交易订单和可靠事件链路的主体代码，当前主链路为：
 
-| 服务 | 默认端口 | 当前职责 | 当前状态 |
+```text
+管理员认证与配置发布
+→ Gateway 鉴权与路由
+→ Trade 创建订单和 Payment Attempt
+→ 模拟渠道执行、查询、取消和签名回调
+→ 订单与 Attempt 状态协调
+→ PAYMENT_SUCCEEDED 同事务写入 Outbox
+→ RocketMQ 至少一次投递
+→ Fund 幂等写入 ledger_entry
+```
+
+第二阶段完成度约为 `75%`。业务主链路和基础单元测试已完成，但可靠性、可运维性和端到端验收尚未闭环，因此当前结论是：
+
+- 第二阶段代码主干已完成。
+- 第二阶段尚未通过完整验收。
+- 应先完成第二阶段 P0 收尾，再正式进入第三阶段退款与对账开发。
+
+## 2. 系统与基础设施
+
+### 2.1 服务职责
+
+| 服务 | 默认端口 | 当前职责 | 状态 |
 | --- | ---: | --- | --- |
-| `gateway-service` | 8080 | 统一入口、请求头清洗、内部接口保护、请求 ID 透传 | 已实现最小网关过滤能力 |
-| `platform-service` | 8081 | 产品、路由、费率、风控配置快照和渠道健康查询 | 已实现模拟配置快照接口 |
-| `trade-service` | 8082 | 订单创建、查询、状态流转、取消、回调和订单持久化 | 已实现 MVP 订单闭环 |
-| `fund-service` | 8083 | 支付成功后的资金分录写入 | 已实现幂等入账接口 |
+| `gateway-service` | 8080 | 统一入口、请求头清洗、内部接口保护、请求 ID 透传和服务路由 | 基础能力已完成 |
+| `platform-service` | 8081 | 管理员认证、RBAC、商户/产品/渠道配置、规则发布、配置快照 | 配置域主体已完成 |
+| `trade-service` | 8082 | 订单、Payment Attempt、模拟渠道、回调、Outbox 和消息发布 | 第二阶段主体已完成 |
+| `fund-service` | 8083 | 支付成功入账、HTTP/MQ 幂等写入 | 第二阶段主体已完成 |
 
-基础设施包括 MySQL 8.4、Redis 7.2、Nacos 2.x、RocketMQ 5.2 和 MinIO。仓库的 Compose 主要负责 RocketMQ Broker 和 MinIO，默认复用本机已有的 MySQL、Redis、Nacos、RocketMQ NameServer 及 `local-dev-network`。
+### 2.2 基础设施
 
-## 2. Nacos 配置约定
+本地环境使用：
 
-### 2.1 统一 namespace、group 和 DataId
+- MySQL 8.4
+- Redis 7.2
+- Nacos 2.3.2
+- RocketMQ 5.2.0
+- MinIO
 
-四个服务统一使用：
+仓库 `docker-compose.yml` 管理 RocketMQ Broker 和 MinIO，并复用外部 Docker 网络 `local-dev-network`。RocketMQ Broker 当前映射端口：
 
-| 配置项 | 当前值 | 覆盖方式 |
+```text
+10909
+10911
+```
+
+本地服务运行在宿主机时，Broker 宣告地址使用 `127.0.0.1`。若后续将 Trade/Fund 容器化，必须按环境改为容器可访问的 DNS 或内网地址，不能继续使用容器自身的 `127.0.0.1`。
+
+### 2.3 Nacos 配置约定
+
+统一配置约定：
+
+| 配置项 | 默认值 | 覆盖方式 |
 | --- | --- | --- |
 | Nacos 地址 | `127.0.0.1:8848` | `NACOS_ADDR` |
 | namespace | `payment` | `NACOS_NAMESPACE` |
 | group | `PAYMENT_GROUP` | `NACOS_GROUP` |
-| 配置格式 | `yml` | 固定为 `spring.cloud.nacos.config.file-extension=yml` |
-| 默认环境 | `dev` | 使用 `--spring.profiles.active` 覆盖 |
-| 默认账号 | `nacos` | `NACOS_USERNAME`、`NACOS_PASSWORD` |
+| 环境 | `dev` | `spring.profiles.active` |
+| 格式 | `yml` | 固定配置 |
 
-每个服务从 Nacos 导入公共配置和服务环境配置：
-
-| 类型 | DataId |
-| --- | --- |
-| 公共配置 | `application.yml` |
-| Gateway | `gateway-service-dev.yml`、`gateway-service-test.yml`、`gateway-service-prod.yml` |
-| Platform | `platform-service-dev.yml`、`platform-service-test.yml`、`platform-service-prod.yml` |
-| Trade | `trade-service-dev.yml`、`trade-service-test.yml`、`trade-service-prod.yml` |
-| Fund | `fund-service-dev.yml`、`fund-service-test.yml`、`fund-service-prod.yml` |
-
-上述 DataId 位于 namespace `payment`、group `PAYMENT_GROUP`。配置导入使用 `optional:nacos`，Nacos 不可用时不会在导入阶段直接阻断启动，但数据库、Redis 等外部依赖缺少配置时仍可能启动失败。
-
-### 2.2 配置职责
-
-`application.yml` 负责公共约定：Spring 基础配置、Actuator、日志和请求追踪、MySQL/Redis/RocketMQ/MinIO 参数名称、连接池、超时和序列化配置。各服务环境 DataId 负责端口、数据库名、环境差异、Gateway 内部令牌、日志级别、连接池和资源限制。
-
-- Gateway：8080
-- Platform：8081，当前不访问数据库，代码显式排除 `DataSourceAutoConfiguration`
-- Trade：8082，使用 `pay_trade`
-- Fund：8083，使用 `pay_fund`
-- 服务注册元数据包含 `environment` 和 `version`
-- MySQL、Redis 密码只在 Nacos 或密钥系统维护，不提交到 Git
-
-### 2.3 启动和发布检查
-
-```bash
-java -jar trade-service/target/trade-service-0.1.0-SNAPSHOT.jar \
-  --spring.profiles.active=dev
-```
-
-发布配置时按以下顺序执行：确认 `payment` namespace 和 `PAYMENT_GROUP`；发布公共 DataId；发布各服务环境 DataId；检查 YAML、端口、数据库名和敏感字段；重启或刷新配置；检查服务注册和健康状态。
-
-```bash
-curl -u nacos:'<password>' \
-  'http://127.0.0.1:8848/nacos/v1/cs/configs?dataId=application.yml&group=PAYMENT_GROUP&tenant=payment'
-
-curl http://127.0.0.1:8080/actuator/health
-curl http://127.0.0.1:8082/actuator/health
-curl http://127.0.0.1:8083/actuator/health
-```
-
-## 3. 当前已实现逻辑
-
-### 3.1 网关
-
-- 基于 Spring Cloud Gateway 提供统一入口。
-- `/api/internal/**` 请求执行 `gateway.security.internal-token` 校验。
-- 清理 Hop-by-hop 请求头和客户端伪造的 `X-User-Id`、`X-Merchant-Id`、`X-Roles`。
-- 生成或透传合法 `X-Request-Id`，并写入响应头。
-- 完整路由、认证、限流、后台登录和审计能力尚未完成。
-
-### 3.2 平台配置
-
-当前 `platform-service` 提供模拟配置快照：
+每个服务导入：
 
 ```text
-GET /api/internal/v1/configurations/snapshot
-  ?merchantId=...&productCode=...&paymentMethod=...&currency=...
-GET /api/internal/v1/configurations/channels/{channelId}/health
+application.yml
+{service-name}-{profile}.yml
 ```
 
-快照包括产品能力、模拟渠道、优先级、权重、费率、计费模式、风控决策、候选渠道和配置版本。当前数据为代码内模拟值，尚未落库，也未接入真实商户、产品、渠道和费率管理。
+Trade/Fund 本地开发配置已包含：
 
-### 3.3 交易订单
+```yaml
+rocketmq:
+  name-server: 127.0.0.1:9876
+```
 
-| 接口 | 能力 |
-| --- | --- |
-| `GET /api/v1/payments/orders/health` | 健康检查 |
-| `POST /api/v1/payments/orders` | 创建订单，要求 `Idempotency-Key` |
-| `GET /api/v1/payments/orders/{orderId}` | 查询订单详情 |
-| `GET /api/v1/payments/orders/{orderId}/status` | 查询订单状态 |
-| `POST /api/v1/payments/orders/{orderId}/cancel` | 取消未终态订单 |
-| `POST /api/v1/payments/orders/{orderId}/callback?status=SUCCESS` | 模拟支付回调 |
+Trade 已配置存量数据库 Flyway 基线。Fund 当前表来自初始化脚本，暂时关闭 Flyway，后续必须正式选择由 Fund Flyway 接管，或明确使用独立数据库迁移流程。
 
-已实现商户幂等键和商户订单号唯一约束、MySQL 真实落库、路由和计费快照、默认 30 分钟过期、查询/取消/回调、终态保护和并发创建竞态处理。真实渠道执行、超时任务和回调签名校验尚未接入。
+代码使用 `optional:nacos` 导入配置。生产环境需增加必要配置校验，避免 Nacos 缺失时使用不安全默认值启动。
 
-### 3.4 资金入账
+## 3. 第一阶段与平台基础能力
 
-`POST /api/internal/v1/ledger/payment-success` 将支付成功写入 `pay_fund.ledger_entry`，分录类型为 `PAYMENT_SUCCESS`、方向为 `CREDIT`。通过 `idempotency_key` 和数据库唯一键保证重复请求不重复入账，重复请求返回 `duplicate=true`。当前仍是内部直写接口，尚未由订单成功事件自动驱动。
+### 3.1 Gateway
 
-### 3.5 数据库和基础设施
+已实现：
 
-初始化脚本包含 `pay_trade.payment_order`、`pay_trade.payment_attempt`、`pay_fund.ledger_entry`，以及 `pay_platform`、`pay_audit` 等数据库的创建。RocketMQ Broker、MinIO、MySQL 初始化脚本和 Redis/Nacos 依赖已纳入本地方案。
+- Spring Cloud Gateway 统一入口。
+- 内部接口 Token 校验。
+- 清理 Hop-by-hop 和客户端伪造身份请求头。
+- 生成或透传合法 `X-Request-Id`。
+- Platform、Trade 和 Fund 基础路由。
 
-## 4. 内部管理后台规划
+待完善：
 
-### 4.1 定位和边界
+- 外部商户签名认证和防重放。
+- 限流、熔断和服务身份认证。
+- 生产级审计和链路追踪。
 
-内部管理后台面向平台运营、风控、财务、技术运维和客服人员，不对商户开放。后台负责配置、审核、观察和处置，不绕过 Trade 或 Fund 服务直接修改订单和账务数据。
+### 3.2 Platform
 
-当前后端尚未实现完整后台，现有 Platform 仅有模拟配置快照和渠道健康接口。本节是规划内容，不代表功能已完成。
+已实现：
 
-### 4.2 菜单和功能范围
+- 管理员登录和身份查询。
+- JWT、RBAC 基础能力。
+- 商户、逻辑产品、产品能力、商户产品绑定。
+- 渠道、渠道能力、路由、费率、风控配置。
+- 配置草稿、审核、批准、发布和快照查询。
+- 发布前规则完整性、金额区间、费率和冲突校验。
+- MySQL 持久化和 Flyway 迁移。
 
-| 一级菜单 | 主要页面和功能 | 角色 | 优先级 |
+待完善：
+
+- 配置版本差异。
+- 正式回滚和严格审批约束。
+- 真实渠道网络健康探测。
+- 完整菜单、按钮和数据权限。
+
+## 4. 第二阶段已实现能力
+
+## 4.1 订单与 Payment Attempt 状态机
+
+订单状态：
+
+```text
+CREATED → PAYING → SUCCESS / FAILED / UNKNOWN / CANCELED
+UNKNOWN → PAYING / SUCCESS / FAILED / CANCELED
+```
+
+`SUCCESS`、`FAILED`、`CANCELED` 为终态，终态不能被后续状态覆盖。
+
+Payment Attempt 状态：
+
+```text
+CREATED → PROCESSING → SUCCESS / FAILED / TIMEOUT / CANCELED / UNKNOWN
+UNKNOWN → PROCESSING / SUCCESS / FAILED / TIMEOUT / CANCELED
+```
+
+已实现：
+
+- Attempt 创建、查询、取消和重试。
+- Attempt 序号、渠道请求号和请求/响应快照。
+- 条件状态更新和数据库唯一约束。
+- Attempt 状态协调订单状态。
+- 状态机纯领域测试。
+
+核心文件：
+
+- `trade-service/src/main/java/com/example/payments/trade/service/domain/OrderStatus.java`
+- `trade-service/src/main/java/com/example/payments/trade/service/domain/PaymentAttemptStatus.java`
+- `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentAttemptService.java`
+- `trade-service/src/main/resources/db/migration/V1__payment_attempt_lifecycle.sql`
+
+### 4.2 模拟渠道与回调
+
+统一渠道适配器支持：
+
+- 创建支付。
+- 查询支付。
+- 取消支付。
+- 回调验签。
+
+模拟渠道支持 `SUCCESS`、`FAILED`、`PROCESSING` 和 `TIMEOUT` 行为。回调原文、签名和处理结果会落库，并通过 `callback_id` 唯一键防止重复处理。
+
+核心文件：
+
+- `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentChannelAdapter.java`
+- `trade-service/src/main/java/com/example/payments/trade/service/application/SimulatedChannelAdapter.java`
+- `trade-service/src/main/resources/db/migration/V2__callback_deduplication.sql`
+
+### 4.3 Trade Outbox
+
+Attempt 成功后，在同一事务调用路径内完成：
+
+1. 条件更新 Attempt。
+2. 协调订单为 `SUCCESS`。
+3. 使用 Jackson 序列化 `PAYMENT_SUCCEEDED`。
+4. 写入 `payment_outbox_event`。
+
+事件唯一键：
+
+```text
+PAYMENT_SUCCEEDED:{orderId}:{attemptId}
+```
+
+Outbox 记录包含：
+
+- `event_id`
+- 聚合类型和聚合 ID
+- 事件类型和 JSON payload
+- 发布状态
+- 发布尝试次数
+- 下次重试时间
+- 最后错误
+- 创建和发布时间
+
+核心文件：
+
+- `trade-service/src/main/java/com/example/payments/trade/service/infrastructure/persistence/PaymentOutboxEventRepository.java`
+- `trade-service/src/main/resources/mapper/PaymentOutboxEventMapper.xml`
+- `trade-service/src/main/resources/db/migration/V3__payment_outbox.sql`
+
+### 4.4 RocketMQ 发布
+
+`PaymentOutboxPublisher` 默认每 5 秒扫描最多 50 条 `PENDING` 或 `RETRYING` 事件：
+
+- 发送成功后标记 `PUBLISHED`。
+- 发送失败后增加尝试次数并延迟重试。
+- 采用至少一次投递语义。
+- 发送成功但状态更新失败时允许重复发布，由 Fund 幂等兜底。
+
+Topic：
+
+```text
+PAYMENT_SUCCEEDED
+```
+
+核心文件：
+
+- `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentOutboxPublisher.java`
+
+### 4.5 Fund 消费与账务幂等
+
+Fund 消费组：
+
+```text
+fund-payment-success
+```
+
+收到 `PAYMENT_SUCCEEDED` 后创建：
+
+```text
+entry_type = PAYMENT_SUCCESS
+debit_credit = CREDIT
+idempotency_key = payment-success:{orderId}
+```
+
+`ledger_entry.idempotency_key` 有数据库唯一约束，重复消息不会重复入账。原有 HTTP 内部入账接口仍保留。
+
+核心文件：
+
+- `fund-service/src/main/java/com/example/payments/fund/service/application/PaymentSuccessEventConsumer.java`
+- `fund-service/src/main/java/com/example/payments/fund/service/interfaces/rest/LedgerController.java`
+- `fund-service/src/main/resources/mapper/LedgerEntryMapper.xml`
+
+### 4.6 当前自动化测试
+
+当前测试覆盖：
+
+- 订单终态保护。
+- Attempt 状态迁移。
+- 模拟渠道行为。
+- Outbox 发布成功和失败重试。
+- Fund 正常消费、重复键幂等和非法消息。
+
+最近一次执行：
+
+```bash
+mvn -pl trade-service,fund-service -am test
+```
+
+结果：
+
+```text
+Trade: 10 tests passed
+Fund: 3 tests passed
+BUILD SUCCESS
+git diff --check passed
+```
+
+这些测试主要是纯领域或 Mockito 单元测试，尚不能替代真实 MySQL 和 RocketMQ 端到端验收。
+
+## 5. 第二阶段未完成项
+
+## 5.1 P0：进入第三阶段前必须完成
+
+### 5.1.1 修复 Attempt 并发协调错误
+
+`PaymentAttemptService.applyResult` 当前没有检查条件更新结果便继续协调订单。查询、取消和回调并发时，可能发生 Attempt 更新失败，但订单和 Outbox 仍按当前线程预期状态处理，造成跨实体不一致。
+
+修复要求：
+
+1. 只有 Attempt 条件更新成功后才协调订单。
+2. 更新失败时重新读取数据库真实状态。
+3. 增加查询、取消、回调并发测试。
+4. 明确取消后晚到成功回调的处置策略。
+
+### 5.1.2 Outbox 多实例原子抢占
+
+当前多个 Trade 实例可能同时查询并发布同一事件。Fund 幂等能防止重复入账，但不能替代发布端抢占。
+
+建议新增：
+
+- `PROCESSING` 状态。
+- `locked_by`、`locked_at` 或 `lock_until`。
+- 原子 claim SQL，优先使用 MySQL `FOR UPDATE SKIP LOCKED` 或条件批量更新。
+- 发布超时后的锁恢复。
+
+### 5.1.3 Outbox 有限重试、死信和人工重发
+
+当前失败事件会无限固定间隔重试，`attempt_count` 没有终止条件。
+
+必须补充：
+
+- 可配置最大重试次数。
+- 指数退避和最大退避时间。
+- `DEAD` 终态。
+- 首次失败、最后失败和错误分类。
+- 死信查询接口。
+- 带原因、权限和审计的人工重发接口。
+
+### 5.1.4 Fund 消费记录与差异校验
+
+当前 Fund 只依赖账务唯一键，未保存 `eventId` 和消费过程，无法定位事件未收到、解析失败、数据库失败或幂等跳过。
+
+必须新增消费记录：
+
+- 事件 ID 和事件类型。
+- 原始消息或可审计摘要。
+- 消费状态和次数。
+- 首次、最后消费时间。
+- 最后错误。
+- 关联账务分录 ID。
+
+重复键发生后需读取已有账务并核对订单、商户、金额和币种。字段不一致必须标记差异并告警，不能将所有唯一键冲突直接视为成功。
+
+### 5.1.5 RocketMQ 重试与 DLQ 处置
+
+需要显式配置和验证：
+
+- 最大消费重试次数。
+- 消费失败重试策略。
+- DLQ Topic 和告警。
+- DLQ 查询和人工重放。
+- 重放幂等和操作审计。
+
+### 5.1.6 真实端到端验收
+
+至少自动验证：
+
+1. 创建订单并获得成功 Attempt。
+2. 订单、Attempt 和 Outbox 正确落库。
+3. Broker 暂停时 Outbox 进入重试。
+4. Broker 恢复后事件发布成功。
+5. Fund 消费并只创建一条账务分录。
+6. 重复发送同一消息不重复入账。
+7. Fund 消费失败后进入重试和 DLQ。
+8. 人工重放后成功入账。
+9. Trade/Fund 重启后未完成事件自动恢复。
+
+建议增加 Testcontainers 或独立 Docker 验收脚本，并纳入 CI。
+
+## 5.2 P1：第二阶段收尾建议完成
+
+### 5.2.1 模拟渠道状态持久化
+
+当前模拟渠道主要根据字符串推导查询结果，不能稳定模拟长期处理中、处理后失败、取消后晚到成功和网络异常。应保存模拟渠道订单及状态，提供测试控制接口或测试夹具。
+
+### 5.2.2 Attempt 超时扫描增强
+
+当前超时任务主要扫描 `PROCESSING` 并主动查询，缺少：
+
+- `query_count`
+- `next_query_at`
+- `max_query_count`
+- 指数退避
+- 多实例抢占
+- 达到阈值后转 `TIMEOUT`
+
+### 5.2.3 订单和 Attempt 创建协调
+
+订单先转 `PAYING`，随后再创建 Attempt，两者不是一个协调事务。若渠道调用或 Attempt 写入失败，订单可能停留在 `PAYING` 且没有有效 Attempt。
+
+真实渠道接入前应拆分：
+
+1. 本地创建 Attempt。
+2. 事务提交。
+3. 调用外部渠道。
+4. 条件更新 Attempt 和订单。
+5. 失败时保留可恢复状态。
+
+避免在数据库事务内持有长时间外部网络调用。
+
+### 5.2.4 回调签名与防重放增强
+
+模拟签名目前不是标准 HMAC，且没有时间戳、nonce 和有效时间窗口。真实渠道适配器必须按渠道协议实现标准签名，并绑定渠道身份、时间戳和防重放策略。
+
+### 5.2.5 统一 Fund 入账应用服务
+
+HTTP 接口与 MQ 消费者目前分别构造账务分录。应抽出统一账务应用服务，共享：
+
+- 参数校验。
+- entry ID 生成。
+- 幂等键。
+- 一致性核对。
+- 异常和审计处理。
+
+### 5.2.6 事件契约版本化
+
+`PAYMENT_SUCCEEDED` 建议增加：
+
+```text
+schemaVersion
+occurredAt
+producer
+requestId
+traceId
+aggregateVersion
+```
+
+并将事件契约提取为稳定 DTO，增加序列化兼容测试。
+
+### 5.2.7 Flyway 治理
+
+需要统一数据库初始化和迁移职责：
+
+- Trade 初始化脚本与 V1/V2/V3 Flyway 迁移保持一致。
+- Fund 增加正式迁移文件并对已有 `ledger_entry` 建立基线。
+- 开发和测试环境允许应用自动迁移。
+- 生产环境通过独立迁移 Job 执行，应用关闭自动迁移。
+
+## 6. 第二阶段收尾开发计划
+
+### Sprint 2.1：并发正确性与发布可靠性
+
+优先级：P0
+
+1. 修复 `applyResult` 条件更新结果处理。
+2. 增加 Attempt 并发状态测试。
+3. Outbox 增加原子 claim 和锁恢复。
+4. 增加最大重试、指数退避和 `DEAD` 状态。
+5. 增加 Outbox 查询与人工重发接口。
+
+完成标准：
+
+- 多实例不会同时持有同一待发布事件。
+- Attempt 实际状态、订单状态和 Outbox 事件保持一致。
+- 发布失败达到阈值后停止自动重试并可人工恢复。
+
+### Sprint 2.2：消费可靠性与人工补偿
+
+优先级：P0
+
+1. 新增 Fund 消费记录表和 Flyway 迁移。
+2. 抽取统一账务应用服务。
+3. 重复消息执行字段一致性核对。
+4. 显式配置 RocketMQ 重试次数。
+5. 增加 DLQ 查询、重放、RBAC 和审计。
+
+完成标准：
+
+- 每个事件的接收、处理、幂等、失败和重放状态可查询。
+- 重复事件不会重复入账。
+- 相同幂等键但金额、币种或商户不一致时生成差异并告警。
+
+### Sprint 2.3：端到端验收与环境治理
+
+优先级：P0
+
+1. 增加 MySQL、RocketMQ 真实集成测试。
+2. 验证 Broker 停止、恢复和服务重启。
+3. 将端到端验收纳入 CI。
+4. 完成 Trade/Fund Flyway 基线和新环境初始化。
+5. 更新 README、本地启动和故障恢复手册。
+
+完成标准：
+
+- 第二阶段端到端验收用例全部自动通过。
+- 新环境可通过标准步骤完成建库、迁移、启动和验收。
+- 失败消息具备可观测、可告警、可重放、可审计能力。
+
+## 7. 第三阶段开发计划
+
+第二阶段 P0 收尾并通过验收后，第三阶段定位为：
+
+```text
+退款与资金冲正
+→ 渠道账单与日对账
+→ 差异处置与运营闭环
+```
+
+## 7.1 P0：退款闭环
+
+### 7.1.1 退款领域模型
+
+新增：
+
+- `refund_order`
+- `refund_attempt`
+- 退款状态机
+- 退款幂等键
+- 累计退款金额和可退款金额
+
+支持：
+
+- 全额退款。
+- 部分退款。
+- 多次部分退款。
+- 并发退款金额控制。
+- 失败、处理中、未知和成功状态恢复。
+
+### 7.1.2 渠道退款能力
+
+扩展渠道适配器：
+
+- 发起退款。
+- 查询退款。
+- 取消退款，仅在渠道支持时开放。
+- 退款回调验签和去重。
+- 退款超时查询和重试。
+
+### 7.1.3 退款可靠事件
+
+退款成功后同事务写入：
+
+```text
+REFUND_SUCCEEDED
+```
+
+复用第二阶段完成的 Outbox、RocketMQ、消费记录、死信和人工补偿框架。
+
+### 7.1.4 Fund 冲正
+
+Fund 消费退款成功事件后：
+
+- 创建 `REFUND` 或 `REVERSAL` 借记分录。
+- 使用 `reversal_of` 关联原支付分录。
+- 保证退款事件幂等。
+- 校验累计冲正金额不能超过原支付金额。
+- 支持支付成功但退款冲正失败的差异告警和人工补偿。
+
+退款阶段完成标准：
+
+- 全额、部分和多次部分退款均可正确执行。
+- 并发退款不会超过可退款金额。
+- 重复回调和重复消息不会重复冲正。
+- 退款订单、渠道 Attempt、事件和资金分录可完整追踪。
+
+## 7.2 P1：渠道对账与差异处理
+
+### 7.2.1 渠道账单
+
+- 支持渠道账单上传或定时下载。
+- 原始账单存储到 MinIO。
+- 保存文件哈希、账单日期、渠道、版本和导入状态。
+- 重复文件不重复导入。
+
+### 7.2.2 日对账
+
+按以下维度匹配：
+
+- 平台订单号。
+- 渠道订单号。
+- 商户。
+- 金额和币种。
+- 支付或退款状态。
+
+差异类型：
+
+```text
+MATCHED
+CHANNEL_ONLY
+PLATFORM_ONLY
+AMOUNT_MISMATCH
+CURRENCY_MISMATCH
+STATUS_MISMATCH
+DUPLICATE
+```
+
+### 7.2.3 差异处置
+
+- 差异单认领、备注、复核和关闭。
+- 补单、冲正和忽略操作需要权限、原因和二次确认。
+- 高风险资金操作进入审批流程。
+- 所有操作写入审计日志。
+
+## 7.3 P1：运营后台
+
+新增或完善页面：
+
+- 订单详情时间线。
+- Payment Attempt 和回调原文。
+- Outbox、消费记录和 DLQ。
+- 人工重发和重放。
+- 退款申请、审核和进度。
+- 账务分录。
+- 渠道账单和对账差异。
+
+后台不得直接修改订单或账务表，所有处置必须调用领域服务接口。
+
+## 7.4 P2：可观测性和生产化
+
+指标：
+
+- Outbox 待发布数和最老消息年龄。
+- 发布重试数和 DEAD 数量。
+- RocketMQ 消费堆积、失败和 DLQ 数量。
+- 支付成功但未入账数量。
+- Attempt 超时率和查询恢复率。
+- 退款成功但未冲正数量。
+- 对账差异数量和处理时长。
+
+生产化任务：
+
+- Prometheus 和 Grafana。
+- OpenTelemetry 链路追踪。
+- requestId、eventId、traceId 统一贯穿。
+- Nacos 环境隔离和权限控制。
+- 密钥管理、轮换和服务间认证。
+- 多实例、故障恢复和容量测试。
+
+## 8. 里程碑与验收顺序
+
+| 里程碑 | 内容 | 进入条件 | 完成标准 |
 | --- | --- | --- | --- |
-| 工作台 | 交易概览、渠道成功率、待处理告警、待发布配置 | 运营、技术、财务 | P0 |
-| 商户管理 | 商户列表/详情、启停、API 凭证、产品绑定、限额 | 运营、客服 | P0 |
-| 产品与交易方式 | 逻辑产品、国家/地区、币种、支付方式、产品能力 | 产品、运营 | P0 |
-| 渠道管理 | 渠道主数据、能力、凭证、健康检查、启停和灰度 | 运营、技术 | P0 |
-| 路由与费率 | 路由规则、费率方案、商户/渠道专属规则、版本发布 | 运营、财务 | P0 |
-| 风控管理 | 风控规则、优先级、黑白名单、命中记录、人工处置 | 风控 | P0 |
-| 交易管理 | 订单、支付尝试、回调记录、人工重试申请 | 客服、运营 | P1 |
-| 资金与对账 | 分录、退款、渠道账单、差异单和对账任务 | 财务 | P1 |
-| 审计与系统 | 操作审计、审批流、Nacos 配置、服务健康、字典 | 管理员、技术 | P1 |
+| M2.1 | Attempt 并发与 Outbox 抢占 | 当前代码基线 | 并发状态一致、事件单实例持有 |
+| M2.2 | 死信、消费记录、人工补偿 | M2.1 完成 | 失败可查询、可重放、可审计 |
+| M2.3 | 第二阶段端到端验收 | M2.2 完成 | 支付成功至入账自动化验收通过 |
+| M3.1 | 退款和资金冲正 | M2.3 通过 | 全额/部分退款和冲正闭环 |
+| M3.2 | 渠道账单与日对账 | M3.1 稳定 | 平账和差异单自动生成 |
+| M3.3 | 运营处置与可观测性 | M3.2 完成 | 人工处置、审批、审计、告警闭环 |
 
-列表页负责筛选、批量操作和状态概览，详情页负责实体关系、版本和变更历史。配置页面必须区分草稿、审核中、已发布、已停用，不允许编辑已生效记录后改变历史语义。
+推荐验收顺序：
 
-### 4.3 核心实体和数据边界
+1. 管理员认证、角色和数据权限。
+2. 配置草稿、审核、发布、快照和回滚。
+3. 订单和 Attempt 状态机及并发行为。
+4. 回调签名、去重和防重放。
+5. Outbox 原子抢占、失败重试和 DEAD。
+6. RocketMQ 消费、DLQ 和人工重放。
+7. Fund 幂等入账和差异校验。
+8. 服务与 Broker 故障恢复。
+9. 退款、资金冲正和退款差异。
+10. 渠道账单、日对账和人工处置。
 
-产品描述“是什么交易”，计费规则描述“如何收费”，商户绑定描述“谁能使用”，渠道映射描述“通过谁执行”，风控策略描述“是否允许执行”。建议关系如下：
+## 9. 近期执行顺序
 
-```text
-Merchant
-  └─ MerchantProduct
-       └─ LogicalProduct
-            ├─ ProductCapability
-            ├─ PricingRuleSet
-            ├─ RoutingRuleSet
-            └─ RiskPolicy
+下一步严格按以下顺序推进：
 
-Channel
-  └─ ChannelCapability
-       └─ ChannelProductMapping
+1. 修复 `PaymentAttemptService.applyResult` 并发正确性问题。
+2. 实现 Outbox 原子 claim、有限重试和 `DEAD` 状态。
+3. 实现 Fund 消费记录、统一账务服务和一致性核对。
+4. 实现 DLQ 查询、人工重放、权限和审计。
+5. 完成真实 MySQL/RocketMQ 端到端验收。
+6. 正式启动第三阶段退款领域开发。
 
-LogicalProduct + Merchant/Channel/Region/Amount
-  └─ RuleVersion
-       ├─ RoutingRule
-       ├─ PricingRule
-       └─ RiskPolicy
-```
+## 10. 相关文件
 
-| 对象 | 关键字段 | 责任 |
-| --- | --- | --- |
-| `merchant` | 商户号、名称、主体、状态、结算币种 | 商户主数据 |
-| `merchant_credential` | Key ID、密钥摘要、状态、有效期 | 凭证轮换和撤销，不回显明文 |
-| `logical_product` | 编码、名称、收款方向、状态 | 交易产品主数据 |
-| `product_capability` | 国家、币种、支付方式、金额范围 | 产品支持的交易能力 |
-| `merchant_product` | 商户、产品、费率方案、路由方案、状态 | 商户可用范围 |
-| `channel` | 渠道编码、提供商、环境、状态 | 渠道主数据和生命周期 |
-| `channel_capability` | 国家、币种、支付方式、限额 | 渠道实际能力 |
-| `routing_rule` | 作用域、条件、渠道、权重、优先级、版本 | 渠道候选和命中顺序 |
-| `pricing_rule` | 作用域、费率类型、费率、固定费、上下限、版本 | 计费规则 |
-| `risk_policy` | 条件、动作、优先级、版本、生效时间 | 放行、拒绝、审核和限额 |
-| `config_release` | 配置域、版本、状态、发布人、发布时间 | 草稿、审批、发布和回滚 |
-
-订单只保存发布时的 `route_snapshot_json`、`pricing_snapshot_json` 和风控结果；规则修改不改变历史订单。支付尝试、分录和审计记录由各领域服务负责，后台通过查询接口聚合展示。
-
-### 4.4 规则优先级和计费
-
-规则命中顺序建议为：
-
-1. 商户 + 产品 + 支付方式 + 国家/币种 + 金额区间。
-2. 商户 + 产品 + 支付方式 + 国家/币种。
-3. 渠道 + 产品 + 支付方式 + 国家/币种。
-4. 产品 + 支付方式 + 国家/币种默认规则。
-5. 平台默认规则；仍未命中则拒绝交易，不静默使用未知费率。
-
-同一作用域、金额区间和生效时间内不得存在相同优先级的有效规则。发布前做规则重叠检测，详情页展示命中规则、回退层级和原因。
-
-示例：商户 A 使用 `CARD-US-USD`，订单 `100.00 USD`：
-
-| 匹配层级 | 费率 | 固定费 | 命中结果 |
-| --- | ---: | ---: | --- |
-| 商户专属 | `2.00%` | `0.30 USD` | 优先命中，费用 `2.30 USD` |
-| 渠道默认 | `2.40%` | `0.20 USD` | 商户规则不存在时回退 |
-| 平台默认 | `2.80%` | `0.00 USD` | 最后兜底 |
-
-费率页面必须显示百分比、固定费币种、计费模式（外加/内含）、金额上下限、有效时间和规则版本，禁止只显示无单位的 `0.02`。
-
-### 4.5 后台关键流程
-
-- 商户开通：创建商户 → 配置凭证 → 绑定逻辑产品 → 绑定国家/币种/支付方式 → 绑定费率和路由 → 配置风控 → 审核 → 发布 → 验证快照。
-- 渠道接入：创建渠道 → 保存加密凭证 → 配置能力 → 配置回调和签名 → 健康检查 → 设置权重 → 灰度发布。
-- 规则变更：新建草稿 → 冲突校验 → 提交审核 → 发布版本 → 观察命中率和成功率 → 必要时回滚。
-- 风险处置：查看命中记录 → 查看订单/商户/渠道上下文 → 放行、拒绝或人工审核 → 留存理由 → 写入审计。
-
-### 4.6 权限、安全和审批
-
-- 采用 RBAC，至少区分管理员、运营、风控、财务、客服、技术运维和只读审计角色。
-- 商户凭证、渠道密钥和 Nacos 敏感配置只展示摘要或执行轮换，不回显明文。
-- 配置发布、渠道启停、风控变更、人工补单和资金处置支持二人审批或可配置审批策略。
-- 所有写操作记录操作者、请求 ID、变更前后摘要、审批人、原因和发布时间。
-- 订单和账务默认只读；退款、重试、补单等高风险操作必须有权限、幂等键、二次确认和审计。
-
-## 5. 已知边界和风险
-
-- 平台配置是代码内模拟数据，尚不能支撑真实运营配置。
-- 管理后台尚未形成独立认证、权限、菜单、审计和审批能力。
-- 订单尚未真正调用渠道执行支付；回调仍是模拟入口，缺少签名校验、重放防护和原文留存。
-- 订单成功与资金入账没有可靠事件链路，存在跨服务最终一致性缺口。
-- RocketMQ 已准备本地 Broker，但 Outbox、发布、消费幂等、失败重试和死信尚未实现。
-- Platform 排除了数据源自动配置，接入配置落库时需要重新设计持久层和迁移策略。
-- 可观测性主要依赖健康检查和日志，缺少指标、链路追踪、告警和审计查询。
-- Nacos 为 `optional` 导入；生产环境需要增加配置完整性检查，避免配置缺失时使用不安全缺省值启动。
-
-## 6. 更新后的开发优先级
-
-### P0：建立可运营的后台和配置闭环
-
-1. **后台基础壳与权限**
-   - 完成登录、RBAC、菜单权限、数据权限、操作审计和统一错误处理。
-   - 完成工作台、商户、产品、渠道、路由、费率、风控的基础列表、详情和状态流转。
-   - 所有配置写操作先落草稿，不直接影响线上交易。
-
-2. **配置域落库与版本发布**
-   - 建立逻辑产品、产品能力、商户产品、渠道能力、路由、费率和风控模型。
-   - 实现草稿、审核、发布、回滚、版本和生效时间。
-   - 将 Platform 模拟快照改为按已发布版本查询，并保留订单快照。
-   - 发布前校验规则重叠、渠道能力、费率单位、敏感字段和配置完整性。
-
-3. **商户与渠道最小运营闭环**
-   - 支持商户创建、启停、凭证轮换、产品绑定和基础限额。
-   - 支持渠道创建、能力配置、密钥托管、健康检查、启停和灰度权重。
-   - 接入一个模拟或沙箱渠道，让后台配置驱动可验证支付链路。
-
-4. **真实支付链路基础**
-   - 定义统一渠道适配器，接入下单、查询、取消和回调签名校验。
-   - 完善订单状态迁移、支付超时、渠道查询补偿和 `payment_attempt`。
-   - Trade 增加 Outbox 发布支付成功事件，Fund 消费并幂等入账。
-
-### P1：完善风控、交易处置和财务运营
-
-1. 风控规则、黑白名单、限额、频控、命中记录、人工审核和规则灰度。
-2. 后台订单、支付尝试、回调原文、状态时间线和人工重试申请。
-3. 退款、部分退款、退款尝试、资金冲正、渠道账单、日对账和差异单。
-4. 外部签名、防重放、服务身份、短期令牌、密钥轮换和高风险操作审批。
-5. 工作台增加商户、国家、支付方式、渠道和金额区间的运营指标。
-
-### P2：生产化和规模化
-
-1. 增加成功率、延迟、超时、重试、路由命中、风控命中、队列堆积和入账差异指标，接入链路追踪和告警。
-2. 补齐状态机、并发幂等、重复回调、规则优先级、权限、发布回滚和资金重复入账测试。
-3. 使用 Testcontainers 覆盖 MySQL、Redis、Nacos、RocketMQ，补齐 CI 和启动冒烟测试。
-4. 将 Nacos 按 dev/test/prod 分离权限，接入密钥管理、变更审计、审批、备份和回滚。
-
-## 7. 建议验收顺序
-
-1. 管理员登录后按角色看到正确菜单、按钮和数据范围。
-2. Nacos 配置读取成功，服务注册到 `payment` namespace。
-3. 创建商户、绑定逻辑产品、配置渠道能力和费率规则。
-4. 规则草稿通过冲突校验，审批后发布并可回滚。
-5. 配置快照命中正确的商户、渠道、金额区间和优先级规则。
-6. 所有服务健康检查通过，订单重复请求返回同一订单。
-7. 模拟或真实渠道支付，验证回调签名、状态迁移和 `payment_attempt`。
-8. 支付成功事件只触发一次有效入账，重复消息可安全重试。
-9. 风控命中、人工处置、退款、对账差异和高风险操作均有审计记录。
-10. 服务重启、Nacos 刷新、网络失败和发布回滚后链路仍可恢复。
-
-## 8. 相关文件
-
-- `README.md`：仓库构建、运行和 MVP 接口示例
-- `*/src/main/resources/application.yml`：各服务 Nacos 导入和服务发现基线
-- `infra/mysql/init/00-databases.sql`：数据库创建
-- `infra/mysql/init/10-mvp-schema.sql`：MVP 表结构
+- `README.md`：构建、运行和接口示例
 - `docker-compose.yml`：RocketMQ Broker、MinIO 和本地网络
-- `trade-service/src/main/java/.../OrderService.java`：订单状态和幂等逻辑
-- `platform-service/src/main/java/.../ConfigurationController.java`：配置快照接口
-- `fund-service/src/main/java/.../LedgerController.java`：幂等入账接口
-- `gateway-service/src/main/java/.../GatewayRequestFilter.java`：网关安全过滤逻辑
+- `infra/rocketmq/broker.conf`：RocketMQ Broker 本地配置
+- `infra/mysql/init/00-databases.sql`：数据库创建
+- `infra/mysql/init/10-mvp-schema.sql`：MVP 初始化表
+- `trade-service/src/main/resources/db/migration/`：Trade Flyway 迁移
+- `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentAttemptService.java`：Attempt 生命周期和订单协调
+- `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentOutboxPublisher.java`：Outbox 发布
+- `fund-service/src/main/java/com/example/payments/fund/service/application/PaymentSuccessEventConsumer.java`：支付成功事件消费
+- `fund-service/src/main/java/com/example/payments/fund/service/interfaces/rest/LedgerController.java`：内部幂等入账接口

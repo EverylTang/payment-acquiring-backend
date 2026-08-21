@@ -3,7 +3,6 @@ package com.example.payments.platform.service.interfaces.rest;
 import com.example.payments.platform.service.application.ConfigurationSnapshotService;
 import java.math.BigDecimal;
 import java.util.Map;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -11,14 +10,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/internal/v1/configurations")
-public class ConfigurationController {
+@RequestMapping("/api/admin/v1/configurations")
+public class AdminConfigurationQueryController {
   private final ConfigurationSnapshotService snapshotService;
-  private final JdbcClient jdbcClient;
+  private final ConfigurationController configurationController;
 
-  public ConfigurationController(ConfigurationSnapshotService snapshotService, JdbcClient jdbcClient) {
+  public AdminConfigurationQueryController(ConfigurationSnapshotService snapshotService, ConfigurationController configurationController) {
     this.snapshotService = snapshotService;
-    this.jdbcClient = jdbcClient;
+    this.configurationController = configurationController;
   }
 
   @GetMapping("/snapshot")
@@ -34,8 +33,6 @@ public class ConfigurationController {
 
   @GetMapping("/channels/{channelId}/health")
   public Map<String, Object> channelHealth(@PathVariable String channelId) {
-    var status = jdbcClient.sql("SELECT status FROM channel WHERE channel_id = :id").param("id", channelId)
-        .query(String.class).optional().orElse("NOT_FOUND");
-    return Map.of("channelId", channelId, "status", status.equals("ACTIVE") ? "UP" : "DOWN", "checkedAt", System.currentTimeMillis());
+    return configurationController.channelHealth(channelId);
   }
 }

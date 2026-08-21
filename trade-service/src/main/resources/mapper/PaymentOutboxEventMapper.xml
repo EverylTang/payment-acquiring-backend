@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.payments.trade.service.infrastructure.persistence.PaymentOutboxEventMapper">
+  <resultMap id="OutboxResultMap" type="com.example.payments.trade.service.infrastructure.persistence.PaymentOutboxEventEntity">
+    <id property="id" column="id" />
+    <result property="eventId" column="event_id" />
+    <result property="aggregateType" column="aggregate_type" />
+    <result property="aggregateId" column="aggregate_id" />
+    <result property="eventType" column="event_type" />
+    <result property="payload" column="payload" />
+    <result property="status" column="status" />
+    <result property="attemptCount" column="attempt_count" />
+    <result property="nextRetryAt" column="next_retry_at" />
+    <result property="lastError" column="last_error" />
+    <result property="createdAt" column="created_at" />
+    <result property="publishedAt" column="published_at" />
+  </resultMap>
+  <select id="findPending" resultMap="OutboxResultMap">
+    SELECT * FROM payment_outbox_event
+    WHERE status IN ('PENDING', 'RETRYING') AND next_retry_at &lt;= #{now}
+    ORDER BY id LIMIT #{limit}
+  </select>
+  <update id="markPublished">
+    UPDATE payment_outbox_event SET status = 'PUBLISHED', published_at = #{publishedAt}
+    WHERE event_id = #{eventId} AND status IN ('PENDING', 'RETRYING')
+  </update>
+  <update id="markFailed">
+    UPDATE payment_outbox_event SET status = 'RETRYING', attempt_count = attempt_count + 1,
+      next_retry_at = #{nextRetryAt}, last_error = #{lastError}
+    WHERE event_id = #{eventId} AND status IN ('PENDING', 'RETRYING')
+  </update>
+</mapper>

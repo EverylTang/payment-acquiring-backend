@@ -42,8 +42,15 @@ mvn -pl trade-service -am package -DskipTests
 
 ## 运行
 
+启动前请确认本地 Nacos 已运行，并已在 `payment` namespace、`PAYMENT_GROUP` 中发布公共配置和对应服务的环境配置。各服务代码内的 `application.yml` 仅保留 Nacos 启动引导，数据库、Redis、端口、Flyway、JWT 和路由配置均从 Nacos 加载。
+
+Platform 首次初始化管理员时，可在 Nacos 的 `platform-service-dev.yml` 中临时开启 Bootstrap；已有管理员后应关闭该开关，并通过安全方式轮换初始密码。
+
 ```bash
+java -jar gateway-service/target/gateway-service-0.1.0-SNAPSHOT.jar
+java -jar platform-service/target/platform-service-0.1.0-SNAPSHOT.jar
 java -jar trade-service/target/trade-service-0.1.0-SNAPSHOT.jar
+java -jar fund-service/target/fund-service-0.1.0-SNAPSHOT.jar
 ```
 
 健康检查：
@@ -90,7 +97,19 @@ git push -u origin main
 
 ## 当前边界
 
-当前已实现阶段一和阶段二的最小闭环：订单创建幂等、订单查询/取消、终态保护、模拟路由与费率快照、支付回调状态更新、平台配置快照接口、资金成功入账幂等接口，以及 `infra/mysql/init/10-mvp-schema.sql` 的订单/支付尝试/账务表结构。订单和资金分录已通过 JDBC 写入 MySQL，下一步接入真实渠道适配器、跨服务成功事件和 RocketMQ Outbox。
+当前已实现：
+
+- Gateway 基础路由、请求 ID、内部 Token 和后台 JWT 校验。
+- Platform 管理员登录、BCrypt、JWT、RBAC 基础能力和管理员 Bootstrap。
+- Platform 商户、产品、渠道、路由、费率、风控配置落库，以及 Flyway V1-V3 自动迁移。
+- 配置草稿、审核、批准、发布基础流程和已发布配置快照。
+- Trade 订单创建幂等、查询、取消、终态保护、模拟回调和 MySQL 落库。
+- Fund 支付成功幂等入账和 MySQL 落库。
+- 所有服务业务配置迁移到 Nacos，代码中的 `application.yml` 只保留启动引导。
+
+当前仍缺少：真实或统一模拟渠道适配器、完整 `payment_attempt` 生命周期、回调签名和重放防护、Trade 到 Fund 的 Outbox/RocketMQ 可靠事件链路、退款、对账和完整运营后台。
+
+下一阶段优先完成 Payment Attempt、模拟渠道、回调安全和 Outbox 入账闭环。
 
 创建订单示例：
 

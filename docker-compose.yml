@@ -7,6 +7,7 @@ services:
       NAMESRV_ADDR: local-rocketmq-namesrv:9876
       JAVA_OPT_EXT: '-Xms256m -Xmx512m -Xmn128m'
     command: sh mqbroker -c /home/rocketmq/rocketmq-5.2.0/conf/broker.conf
+    ports: ['10909:10909', '10911:10911']
     volumes:
       - ./infra/rocketmq/broker.conf:/home/rocketmq/rocketmq-5.2.0/conf/broker.conf:ro
       - rocketmq-store:/home/rocketmq/store

@@ -48,11 +48,15 @@ public class OrderService {
 
   @Transactional
   public PaymentOrder callback(String orderId, OrderStatus status) {
-    if (status != OrderStatus.SUCCESS && status != OrderStatus.FAILED && status != OrderStatus.UNKNOWN) {
+    if (status == OrderStatus.PAYING || status == OrderStatus.CREATED) {
+      transition(orderId, status);
+      return get(orderId);
+    }
+    if (status != OrderStatus.SUCCESS && status != OrderStatus.FAILED && status != OrderStatus.UNKNOWN && status != OrderStatus.CANCELED) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "callback status is not allowed");
     }
     PaymentOrder current = get(orderId);
-    if (!current.status().isTerminal()) {
+    if (current.status().canTransitionTo(status)) {
       repository.updateStatus(orderId, current.status(), status, status == OrderStatus.SUCCESS ? Instant.now() : null);
     }
     return get(orderId);
@@ -73,7 +77,7 @@ public class OrderService {
 
   private PaymentOrder transition(String orderId, OrderStatus next) {
     PaymentOrder current = get(orderId);
-    if (!current.status().isTerminal()) {
+    if (current.status().canTransitionTo(next)) {
       repository.updateStatus(orderId, current.status(), next, null);
     }
     return get(orderId);
