@@ -1,3 +1,6 @@
+trade:
+  security:
+    gateway-token: ${GATEWAY_INTERNAL_TOKEN:}
 spring:
   application:
     name: trade-service

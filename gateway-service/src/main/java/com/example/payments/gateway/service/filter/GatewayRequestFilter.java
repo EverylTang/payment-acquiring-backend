@@ -45,6 +45,8 @@ public class GatewayRequestFilter implements GlobalFilter, Ordered {
       headers.remove("X-User-Id");
       headers.remove("X-Merchant-Id");
       headers.remove("X-Roles");
+      headers.remove("X-Gateway-Token");
+      if (path.startsWith("/api/admin/") && !internalToken.isBlank()) headers.set("X-Gateway-Token", internalToken);
       headers.set("X-Request-Id", finalRequestId);
     }).build();
     exchange.getResponse().beforeCommit(() -> {

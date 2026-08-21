@@ -16,19 +16,61 @@
     <result property="lastError" column="last_error" />
     <result property="createdAt" column="created_at" />
     <result property="publishedAt" column="published_at" />
+    <result property="lockedBy" column="locked_by" />
+    <result property="lockedAt" column="locked_at" />
+    <result property="lockUntil" column="lock_until" />
+    <result property="claimToken" column="claim_token" />
+    <result property="lastFailureType" column="last_failure_type" />
+    <result property="firstFailedAt" column="first_failed_at" />
+    <result property="deadAt" column="dead_at" />
   </resultMap>
   <select id="findPending" resultMap="OutboxResultMap">
     SELECT * FROM payment_outbox_event
     WHERE status IN ('PENDING', 'RETRYING') AND next_retry_at &lt;= #{now}
     ORDER BY id LIMIT #{limit}
   </select>
+  <update id="recoverExpiredClaims">
+    UPDATE payment_outbox_event
+    SET status = 'RETRYING', locked_by = NULL, locked_at = NULL, lock_until = NULL, claim_token = NULL
+    WHERE status = 'PROCESSING' AND lock_until &lt; #{now}
+  </update>
+  <update id="claim">
+    UPDATE payment_outbox_event
+    SET status = 'PROCESSING', locked_by = #{workerId}, claim_token = #{claimToken},
+      locked_at = #{now}, lock_until = #{lockUntil}
+    WHERE event_id = #{eventId} AND status IN ('PENDING', 'RETRYING') AND next_retry_at &lt;= #{now}
+  </update>
   <update id="markPublished">
-    UPDATE payment_outbox_event SET status = 'PUBLISHED', published_at = #{publishedAt}
-    WHERE event_id = #{eventId} AND status IN ('PENDING', 'RETRYING')
+    UPDATE payment_outbox_event SET status = 'PUBLISHED', published_at = #{publishedAt},
+      locked_by = NULL, locked_at = NULL, lock_until = NULL, claim_token = NULL
+    WHERE event_id = #{eventId} AND status = 'PROCESSING' AND claim_token = #{claimToken}
+      AND lock_until &gt;= #{now}
   </update>
   <update id="markFailed">
-    UPDATE payment_outbox_event SET status = 'RETRYING', attempt_count = attempt_count + 1,
-      next_retry_at = #{nextRetryAt}, last_error = #{lastError}
-    WHERE event_id = #{eventId} AND status IN ('PENDING', 'RETRYING')
+    UPDATE payment_outbox_event
+    SET status = CASE WHEN attempt_count + 1 &gt;= #{maxAttempts} THEN 'DEAD' ELSE 'RETRYING' END,
+      attempt_count = attempt_count + 1, next_retry_at = #{nextRetryAt}, last_error = #{lastError},
+      last_failure_type = #{failureType}, first_failed_at = COALESCE(first_failed_at, #{failedAt}),
+      dead_at = CASE WHEN attempt_count + 1 &gt;= #{maxAttempts} THEN #{failedAt} ELSE NULL END,
+      locked_by = NULL, locked_at = NULL, lock_until = NULL, claim_token = NULL
+    WHERE event_id = #{eventId} AND status = 'PROCESSING' AND claim_token = #{claimToken}
+      AND lock_until &gt;= #{now}
   </update>
+  <select id="findByEventId" resultMap="OutboxResultMap">
+    SELECT * FROM payment_outbox_event WHERE event_id = #{eventId} LIMIT 1
+  </select>
+  <select id="findDead" resultMap="OutboxResultMap">
+    SELECT * FROM payment_outbox_event WHERE status = 'DEAD' ORDER BY dead_at DESC, id DESC LIMIT #{limit}
+  </select>
+  <update id="redrive">
+    UPDATE payment_outbox_event
+    SET status = 'RETRYING', attempt_count = 0, next_retry_at = #{now}, dead_at = NULL,
+      locked_by = NULL, locked_at = NULL, lock_until = NULL, claim_token = NULL
+    WHERE event_id = #{eventId} AND status = 'DEAD'
+  </update>
+  <insert id="insertAudit">
+    INSERT INTO payment_outbox_operation_audit
+      (event_id, operator, reason, from_status, to_status, request_id, created_at)
+    VALUES (#{eventId}, #{operator}, #{reason}, #{fromStatus}, #{toStatus}, #{requestId}, #{createdAt})
+  </insert>
 </mapper>

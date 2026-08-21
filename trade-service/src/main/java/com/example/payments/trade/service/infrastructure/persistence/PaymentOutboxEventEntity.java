@@ -20,6 +20,13 @@ public class PaymentOutboxEventEntity {
   private String lastError;
   private LocalDateTime createdAt;
   private LocalDateTime publishedAt;
+  private String lockedBy;
+  private LocalDateTime lockedAt;
+  private LocalDateTime lockUntil;
+  private String claimToken;
+  private String lastFailureType;
+  private LocalDateTime firstFailedAt;
+  private LocalDateTime deadAt;
 
   public Long getId() { return id; }
   public void setId(Long value) { id = value; }
@@ -45,4 +52,18 @@ public class PaymentOutboxEventEntity {
   public void setCreatedAt(LocalDateTime value) { createdAt = value; }
   public LocalDateTime getPublishedAt() { return publishedAt; }
   public void setPublishedAt(LocalDateTime value) { publishedAt = value; }
+  public String getLockedBy() { return lockedBy; }
+  public void setLockedBy(String value) { lockedBy = value; }
+  public LocalDateTime getLockedAt() { return lockedAt; }
+  public void setLockedAt(LocalDateTime value) { lockedAt = value; }
+  public LocalDateTime getLockUntil() { return lockUntil; }
+  public void setLockUntil(LocalDateTime value) { lockUntil = value; }
+  public String getClaimToken() { return claimToken; }
+  public void setClaimToken(String value) { claimToken = value; }
+  public String getLastFailureType() { return lastFailureType; }
+  public void setLastFailureType(String value) { lastFailureType = value; }
+  public LocalDateTime getFirstFailedAt() { return firstFailedAt; }
+  public void setFirstFailedAt(LocalDateTime value) { firstFailedAt = value; }
+  public LocalDateTime getDeadAt() { return deadAt; }
+  public void setDeadAt(LocalDateTime value) { deadAt = value; }
 }

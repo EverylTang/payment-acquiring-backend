@@ -1,5 +1,6 @@
 package com.example.payments.trade.service.application;
 
+import com.example.payments.trade.service.config.OutboxProperties;
 import com.example.payments.trade.service.infrastructure.persistence.PaymentOutboxEventEntity;
 import com.example.payments.trade.service.infrastructure.persistence.PaymentOutboxEventRepository;
 import java.time.Instant;
@@ -12,20 +13,27 @@ import org.springframework.stereotype.Component;
 public class PaymentOutboxPublisher {
   private final PaymentOutboxEventRepository repository;
   private final RocketMQTemplate rocketMQTemplate;
+  private final OutboxProperties properties;
 
-  public PaymentOutboxPublisher(PaymentOutboxEventRepository repository, RocketMQTemplate rocketMQTemplate) {
+  public PaymentOutboxPublisher(PaymentOutboxEventRepository repository, RocketMQTemplate rocketMQTemplate,
+      OutboxProperties properties) {
     this.repository = repository;
     this.rocketMQTemplate = rocketMQTemplate;
+    this.properties = properties;
   }
 
   @Scheduled(fixedDelayString = "${trade.outbox.publish-ms:5000}")
   public void publish() {
-    for (PaymentOutboxEventEntity event : repository.findPending(Instant.now(), 50)) {
+    Instant now = Instant.now();
+    for (PaymentOutboxEventEntity event : repository.claimPending(now, properties.batchSize(), properties.claimTimeoutSeconds())) {
       try {
-        SendResult result = rocketMQTemplate.syncSend("PAYMENT_SUCCEEDED", event.getPayload());
-        if (result != null) repository.markPublished(event.getEventId());
+        SendResult result = rocketMQTemplate.syncSend(event.getEventType(), event.getPayload());
+        if (result != null) repository.markPublished(event.getEventId(), event.getClaimToken());
       } catch (RuntimeException exception) {
-        repository.markFailed(event.getEventId(), Instant.now().plusSeconds(30), exception.getMessage());
+        long delay = Math.min(properties.retryMaxSeconds(), properties.retryBaseSeconds()
+            * (1L << Math.min(event.getAttemptCount() == null ? 0 : event.getAttemptCount(), 30)));
+        repository.markFailed(event.getEventId(), event.getClaimToken(), now.plusSeconds(delay), exception.getMessage(),
+            exception.getClass().getSimpleName(), properties.maxAttempts());
       }
     }
   }

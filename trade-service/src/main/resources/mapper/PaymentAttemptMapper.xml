@@ -17,10 +17,38 @@
     <result property="startedAt" column="started_at" />
     <result property="completedAt" column="completed_at" />
     <result property="version" column="version" />
+    <result property="queryCount" column="query_count" />
+    <result property="nextQueryAt" column="next_query_at" />
+    <result property="lastQueryAt" column="last_query_at" />
+    <result property="queryLockOwner" column="query_lock_owner" />
+    <result property="queryLockUntil" column="query_lock_until" />
+    <result property="queryClaimToken" column="query_claim_token" />
   </resultMap>
-  <select id="findProcessingBefore" resultMap="AttemptResultMap">
-    SELECT * FROM payment_attempt WHERE status = 'PROCESSING' AND started_at &lt;= #{before}
+  <select id="findQueryable" resultMap="AttemptResultMap">
+    SELECT * FROM payment_attempt
+    WHERE status = 'PROCESSING' AND query_count &lt; #{maxQueryCount} AND next_query_at &lt;= #{now}
+      AND (query_lock_until IS NULL OR query_lock_until &lt; #{now})
+    ORDER BY next_query_at, id LIMIT #{limit}
   </select>
+  <update id="claimForQuery">
+    UPDATE payment_attempt
+    SET query_lock_owner = #{owner}, query_claim_token = #{claimToken}, query_lock_until = #{lockUntil}
+    WHERE attempt_id = #{attemptId} AND status = 'PROCESSING' AND query_count &lt; #{maxQueryCount}
+      AND next_query_at &lt;= #{now} AND (query_lock_until IS NULL OR query_lock_until &lt; #{now})
+  </update>
+  <update id="completeQuery">
+    UPDATE payment_attempt
+    SET query_count = query_count + 1, last_query_at = #{now}, next_query_at = #{nextQueryAt},
+      query_lock_owner = NULL, query_lock_until = NULL, query_claim_token = NULL
+    WHERE attempt_id = #{attemptId} AND status = 'PROCESSING' AND query_claim_token = #{claimToken}
+      AND query_lock_until &gt;= #{now}
+  </update>
+  <update id="releaseQueryClaim">
+    UPDATE payment_attempt
+    SET next_query_at = #{nextQueryAt}, query_lock_owner = NULL, query_lock_until = NULL, query_claim_token = NULL
+    WHERE attempt_id = #{attemptId} AND status = 'PROCESSING' AND query_claim_token = #{claimToken}
+      AND query_lock_until &gt;= #{now}
+  </update>
   <select id="findByChannelOrderId" resultMap="AttemptResultMap">
     SELECT * FROM payment_attempt WHERE channel_request_no = #{channelOrderId} LIMIT 1
   </select>
@@ -30,7 +58,10 @@
   <update id="updateAttempt">
     UPDATE payment_attempt
     SET status = #{next}, response_summary = #{responseSummary}, failure_code = #{failureCode},
-        completed_at = #{completedAt}, version = version + 1
-    WHERE attempt_id = #{attemptId} AND status = #{expected}
+        completed_at = #{completedAt}, version = version + 1,
+        query_lock_owner = CASE WHEN #{next} = 'PROCESSING' THEN query_lock_owner ELSE NULL END,
+        query_lock_until = CASE WHEN #{next} = 'PROCESSING' THEN query_lock_until ELSE NULL END,
+        query_claim_token = CASE WHEN #{next} = 'PROCESSING' THEN query_claim_token ELSE NULL END
+    WHERE attempt_id = #{attemptId} AND status = #{expected} AND version = #{expectedVersion}
   </update>
 </mapper>

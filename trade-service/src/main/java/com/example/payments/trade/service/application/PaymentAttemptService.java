@@ -45,7 +45,7 @@ public class PaymentAttemptService {
     Instant now = Instant.now();
     var attempt = repository.insert(new PaymentAttempt(attemptId, order.orderId(), "simulated-channel", result.channelOrderId(),
         1, status, "{\"amount\":\"" + order.amount().toPlainString() + "\",\"currency\":\"" + order.currency() + "\"}",
-        result.responseSnapshot(), result.failureCode(), now, status.isTerminal() ? now : null));
+        result.responseSnapshot(), result.failureCode(), now, status.isTerminal() ? now : null, 0));
     coordinateOrder(attempt);
     return attempt;
   }
@@ -65,7 +65,8 @@ public class PaymentAttemptService {
     }
     var nextStatus = statusOf(callback.status());
     var next = new PaymentAttempt(attempt.attemptId(), attempt.orderId(), attempt.channelId(), attempt.channelRequestNo(), attempt.attemptNo(),
-        nextStatus, attempt.requestSnapshot(), callback.rawPayload(), null, attempt.startedAt(), nextStatus.isTerminal() ? Instant.now() : null);
+        nextStatus, attempt.requestSnapshot(), callback.rawPayload(), null, attempt.startedAt(), nextStatus.isTerminal() ? Instant.now() : null,
+        attempt.version() + 1);
     if (!attempt.status().canTransitionTo(next.status())) {
       callbackRepository.markProcessed(callbackId, attempt.attemptId(), callback.channelOrderId(), attempt.status().name(), Instant.now());
       return attempt;
@@ -127,17 +128,29 @@ public class PaymentAttemptService {
     Instant now = Instant.now();
     var attempt = repository.insert(new PaymentAttempt(attemptId, order.orderId(), "simulated-channel", result.channelOrderId(), attemptNo,
         status, "{\"amount\":\"" + order.amount().toPlainString() + "\",\"currency\":\"" + order.currency() + "\"}",
-        result.responseSnapshot(), result.failureCode(), now, status.isTerminal() ? now : null));
+        result.responseSnapshot(), result.failureCode(), now, status.isTerminal() ? now : null, 0));
     coordinateOrder(attempt);
     return attempt;
+  }
+
+  @Transactional
+  public PaymentAttempt timeout(String attemptId) {
+    var attempt = repository.findByAttemptId(attemptId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "payment attempt not found"));
+    if (attempt.status().isTerminal()) return attempt;
+    return applyResult(attempt, new PaymentChannelAdapter.PaymentChannelResult(attempt.channelRequestNo(),
+        "TIMEOUT", "{\"status\":\"TIMEOUT\"}", "QUERY_LIMIT_EXCEEDED", null));
   }
 
   private PaymentAttempt applyResult(PaymentAttempt attempt, PaymentChannelAdapter.PaymentChannelResult result) {
     var status = statusOf(result.status());
     var next = new PaymentAttempt(attempt.attemptId(), attempt.orderId(), attempt.channelId(), attempt.channelRequestNo(), attempt.attemptNo(),
-        status, attempt.requestSnapshot(), result.responseSnapshot(), result.failureCode(), attempt.startedAt(), status.isTerminal() ? Instant.now() : null);
+        status, attempt.requestSnapshot(), result.responseSnapshot(), result.failureCode(), attempt.startedAt(), status.isTerminal() ? Instant.now() : null,
+        attempt.version() + 1);
     if (!attempt.status().canTransitionTo(next.status())) return attempt;
-    repository.update(attempt.status(), next);
+    if (!repository.update(attempt.status(), attempt.version(), next)) {
+      return repository.findByAttemptId(attempt.attemptId()).orElse(attempt);
+    }
     coordinateOrder(next);
     return repository.findByAttemptId(attempt.attemptId()).orElse(next);
   }
@@ -155,7 +168,8 @@ public class PaymentAttemptService {
       var order = orderService.get(attempt.orderId());
       String eventId = "PAYMENT_SUCCEEDED:" + attempt.orderId() + ":" + attempt.attemptId();
       try {
-        String payload = objectMapper.writeValueAsString(new PaymentSucceededEvent(eventId, "PAYMENT_SUCCEEDED",
+        String payload = objectMapper.writeValueAsString(new PaymentSucceededEvent(eventId, "PAYMENT_SUCCEEDED", 1,
+            Instant.now(), "trade-service", UUID.randomUUID().toString(), UUID.randomUUID().toString(), attempt.version(),
             attempt.orderId(), attempt.attemptId(), order.merchantId(), order.amount(), order.currency()));
         outboxRepository.insert(eventId, attempt.orderId(), "PAYMENT_SUCCEEDED", payload);
       } catch (JsonProcessingException exception) {
@@ -164,7 +178,8 @@ public class PaymentAttemptService {
     }
   }
 
-  private record PaymentSucceededEvent(String eventId, String eventType, String orderId, String attemptId,
+  private record PaymentSucceededEvent(String eventId, String eventType, int schemaVersion, Instant occurredAt,
+      String producer, String requestId, String traceId, long aggregateVersion, String orderId, String attemptId,
       String merchantId, java.math.BigDecimal amount, String currency) {}
 
   private static PaymentAttemptStatus statusOf(String value) {

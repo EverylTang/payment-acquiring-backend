@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.payments.fund.service.infrastructure.persistence.PaymentEventConsumptionMapper">
+  <resultMap id="ConsumptionResultMap" type="com.example.payments.fund.service.infrastructure.persistence.PaymentEventConsumptionEntity">
+    <id property="id" column="id" />
+    <result property="eventId" column="event_id" /><result property="eventType" column="event_type" />
+    <result property="orderId" column="order_id" /><result property="attemptId" column="attempt_id" />
+    <result property="merchantId" column="merchant_id" /><result property="amount" column="amount" />
+    <result property="currency" column="currency" /><result property="payload" column="payload" />
+    <result property="payloadHash" column="payload_hash" /><result property="status" column="status" />
+    <result property="consumeCount" column="consume_count" /><result property="firstReceivedAt" column="first_received_at" />
+    <result property="lastReceivedAt" column="last_received_at" /><result property="processedAt" column="processed_at" />
+    <result property="lastError" column="last_error" /><result property="failureType" column="failure_type" />
+    <result property="ledgerEntryId" column="ledger_entry_id" />
+    <result property="processingOwner" column="processing_owner" /><result property="processingUntil" column="processing_until" />
+  </resultMap>
+  <select id="findByEvent" resultMap="ConsumptionResultMap">
+    SELECT * FROM payment_event_consumption WHERE event_id = #{eventId} AND event_type = #{eventType} LIMIT 1
+  </select>
+  <update id="claim">
+    UPDATE payment_event_consumption
+    SET status = 'PROCESSING', processing_owner = #{owner}, processing_until = #{until},
+      consume_count = consume_count + 1, last_received_at = #{now}
+    WHERE id = #{id} AND (status IN ('FAILED', 'REPLAYING')
+      OR (status = 'PROCESSING' AND processing_until &lt; #{now}))
+  </update>
+  <update id="markFailed">
+    UPDATE payment_event_consumption
+    SET status = 'FAILED', failure_type = #{failureType}, last_error = #{error}, last_received_at = #{now},
+      processing_owner = NULL, processing_until = NULL
+    WHERE id = #{id} AND status = 'PROCESSING' AND processing_owner = #{owner}
+  </update>
+  <select id="findFailed" resultMap="ConsumptionResultMap">
+    SELECT * FROM payment_event_consumption WHERE status = 'FAILED' ORDER BY last_received_at ASC LIMIT #{limit}
+  </select>
+  <update id="requestReplay">
+    UPDATE payment_event_consumption
+    SET status = 'REPLAYING', last_received_at = #{now}, processing_owner = NULL, processing_until = NULL
+    WHERE id = #{id} AND status = 'FAILED' AND (failure_type IS NULL OR failure_type != 'CONFLICT')
+  </update>
+  <update id="replayFailed">
+    UPDATE payment_event_consumption
+    SET status = 'FAILED', failure_type = 'REPLAY', last_error = #{error}, last_received_at = #{now}
+    WHERE id = #{id} AND status = 'REPLAYING'
+  </update>
+  <insert id="insertReplayAudit">
+    INSERT INTO payment_event_replay_audit (event_id, operator, reason, request_id, created_at)
+    VALUES (#{eventId}, #{operator}, #{reason}, #{requestId}, #{createdAt})
+  </insert>
+</mapper>

@@ -13,5 +13,6 @@ public record PaymentAttempt(
     String responseSnapshot,
     String failureCode,
     Instant startedAt,
-    Instant completedAt) {
+    Instant completedAt,
+    long version) {
 }

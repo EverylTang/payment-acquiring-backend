@@ -21,6 +21,12 @@ public class PaymentAttemptEntity {
   private LocalDateTime startedAt;
   private LocalDateTime completedAt;
   private Long version;
+  private Integer queryCount;
+  private LocalDateTime nextQueryAt;
+  private LocalDateTime lastQueryAt;
+  private String queryLockOwner;
+  private LocalDateTime queryLockUntil;
+  private String queryClaimToken;
 
   public Long getId() { return id; }
   public void setId(Long id) { this.id = id; }
@@ -48,4 +54,16 @@ public class PaymentAttemptEntity {
   public void setCompletedAt(LocalDateTime value) { completedAt = value; }
   public Long getVersion() { return version; }
   public void setVersion(Long value) { version = value; }
+  public Integer getQueryCount() { return queryCount; }
+  public void setQueryCount(Integer value) { queryCount = value; }
+  public LocalDateTime getNextQueryAt() { return nextQueryAt; }
+  public void setNextQueryAt(LocalDateTime value) { nextQueryAt = value; }
+  public LocalDateTime getLastQueryAt() { return lastQueryAt; }
+  public void setLastQueryAt(LocalDateTime value) { lastQueryAt = value; }
+  public String getQueryLockOwner() { return queryLockOwner; }
+  public void setQueryLockOwner(String value) { queryLockOwner = value; }
+  public LocalDateTime getQueryLockUntil() { return queryLockUntil; }
+  public void setQueryLockUntil(LocalDateTime value) { queryLockUntil = value; }
+  public String getQueryClaimToken() { return queryClaimToken; }
+  public void setQueryClaimToken(String value) { queryClaimToken = value; }
 }

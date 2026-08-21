@@ -21,11 +21,15 @@
 → Fund 幂等写入 ledger_entry
 ```
 
-第二阶段完成度约为 `75%`。业务主链路和基础单元测试已完成，但可靠性、可运维性和端到端验收尚未闭环，因此当前结论是：
+截至 2026-08-21，第二阶段代码实现完成度约为 `88%～92%`，整体验收完成度约为 `72%～76%`。业务主链路、核心并发控制、运维补偿基础和事件版本校验已落地，但真实基础设施、并发集成和重启恢复验收尚未闭环，因此当前结论是：
 
-- 第二阶段代码主干已完成。
-- 第二阶段尚未通过完整验收。
-- 应先完成第二阶段 P0 收尾，再正式进入第三阶段退款与对账开发。
+- Attempt CAS、Outbox 抢占与锁恢复、有限重试与 DEAD、Fund 消费记录和统一账务服务已完成核心实现。
+- Outbox 管理接口已具备查询、redrive、操作审计、Gateway 内部凭证和 ADMIN/OPS 角色保护；claim token 已完成代码实现，真实数据库验收仍未完成。
+- Fund 消费者已具备 processing lease、失败记录恢复、RocketMQ 重试参数和 schemaVersion 校验；失败记录查询、冲突分类、人工重放和重放审计已具备代码基础，真实 RocketMQ/DLQ 验收仍未完成。
+- P1 Attempt 查询调度已完成基础实现；模拟渠道状态持久化、HMAC 防重放和请求链路 ID 透传仍未完成；事件已增加版本及元数据字段，但稳定公共 DTO 尚未抽取。
+- 第二阶段核心代码收尾已基本完成，下一阶段重点是通过真实 MySQL/RocketMQ、故障恢复和权限边界验收；验收通过后再正式进入第三阶段退款与对账开发。
+
+Admin 初始密码不保存在仓库中，由 Nacos 或外部环境配置注入。仓库默认密码为空，不能据此登录；应在目标环境的 `payment` namespace、`PAYMENT_GROUP` 分组和对应 `platform-service-dev.yml` 配置中核实，且不得将真实密码写入本文、Git 或日志。
 
 ## 2. 系统与基础设施
 
@@ -83,7 +87,7 @@ rocketmq:
   name-server: 127.0.0.1:9876
 ```
 
-Trade 已配置存量数据库 Flyway 基线。Fund 当前表来自初始化脚本，暂时关闭 Flyway，后续必须正式选择由 Fund Flyway 接管，或明确使用独立数据库迁移流程。
+Trade 已配置存量数据库 Flyway 基线。Trade 新增 `V4__payment_outbox_claim_and_dead_letter.sql`、`V5__payment_outbox_operation_audit.sql`、`V6__payment_outbox_claim_token.sql` 和 `V7__payment_attempt_query_schedule.sql`；Fund 新增 `V1__fund_ledger_baseline.sql`、`V2__payment_event_consumption.sql`、`V3__payment_event_consumption_claim.sql` 和 `V4__payment_event_replay_audit.sql`。Fund 当前通过 `FUND_FLYWAY_ENABLED:false` 默认关闭；在真实 MySQL 验证基线和初始化流程前，不应宣称 Fund 已完成正式迁移接管。
 
 代码使用 `optional:nacos` 导入配置。生产环境需增加必要配置校验，避免 Nacos 缺失时使用不安全默认值启动。
 
@@ -201,12 +205,21 @@ Outbox 记录包含：
 - 下次重试时间
 - 最后错误
 - 创建和发布时间
+- `PROCESSING` claim 锁、锁持有者和过期时间
+- 首次失败时间、失败类型和 `DEAD` 时间
+
+发布器具备多实例条件 claim、过期锁恢复、最大尝试次数、指数退避和 `DEAD` 状态；已新增管理员查询、人工 redrive 和操作审计基础接口，并增加 Gateway 内部凭证、ADMIN/OPS 角色保护和独立 claim token；仍需真实 MySQL 多实例验收。
 
 核心文件：
 
 - `trade-service/src/main/java/com/example/payments/trade/service/infrastructure/persistence/PaymentOutboxEventRepository.java`
 - `trade-service/src/main/resources/mapper/PaymentOutboxEventMapper.xml`
 - `trade-service/src/main/resources/db/migration/V3__payment_outbox.sql`
+- `trade-service/src/main/resources/db/migration/V4__payment_outbox_claim_and_dead_letter.sql`
+- `trade-service/src/main/resources/db/migration/V5__payment_outbox_operation_audit.sql`
+- `trade-service/src/main/resources/db/migration/V6__payment_outbox_claim_token.sql`
+- `trade-service/src/main/resources/db/migration/V7__payment_attempt_query_schedule.sql`
+- `trade-service/src/main/java/com/example/payments/trade/service/interfaces/rest/AdminOutboxController.java`
 
 ### 4.4 RocketMQ 发布
 
@@ -229,6 +242,10 @@ PAYMENT_SUCCEEDED
 
 ### 4.5 Fund 消费与账务幂等
 
+Fund 已新增 `payment_event_consumption` 消费记录，并通过 `LedgerEntryApplicationService` 统一 HTTP 与 MQ 入账。消费记录保存事件标识、原始 payload、SHA-256 摘要、处理状态、次数、错误和关联分录；重复事件会校验 payload，重复幂等键会核对订单、商户、金额、币种和分录字段，字段冲突不会被当作成功。
+
+Fund 已新增失败消费记录查询、失败类型分类、人工重放和重放审计接口；CONFLICT 记录不会被无条件重放，重放使用保存的原始 payload 重新投递。仍需真实 RocketMQ DLQ 和重放恢复验收；消费者已具备 FAILED 状态记录、processing lease 恢复、显式最大重试次数和 schemaVersion 校验。
+
 Fund 消费组：
 
 ```text
@@ -249,7 +266,16 @@ idempotency_key = payment-success:{orderId}
 
 - `fund-service/src/main/java/com/example/payments/fund/service/application/PaymentSuccessEventConsumer.java`
 - `fund-service/src/main/java/com/example/payments/fund/service/interfaces/rest/LedgerController.java`
+- `fund-service/src/main/java/com/example/payments/fund/service/application/LedgerEntryApplicationService.java`
+- `fund-service/src/main/java/com/example/payments/fund/service/infrastructure/persistence/PaymentEventConsumptionMapper.java`
 - `fund-service/src/main/resources/mapper/LedgerEntryMapper.xml`
+- `fund-service/src/main/resources/mapper/PaymentEventConsumptionMapper.xml`
+- `fund-service/src/main/resources/db/migration/V1__fund_ledger_baseline.sql`
+- `fund-service/src/main/resources/db/migration/V2__payment_event_consumption.sql`
+- `fund-service/src/main/resources/db/migration/V3__payment_event_consumption_claim.sql`
+- `fund-service/src/main/resources/db/migration/V4__payment_event_replay_audit.sql`
+- `fund-service/src/main/java/com/example/payments/fund/service/application/PaymentEventReplayAdminService.java`
+- `fund-service/src/main/java/com/example/payments/fund/service/interfaces/rest/AdminPaymentEventController.java`
 
 ### 4.6 当前自动化测试
 
@@ -258,91 +284,94 @@ idempotency_key = payment-success:{orderId}
 - 订单终态保护。
 - Attempt 状态迁移。
 - 模拟渠道行为。
-- Outbox 发布成功和失败重试。
-- Fund 正常消费、重复键幂等和非法消息。
+- Outbox 发布成功、失败重试、claim、claim token 和 DEAD 分支。
+- Fund 正常消费、重复键幂等、payload 冲突、非法消息、处理失败和未知事件版本拒绝。
+- Gateway、Trade 和 Fund 管理接口的代码级内部凭证与角色保护已完成，独立安全测试仍待补充。
 
 最近一次执行：
 
 ```bash
-mvn -pl trade-service,fund-service -am test
+mvn test
+git diff --check
 ```
 
 结果：
 
 ```text
+所有 Maven 模块 BUILD SUCCESS
+Gateway: 0 tests（当前模块未配置测试用例）
 Trade: 10 tests passed
-Fund: 3 tests passed
-BUILD SUCCESS
+Fund: 4 tests passed
 git diff --check passed
 ```
 
 这些测试主要是纯领域或 Mockito 单元测试，尚不能替代真实 MySQL 和 RocketMQ 端到端验收。
 
-## 5. 第二阶段未完成项
+当前仍未执行：
+
+- Testcontainers MySQL/RocketMQ 集成测试。
+- Broker 停止/恢复和 Trade/Fund 重启恢复验收。
+- RocketMQ 实际最大重试次数、DLQ 和人工重放验收。
+
+## 5. 第二阶段剩余验收与收尾项
+
+代码层面的 P0/P1 主体已基本完成，以下事项主要是测试补充、真实基础设施验证、安全边界验证和仍未实现的增强能力。
 
 ## 5.1 P0：进入第三阶段前必须完成
 
-### 5.1.1 修复 Attempt 并发协调错误
+### 5.1.1 Attempt 并发协调验收
 
-`PaymentAttemptService.applyResult` 当前没有检查条件更新结果便继续协调订单。查询、取消和回调并发时，可能发生 Attempt 更新失败，但订单和 Outbox 仍按当前线程预期状态处理，造成跨实体不一致。
+核心修复已完成：`PaymentAttemptService.applyResult` 现在使用状态加版本号 CAS，只有更新成功才协调订单；CAS 失败时重新读取数据库真实 Attempt 状态。剩余工作是增加真实并发测试，并明确取消后晚到成功回调的处置策略。Attempt 查询调度已增加查询次数、下次查询时间、退避、过期锁接管和超限转 `TIMEOUT` 的基础实现，仍需补充调度任务单元/集成测试。
 
-修复要求：
+验收要求：
 
-1. 只有 Attempt 条件更新成功后才协调订单。
-2. 更新失败时重新读取数据库真实状态。
-3. 增加查询、取消、回调并发测试。
-4. 明确取消后晚到成功回调的处置策略。
+1. 查询、取消、回调并发时只允许一个状态转换成功。
+2. CAS 失败线程不得使用竞争线程构造的结果协调订单。
+3. 取消后晚到成功回调必须有明确且可审计的处理结果。
 
-### 5.1.2 Outbox 多实例原子抢占
+### 5.1.2 Outbox 管理与多实例验收
 
-当前多个 Trade 实例可能同时查询并发布同一事件。Fund 幂等能防止重复入账，但不能替代发布端抢占。
+多实例原子 claim、`PROCESSING` 锁、过期锁恢复、最大重试、指数退避和 `DEAD` 状态的核心实现已完成，管理员查询、redrive 和操作审计基础接口已加入。剩余工作集中在真实 MySQL 多实例验证和访问边界：
 
-建议新增：
-
-- `PROCESSING` 状态。
-- `locked_by`、`locked_at` 或 `lock_until`。
-- 原子 claim SQL，优先使用 MySQL `FOR UPDATE SKIP LOCKED` 或条件批量更新。
-- 发布超时后的锁恢复。
+- `GET /api/admin/v1/outbox/dead`
+- `GET /api/admin/v1/outbox/{eventId}`
+- `POST /api/admin/v1/outbox/{eventId}/redrive`
+- Trade 服务端独立认证、管理员 RBAC 和 Gateway 内部信任校验已加入代码，仍需独立安全测试和生产网络隔离验证
+- claim token 防止过期 worker 更新新 worker 持有的事件已加入代码，仍需真实 MySQL 多实例验证
 
 ### 5.1.3 Outbox 有限重试、死信和人工重发
 
-当前失败事件会无限固定间隔重试，`attempt_count` 没有终止条件。
-
-必须补充：
-
-- 可配置最大重试次数。
-- 指数退避和最大退避时间。
-- `DEAD` 终态。
-- 首次失败、最后失败和错误分类。
-- 死信查询接口。
-- 带原因、权限和审计的人工重发接口。
+有限重试、指数退避、最大退避时间、`DEAD` 终态、首次失败、失败类型、错误截断、死信查询、人工 redrive 和审计写入已完成基础实现。仍需补充真实权限校验、并发 redrive 测试，并用真实数据库验证重试边界和锁恢复。
 
 ### 5.1.4 Fund 消费记录与差异校验
 
-当前 Fund 只依赖账务唯一键，未保存 `eventId` 和消费过程，无法定位事件未收到、解析失败、数据库失败或幂等跳过。
+消费记录、payload 摘要、处理状态、账务关联和幂等字段冲突校验的核心实现已完成。仍需验证：
 
-必须新增消费记录：
-
-- 事件 ID 和事件类型。
-- 原始消息或可审计摘要。
-- 消费状态和次数。
-- 首次、最后消费时间。
-- 最后错误。
-- 关联账务分录 ID。
-
-重复键发生后需读取已有账务并核对订单、商户、金额和币种。字段不一致必须标记差异并告警，不能将所有唯一键冲突直接视为成功。
+- 消费失败时记录 `FAILED` 和错误信息。
+- `PROCESSING` 记录在消费者重启后可恢复。
+- 并发重复消息不会产生重复消费记录或账务分录。
+- 真实 MySQL 唯一约束和事务行为符合预期。
 
 ### 5.1.5 RocketMQ 重试与 DLQ 处置
 
-需要显式配置和验证：
+当前消费者显式配置最大重试次数、并发集群消费和消费超时，并通过抛出异常触发 RocketMQ 重试。Fund 已提供失败消费记录查询、原始 payload 重放、CONFLICT 分类保护和重放审计；仍需完成 DLQ 运营和真实 Broker 验证。仍需验证：
 
 - 最大消费重试次数。
 - 消费失败重试策略。
 - DLQ Topic 和告警。
-- DLQ 查询和人工重放。
-- 重放幂等和操作审计。
+- 真实 DLQ 查询与人工重放链路。
+- 重放幂等和操作审计在 Broker 异常时的恢复行为。
 
-### 5.1.6 真实端到端验收
+### 5.1.6 管理接口访问边界
+
+Trade、Fund 管理接口已增加 Gateway 内部 Token、用户身份和 ADMIN/OPS 角色校验，Gateway 会清理客户端传入的身份头并注入内部 Token。仍需验证：
+
+- 未配置 Token 时管理接口默认拒绝。
+- 客户端伪造 `X-Gateway-Token`、`X-User-Id` 和 `X-Roles` 不能绕过校验。
+- 非 ADMIN/OPS 角色被拒绝。
+- 生产环境禁止直接公开 Trade/Fund 管理端口。
+
+### 5.1.7 真实端到端验收
 
 至少自动验证：
 
@@ -362,18 +391,20 @@ git diff --check passed
 
 ### 5.2.1 模拟渠道状态持久化
 
-当前模拟渠道主要根据字符串推导查询结果，不能稳定模拟长期处理中、处理后失败、取消后晚到成功和网络异常。应保存模拟渠道订单及状态，提供测试控制接口或测试夹具。
+当前模拟渠道主要根据字符串推导查询结果，不能稳定模拟长期处理中、处理后失败、取消后晚到成功和网络异常。应保存模拟渠道订单及状态，提供仅开发/测试环境开放的控制接口或测试夹具。
 
 ### 5.2.2 Attempt 超时扫描增强
 
-当前超时任务主要扫描 `PROCESSING` 并主动查询，缺少：
+Attempt 查询调度基础实现已完成，包含：
 
 - `query_count`
 - `next_query_at`
 - `max_query_count`
 - 指数退避
-- 多实例抢占
+- 多实例 claim 和过期锁接管
 - 达到阈值后转 `TIMEOUT`
+
+剩余工作是补充任务调度单元测试、真实 MySQL SQL 验证，并拆分外部渠道调用与数据库事务边界。
 
 ### 5.2.3 订单和 Attempt 创建协调
 
@@ -395,17 +426,11 @@ git diff --check passed
 
 ### 5.2.5 统一 Fund 入账应用服务
 
-HTTP 接口与 MQ 消费者目前分别构造账务分录。应抽出统一账务应用服务，共享：
-
-- 参数校验。
-- entry ID 生成。
-- 幂等键。
-- 一致性核对。
-- 异常和审计处理。
+已完成。HTTP 接口和 MQ 消费者均调用 `LedgerEntryApplicationService`，统一参数、entry ID、幂等键和账务字段一致性校验。剩余工作仅为真实数据库事务和冲突场景验收。
 
 ### 5.2.6 事件契约版本化
 
-`PAYMENT_SUCCEEDED` 建议增加：
+`PAYMENT_SUCCEEDED` 已增加：
 
 ```text
 schemaVersion
@@ -416,28 +441,33 @@ traceId
 aggregateVersion
 ```
 
-并将事件契约提取为稳定 DTO，增加序列化兼容测试。
+Fund 已拒绝未知 schemaVersion 并增加单元测试。剩余工作是将事件契约提取为稳定 DTO、增加完整序列化兼容测试、从请求上下文透传 requestId/traceId，并明确当前 aggregateVersion 表示 Attempt 版本。
 
 ### 5.2.7 Flyway 治理
 
-需要统一数据库初始化和迁移职责：
+迁移文件已补齐，但 Fund 仍通过 `FUND_FLYWAY_ENABLED:false` 默认关闭，正式治理尚未完成：
 
-- Trade 初始化脚本与 V1/V2/V3 Flyway 迁移保持一致。
-- Fund 增加正式迁移文件并对已有 `ledger_entry` 建立基线。
-- 开发和测试环境允许应用自动迁移。
-- 生产环境通过独立迁移 Job 执行，应用关闭自动迁移。
+- 用真实 MySQL 验证已有 `ledger_entry` 与 Fund 基线迁移的一致性。
+- 明确开发/测试环境自动迁移和生产环境独立迁移 Job。
+- 确认初始化脚本不再与 Flyway 重复管理同一张表。
+- 验证新环境从空库到可运行服务的完整迁移流程。
 
-## 6. 第二阶段收尾开发计划
+## 6. 第二阶段验收与收尾计划
 
 ### Sprint 2.1：并发正确性与发布可靠性
 
 优先级：P0
 
-1. 修复 `applyResult` 条件更新结果处理。
-2. 增加 Attempt 并发状态测试。
-3. Outbox 增加原子 claim 和锁恢复。
-4. 增加最大重试、指数退避和 `DEAD` 状态。
-5. 增加 Outbox 查询与人工重发接口。
+已完成：
+
+1. `applyResult` 条件更新结果处理和 Attempt 版本 CAS。
+2. Outbox 原子 claim、锁恢复、最大重试、指数退避和 `DEAD` 状态。
+3. Outbox 查询、人工 redrive、操作审计和 claim token。
+
+待验收：
+
+1. 增加 Attempt 并发状态测试。
+2. 用真实 MySQL 验证多实例 claim、锁过期和 token 失效边界。
 
 完成标准：
 
@@ -449,11 +479,16 @@ aggregateVersion
 
 优先级：P0
 
-1. 新增 Fund 消费记录表和 Flyway 迁移。
-2. 抽取统一账务应用服务。
-3. 重复消息执行字段一致性核对。
-4. 显式配置 RocketMQ 重试次数。
-5. 增加 DLQ 查询、重放、RBAC 和审计。
+已完成：
+
+1. Fund 消费记录表、processing lease 和 Flyway 迁移。
+2. 统一账务应用服务和重复消息字段一致性核对。
+3. RocketMQ 重试参数、失败分类、失败记录查询、人工重放、RBAC 和审计基础。
+
+待验收：
+
+1. 真实 Broker 的 DLQ、重放和幂等恢复链路。
+2. Fund 管理接口安全测试和生产端口隔离。
 
 完成标准：
 
@@ -463,13 +498,16 @@ aggregateVersion
 
 ### Sprint 2.3：端到端验收与环境治理
 
+当前为下一执行重点。
+
 优先级：P0
 
 1. 增加 MySQL、RocketMQ 真实集成测试。
-2. 验证 Broker 停止、恢复和服务重启。
+2. 验证 Broker 停止、恢复和 Trade/Fund 服务重启。
 3. 将端到端验收纳入 CI。
 4. 完成 Trade/Fund Flyway 基线和新环境初始化。
 5. 更新 README、本地启动和故障恢复手册。
+6. 补充 Gateway、Trade、Fund 管理接口安全测试。
 
 完成标准：
 
@@ -634,23 +672,24 @@ DUPLICATE
 2. 配置草稿、审核、发布、快照和回滚。
 3. 订单和 Attempt 状态机及并发行为。
 4. 回调签名、去重和防重放。
-5. Outbox 原子抢占、失败重试和 DEAD。
-6. RocketMQ 消费、DLQ 和人工重放。
-7. Fund 幂等入账和差异校验。
-8. 服务与 Broker 故障恢复。
-9. 退款、资金冲正和退款差异。
+5. Outbox 原子抢占、claim token、失败重试和 DEAD。
+6. Trade/Fund 管理接口内部凭证和角色边界。
+7. RocketMQ 消费、DLQ 和人工重放。
+8. Fund 幂等入账和差异校验。
+9. 服务与 Broker 故障恢复。
+10. 退款、资金冲正和退款差异。
 10. 渠道账单、日对账和人工处置。
 
 ## 9. 近期执行顺序
 
 下一步严格按以下顺序推进：
 
-1. 修复 `PaymentAttemptService.applyResult` 并发正确性问题。
-2. 实现 Outbox 原子 claim、有限重试和 `DEAD` 状态。
-3. 实现 Fund 消费记录、统一账务服务和一致性核对。
-4. 实现 DLQ 查询、人工重放、权限和审计。
-5. 完成真实 MySQL/RocketMQ 端到端验收。
-6. 正式启动第三阶段退款领域开发。
+1. 补充 Attempt 查询调度、Outbox claim token 和管理接口权限测试。
+2. 用真实 MySQL 验证 V4～V7、Fund V3～V4 迁移及多实例锁竞争。
+3. 用真实 RocketMQ 验证重试、DLQ、人工重放和 Broker/服务重启恢复。
+4. 增加 Gateway、Trade、Fund 管理接口安全测试并确认生产端口隔离。
+5. 补充模拟渠道状态持久化、事件 DTO 序列化兼容和链路 ID 透传。
+6. 验收通过后正式启动第三阶段退款领域开发。
 
 ## 10. 相关文件
 

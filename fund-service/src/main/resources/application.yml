@@ -22,3 +22,13 @@ spring:
         namespace: ${NACOS_NAMESPACE:payment}
         group: ${NACOS_GROUP:PAYMENT_GROUP}
         file-extension: yml
+  flyway:
+    enabled: ${FUND_FLYWAY_ENABLED:false}
+    baseline-on-migrate: true
+    baseline-version: 0
+fund:
+  security:
+    gateway-token: ${GATEWAY_INTERNAL_TOKEN:}
+  payment-success:
+    topic: ${FUND_PAYMENT_SUCCESS_TOPIC:PAYMENT_SUCCEEDED}
+    consumer-group: ${FUND_PAYMENT_SUCCESS_CONSUMER_GROUP:fund-payment-success}
