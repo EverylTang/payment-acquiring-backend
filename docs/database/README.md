@@ -12,9 +12,7 @@ docker exec -i local-mysql mysql -uroot -p < docs/database/payment-acquiring-com
 
 该文件适用于新库初始化；已有数据库不要重复执行包含 `ALTER TABLE` 的内容。生产环境应先备份，并由受控数据库发布流程执行。
 
-如需按服务发布或升级，执行 `00-databases.sql` 后，按服务选择对应数据库，使用自然数字顺序执行 `migrations/platform-service/`、`migrations/trade-service/`、`migrations/fund-service/` 中的 SQL；不要使用普通字典序，否则 `V10` 可能早于 `V2` 执行。文件名中的 `V1`、`V2` 等仅表示执行顺序，不是运行时迁移机制。
-
-`10-mvp-schema.sql` 是早期 MVP 基础表结构归档；完整环境应继续执行服务 SQL。已存在数据库升级时只执行尚未执行的版本文件，不要重复执行包含 `ALTER TABLE` 的版本。
+如需按服务发布或升级，直接选择对应数据库，使用自然数字顺序执行 `migrations/platform-service/`、`migrations/trade-service/`、`migrations/fund-service/` 中尚未执行的 SQL；不要使用普通字典序，否则 `V10` 可能早于 `V2` 执行。文件名中的 `V1`、`V2` 等仅表示执行顺序，不是运行时迁移机制。升级时不要重复执行包含 `ALTER TABLE` 的版本。
 
 示例（按服务指定数据库，避免依赖 SQL 文件内的当前连接库）：
 
