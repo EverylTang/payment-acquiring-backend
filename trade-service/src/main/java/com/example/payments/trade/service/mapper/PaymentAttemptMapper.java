@@ -1,4 +1,5 @@
 package com.example.payments.trade.service.mapper;
+import com.example.payments.trade.service.model.*;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
@@ -6,9 +7,6 @@ import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface PaymentAttemptMapper extends BaseMapper<PaymentAttemptEntity> {
-  @org.apache.ibatis.annotations.Select(
-      "SELECT channel_request_no FROM payment_attempt WHERE order_id = #{orderId} AND status ="
-          + " 'SUCCESS' ORDER BY attempt_no DESC LIMIT 1")
   String findSuccessfulChannelOrder(@Param("orderId") String orderId);
 
   int countByOrderId(@Param("orderId") String orderId);

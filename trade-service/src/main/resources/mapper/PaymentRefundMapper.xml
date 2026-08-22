@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.payments.trade.service.mapper.PaymentRefundMapper">
+  <update id="claimForExecution">
+    UPDATE payment_refund
+    SET status = 'PROCESSING', attempt_count = attempt_count + 1,
+        processing_owner = #{owner}, processing_until = #{until}, updated_at = #{now}
+    WHERE refund_id = #{refundId}
+      AND ((status IN ('CREATED', 'FAILED') AND next_attempt_at &lt;= #{now})
+        OR (status = 'PROCESSING' AND processing_until &lt; #{now}))
+  </update>
+  <select id="refundedAmount" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0)
+    FROM payment_refund
+    WHERE order_id = #{orderId} AND status IN ('CREATED', 'PROCESSING', 'SUCCESS')
+  </select>
+  <select id="lockOrder" resultType="java.lang.String">
+    SELECT order_id FROM payment_order WHERE order_id = #{orderId} FOR UPDATE
+  </select>
+</mapper>

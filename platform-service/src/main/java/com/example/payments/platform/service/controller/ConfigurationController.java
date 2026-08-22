@@ -3,7 +3,7 @@ package com.example.payments.platform.service.controller;
 import com.example.payments.platform.service.service.ConfigurationSnapshotService;
 import java.math.BigDecimal;
 import java.util.Map;
-import com.example.payments.platform.service.mapper.MybatisPlusClient;
+import com.example.payments.platform.service.service.PlatformDataService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,9 +14,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/internal/v1/configurations")
 public class ConfigurationController {
   private final ConfigurationSnapshotService snapshotService;
-  private final MybatisPlusClient mybatisClient;
+  private final PlatformDataService mybatisClient;
 
-  public ConfigurationController(ConfigurationSnapshotService snapshotService, MybatisPlusClient mybatisClient) {
+  public ConfigurationController(ConfigurationSnapshotService snapshotService, PlatformDataService mybatisClient) {
     this.snapshotService = snapshotService;
     this.mybatisClient = mybatisClient;
   }

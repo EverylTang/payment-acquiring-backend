@@ -1,4 +1,5 @@
 package com.example.payments.fund.service.mapper;
+import com.example.payments.fund.service.model.*;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import java.math.BigDecimal;

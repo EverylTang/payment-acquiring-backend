@@ -72,7 +72,7 @@ public class RefundController {
       String status,
       String reason) {
     static RefundResponse from(
-        com.example.payments.trade.service.mapper.PaymentRefundEntity value) {
+        com.example.payments.trade.service.model.PaymentRefundEntity value) {
       return new RefundResponse(
           value.getRefundId(),
           value.getOrderId(),

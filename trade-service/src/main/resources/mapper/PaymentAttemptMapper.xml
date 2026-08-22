@@ -3,7 +3,7 @@
   PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
   "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.payments.trade.service.mapper.PaymentAttemptMapper">
-  <resultMap id="AttemptResultMap" type="com.example.payments.trade.service.mapper.PaymentAttemptEntity">
+  <resultMap id="AttemptResultMap" type="com.example.payments.trade.service.model.PaymentAttemptEntity">
     <id property="id" column="id" />
     <result property="attemptId" column="attempt_id" />
     <result property="orderId" column="order_id" />
@@ -29,6 +29,11 @@
     WHERE status = 'PROCESSING' AND query_count &lt; #{maxQueryCount} AND next_query_at &lt;= #{now}
       AND (query_lock_until IS NULL OR query_lock_until &lt; #{now})
     ORDER BY next_query_at, id LIMIT #{limit}
+  </select>
+  <select id="findSuccessfulChannelOrder" resultType="java.lang.String">
+    SELECT channel_request_no FROM payment_attempt
+    WHERE order_id = #{orderId} AND status = 'SUCCESS'
+    ORDER BY attempt_no DESC LIMIT 1
   </select>
   <update id="claimForQuery">
     UPDATE payment_attempt

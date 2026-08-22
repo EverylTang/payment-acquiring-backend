@@ -1,4 +1,4 @@
-package com.example.payments.platform.service.controller;
+package com.example.payments.platform.service.service;
 
 import com.example.payments.platform.service.mapper.MybatisPlusClient;
 import org.springframework.security.core.Authentication;

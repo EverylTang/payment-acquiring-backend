@@ -1,6 +1,6 @@
 package com.example.payments.fund.service.service;
 
-import com.example.payments.fund.service.mapper.LedgerEntryEntity;
+import com.example.payments.fund.service.model.*;
 import com.example.payments.fund.service.mapper.LedgerEntryMapper;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

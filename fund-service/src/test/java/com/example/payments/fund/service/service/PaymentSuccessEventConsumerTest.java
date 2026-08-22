@@ -5,9 +5,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.example.payments.fund.service.mapper.LedgerEntryEntity;
+import com.example.payments.fund.service.model.*;
 import com.example.payments.fund.service.mapper.LedgerEntryMapper;
-import com.example.payments.fund.service.mapper.PaymentEventConsumptionEntity;
+import com.example.payments.fund.service.model.*;
 import com.example.payments.fund.service.mapper.PaymentEventConsumptionMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;

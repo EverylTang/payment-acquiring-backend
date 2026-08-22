@@ -11,7 +11,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
-import com.example.payments.platform.service.mapper.MybatisPlusClient;
+import com.example.payments.platform.service.service.PlatformDataService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,12 +27,12 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/admin/v1/config-releases")
 public class ConfigReleaseController {
-  private final MybatisPlusClient mybatisClient;
+  private final PlatformDataService mybatisClient;
   private final ObjectMapper objectMapper;
   private final ConfigurationSnapshotService snapshotService;
 
   public ConfigReleaseController(
-      MybatisPlusClient mybatisClient,
+      PlatformDataService mybatisClient,
       ObjectMapper objectMapper,
       ConfigurationSnapshotService snapshotService) {
     this.mybatisClient = mybatisClient;

@@ -1,7 +1,7 @@
 package com.example.payments.trade.service.service;
 
 import com.example.payments.trade.service.config.OutboxProperties;
-import com.example.payments.trade.service.mapper.PaymentOutboxEventEntity;
+import com.example.payments.trade.service.model.*;
 import com.example.payments.trade.service.mapper.PaymentOutboxEventRepository;
 import java.time.Instant;
 import org.apache.rocketmq.client.producer.SendResult;

@@ -1,4 +1,5 @@
 package com.example.payments.trade.service.mapper;
+import com.example.payments.trade.service.model.*;
 
 import java.time.Instant;
 import java.time.LocalDateTime;

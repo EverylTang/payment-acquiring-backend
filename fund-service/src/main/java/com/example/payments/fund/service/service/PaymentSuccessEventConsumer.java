@@ -1,6 +1,6 @@
 package com.example.payments.fund.service.service;
 
-import com.example.payments.fund.service.mapper.PaymentEventConsumptionEntity;
+import com.example.payments.fund.service.model.*;
 import com.example.payments.fund.service.mapper.PaymentEventConsumptionMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

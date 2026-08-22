@@ -4,7 +4,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.example.payments.trade.service.config.OutboxProperties;
-import com.example.payments.trade.service.mapper.PaymentOutboxEventEntity;
+import com.example.payments.trade.service.model.*;
 import com.example.payments.trade.service.mapper.PaymentOutboxEventRepository;
 import java.time.Instant;
 import java.util.List;

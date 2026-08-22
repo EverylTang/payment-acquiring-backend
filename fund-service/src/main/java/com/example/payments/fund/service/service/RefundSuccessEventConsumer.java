@@ -8,7 +8,7 @@ import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.example.payments.fund.service.mapper.RefundEventConsumptionEntity;
+import com.example.payments.fund.service.model.*;
 import com.example.payments.fund.service.mapper.RefundEventConsumptionMapper;
 import org.springframework.dao.DuplicateKeyException;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;

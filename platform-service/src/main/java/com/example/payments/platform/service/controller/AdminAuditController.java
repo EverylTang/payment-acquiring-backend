@@ -1,7 +1,7 @@
 package com.example.payments.platform.service.controller;
 
 import java.time.Instant;
-import com.example.payments.platform.service.mapper.MybatisPlusClient;
+import com.example.payments.platform.service.service.PlatformDataService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,9 +12,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/admin/v1/audits")
 @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY')")
 public class AdminAuditController {
-  private final MybatisPlusClient mybatisClient;
+  private final PlatformDataService mybatisClient;
 
-  public AdminAuditController(MybatisPlusClient mybatisClient) {
+  public AdminAuditController(PlatformDataService mybatisClient) {
     this.mybatisClient = mybatisClient;
   }
 

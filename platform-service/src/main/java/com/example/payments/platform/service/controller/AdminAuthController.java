@@ -5,7 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.util.List;
 import org.springframework.http.HttpStatus;
-import com.example.payments.platform.service.mapper.MybatisPlusClient;
+import com.example.payments.platform.service.service.PlatformDataService;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,11 +19,11 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/admin/v1/auth")
 public class AdminAuthController {
-  private final MybatisPlusClient mybatisClient;
+  private final PlatformDataService mybatisClient;
   private final PasswordEncoder passwordEncoder;
   private final JwtService jwtService;
 
-  public AdminAuthController(MybatisPlusClient mybatisClient, PasswordEncoder passwordEncoder, JwtService jwtService) {
+  public AdminAuthController(PlatformDataService mybatisClient, PasswordEncoder passwordEncoder, JwtService jwtService) {
     this.mybatisClient = mybatisClient;
     this.passwordEncoder = passwordEncoder;
     this.jwtService = jwtService;

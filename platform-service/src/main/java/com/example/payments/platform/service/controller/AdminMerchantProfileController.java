@@ -11,7 +11,7 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
-import com.example.payments.platform.service.mapper.MybatisPlusClient;
+import com.example.payments.platform.service.service.PlatformDataService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,9 +27,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/v1/merchants/{merchantId}")
 public class AdminMerchantProfileController {
-  private final MybatisPlusClient mybatisClient;
+  private final PlatformDataService mybatisClient;
 
-  public AdminMerchantProfileController(MybatisPlusClient mybatisClient) {
+  public AdminMerchantProfileController(PlatformDataService mybatisClient) {
     this.mybatisClient = mybatisClient;
   }
 

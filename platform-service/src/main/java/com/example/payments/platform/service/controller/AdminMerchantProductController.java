@@ -1,12 +1,13 @@
 package com.example.payments.platform.service.controller;
 
+import com.example.payments.platform.service.service.AdminMerchantAccessService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import com.example.payments.platform.service.mapper.MybatisPlusClient;
+import com.example.payments.platform.service.service.PlatformDataService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,11 +24,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/v1/merchant-products")
 public class AdminMerchantProductController {
-  private final MybatisPlusClient mybatisClient;
+  private final PlatformDataService mybatisClient;
   private final AdminMerchantAccessService accessService;
 
   public AdminMerchantProductController(
-      MybatisPlusClient mybatisClient, AdminMerchantAccessService accessService) {
+      PlatformDataService mybatisClient, AdminMerchantAccessService accessService) {
     this.mybatisClient = mybatisClient;
     this.accessService = accessService;
   }

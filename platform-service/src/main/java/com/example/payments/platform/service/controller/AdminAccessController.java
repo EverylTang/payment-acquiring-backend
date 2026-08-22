@@ -1,7 +1,7 @@
 package com.example.payments.platform.service.controller;
 
 import java.util.List;
-import com.example.payments.platform.service.mapper.MybatisPlusClient;
+import com.example.payments.platform.service.service.PlatformDataService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -10,9 +10,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/v1/access")
 public class AdminAccessController {
-  private final MybatisPlusClient mybatisClient;
+  private final PlatformDataService mybatisClient;
 
-  public AdminAccessController(MybatisPlusClient mybatisClient) {
+  public AdminAccessController(PlatformDataService mybatisClient) {
     this.mybatisClient = mybatisClient;
   }
 

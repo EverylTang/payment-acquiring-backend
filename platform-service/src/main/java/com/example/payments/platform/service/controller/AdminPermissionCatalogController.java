@@ -1,7 +1,7 @@
 package com.example.payments.platform.service.controller;
 
 import java.util.List;
-import com.example.payments.platform.service.mapper.MybatisPlusClient;
+import com.example.payments.platform.service.service.PlatformDataService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -11,9 +11,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/admin/v1/permission-catalog")
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminPermissionCatalogController {
-  private final MybatisPlusClient mybatisClient;
+  private final PlatformDataService mybatisClient;
 
-  public AdminPermissionCatalogController(MybatisPlusClient mybatisClient) {
+  public AdminPermissionCatalogController(PlatformDataService mybatisClient) {
     this.mybatisClient = mybatisClient;
   }
 

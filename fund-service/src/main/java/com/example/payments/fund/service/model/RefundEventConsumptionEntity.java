@@ -1,4 +1,4 @@
-package com.example.payments.fund.service.mapper;
+package com.example.payments.fund.service.model;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDateTime;
 @TableName("refund_event_consumption")

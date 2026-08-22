@@ -9,18 +9,18 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.UUID;
-import com.example.payments.fund.service.mapper.MybatisPlusClient;
+import com.example.payments.fund.service.service.FundDataService;
 import org.springframework.web.bind.annotation.*;
 import io.micrometer.core.instrument.MeterRegistry;
 
 @RestController
 @RequestMapping("/api/admin/v1/reconciliation")
 public class AdminReconciliationController {
-  private final MybatisPlusClient mybatisClient;
+  private final FundDataService mybatisClient;
   private final AdminRequestAuthorizer auth;
   private final MeterRegistry metrics;
 
-  public AdminReconciliationController(MybatisPlusClient mybatisClient, AdminRequestAuthorizer auth, MeterRegistry metrics) {
+  public AdminReconciliationController(FundDataService mybatisClient, AdminRequestAuthorizer auth, MeterRegistry metrics) {
     this.mybatisClient = mybatisClient;
     this.auth = auth;
     this.metrics = metrics;

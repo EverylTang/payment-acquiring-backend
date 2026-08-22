@@ -1,4 +1,4 @@
-package com.example.payments.trade.service.mapper;
+package com.example.payments.trade.service.model;
 
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;

@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Pattern;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import com.example.payments.platform.service.mapper.MybatisPlusClient;
+import com.example.payments.platform.service.service.PlatformDataService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,9 +23,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/admin/v1/data-scopes")
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminDataScopeController {
-  private final MybatisPlusClient mybatisClient;
+  private final PlatformDataService mybatisClient;
 
-  public AdminDataScopeController(MybatisPlusClient mybatisClient) {
+  public AdminDataScopeController(PlatformDataService mybatisClient) {
     this.mybatisClient = mybatisClient;
   }
 

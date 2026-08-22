@@ -1,4 +1,5 @@
 package com.example.payments.trade.service.mapper;
+import com.example.payments.trade.service.model.*;
 
 import com.example.payments.trade.service.domain.PaymentAttempt;
 import com.example.payments.trade.service.domain.PaymentAttemptStatus;

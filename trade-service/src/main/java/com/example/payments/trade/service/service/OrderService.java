@@ -5,6 +5,8 @@ import com.example.payments.trade.service.domain.PaymentOrder;
 import com.example.payments.trade.service.mapper.PaymentOrderRepository;
 import java.time.Duration;
 import java.time.Instant;
+import java.math.BigDecimal;
+import java.util.Map;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,24 @@ public class OrderService {
 
   public PaymentOrder get(String orderId) {
     return repository.findById(orderId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "order not found"));
+  }
+
+  public Map<String, Object> list(String merchantId, String status, String currency, int page, int pageSize) {
+    if (page < 1 || pageSize < 1 || pageSize > 100) throw new IllegalArgumentException("invalid pagination");
+    var items = repository.search(merchantId, status, currency, page, pageSize).stream()
+        .map(com.example.payments.trade.service.controller.OrderDtos.OrderResponse::from).toList();
+    return Map.of("items", items, "page", page, "pageSize", pageSize,
+        "total", repository.count(merchantId, status, currency));
+  }
+
+  public Map<String, Object> statistics() {
+    var statistics = repository.statistics();
+    BigDecimal successRate = statistics.total() == 0 ? BigDecimal.ZERO
+        : BigDecimal.valueOf(statistics.successful() * 100.0 / statistics.total())
+            .setScale(2, java.math.RoundingMode.HALF_UP);
+    return Map.of("totalOrders", statistics.total(), "successfulOrders", statistics.successful(),
+        "paymentSuccessRate", successRate, "paymentVolume", statistics.volume(),
+        "activeMerchants", statistics.merchants());
   }
 
   @Transactional

@@ -4,7 +4,7 @@
   "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.payments.fund.service.mapper.LedgerEntryMapper">
   <resultMap id="LedgerEntryResultMap"
-             type="com.example.payments.fund.service.mapper.LedgerEntryEntity">
+             type="com.example.payments.fund.service.model.LedgerEntryEntity">
     <id property="id" column="id" />
     <result property="entryId" column="entry_id" />
     <result property="accountId" column="account_id" />

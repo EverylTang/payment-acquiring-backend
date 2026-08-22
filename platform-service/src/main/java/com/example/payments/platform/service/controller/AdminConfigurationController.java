@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
-import com.example.payments.platform.service.mapper.MybatisPlusClient;
+import com.example.payments.platform.service.service.PlatformDataService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,10 +29,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/v1")
 public class AdminConfigurationController {
-  private final MybatisPlusClient mybatisClient;
+  private final PlatformDataService mybatisClient;
   private final ObjectMapper objectMapper;
 
-  public AdminConfigurationController(MybatisPlusClient mybatisClient, ObjectMapper objectMapper) {
+  public AdminConfigurationController(PlatformDataService mybatisClient, ObjectMapper objectMapper) {
     this.mybatisClient = mybatisClient;
     this.objectMapper = objectMapper;
   }
