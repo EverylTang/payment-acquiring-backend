@@ -60,6 +60,31 @@ curl http://127.0.0.1:8082/actuator/health
 curl http://127.0.0.1:8082/api/v1/payments/orders/health
 ```
 
+Prometheus 指标：
+
+Trade 和 Fund 暴露 Spring Boot Actuator Prometheus 端点：
+
+```text
+http://127.0.0.1:8082/actuator/prometheus
+http://127.0.0.1:8083/actuator/prometheus
+```
+
+Prometheus 抓取配置应由部署环境维护，示例：
+
+```yaml
+scrape_configs:
+  - job_name: payment-trade
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["trade-service:8082"]
+  - job_name: payment-fund
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["fund-service:8083"]
+```
+
+告警规则模板位于 [`infra/observability/prometheus-alerts.yml`](infra/observability/prometheus-alerts.yml)，覆盖退款 DEAD、退款冲正失败和对账差异。该文件需要由 Prometheus/Alertmanager 部署流程加载，仓库不会自动启动监控服务。OpenTelemetry OTLP 地址通过 `OTEL_EXPORTER_OTLP_ENDPOINT` 配置，默认指向本机 `4318` 端口。
+
 ## 本地基础设施
 
 该仓库的 Compose 只负责补充 RocketMQ Broker 和 MinIO，默认复用本机已经存在的 `local-dev-network`、MySQL、Redis、Nacos 和 RocketMQ NameServer：
