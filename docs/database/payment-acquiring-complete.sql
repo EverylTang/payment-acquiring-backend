@@ -1,5 +1,5 @@
 -- Payment Acquiring complete database bundle
--- Generated from the versioned service SQL under docs/database/migrations.
+-- Consolidated from the historical service version SQL; this file is the maintained database bundle.
 -- Intended for provisioning a new environment; do not rerun blindly on an existing database.
 SET NAMES utf8mb4;
 
@@ -12,7 +12,7 @@ CREATE DATABASE IF NOT EXISTS pay_audit;
 USE pay_platform;
 
 -- PLATFORM SERVICE
--- SOURCE: docs/database/migrations/platform-service/V1__platform_auth_and_configuration.sql
+-- SOURCE: consolidated platform-service V1
 CREATE TABLE IF NOT EXISTS admin_user (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   username VARCHAR(64) NOT NULL,
@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS risk_policy (
 INSERT IGNORE INTO admin_role (role_code, role_name) VALUES
   ('ADMIN', '系统管理员'), ('OPS', '运营'), ('RISK', '风控'), ('FINANCE', '财务'), ('READONLY', '只读');
 
--- SOURCE: docs/database/migrations/platform-service/V2__operation_audit.sql
+-- SOURCE: consolidated platform-service V2
 CREATE TABLE IF NOT EXISTS operation_audit (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   audit_id VARCHAR(64) NOT NULL,
@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS operation_audit (
   KEY idx_audit_operator (operator_id, created_at)
 );
 
--- SOURCE: docs/database/migrations/platform-service/V3__configuration_capabilities_and_seed.sql
+-- SOURCE: consolidated platform-service V3
 CREATE TABLE IF NOT EXISTS product_capability (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   capability_id VARCHAR(64) NOT NULL,
@@ -222,7 +222,7 @@ VALUES ('price-initial', 1, 'CARD-US-USD', 'merchant-demo', 'USD', 0.020000, 0.3
 INSERT IGNORE INTO risk_policy (policy_id, release_version, name, priority, decision, condition_json, status)
 VALUES ('risk-initial', 1, '默认放行策略', 1000, 'PASS', JSON_OBJECT('productCode', 'CARD-US-USD', 'currency', 'USD'), 'ACTIVE');
 
--- SOURCE: docs/database/migrations/platform-service/V4__admin_permission_model.sql
+-- SOURCE: consolidated platform-service V4
 CREATE TABLE IF NOT EXISTS admin_menu (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   parent_id BIGINT NOT NULL DEFAULT 0,
@@ -302,7 +302,7 @@ SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code LIKE 'merchant:%' OR p.permission_code LIKE 'product:%' OR p.permission_code LIKE 'merchant-product:%' WHERE r.role_code IN ('READONLY', 'RISK', 'FINANCE') AND p.permission_code LIKE '%:list';
 
--- SOURCE: docs/database/migrations/platform-service/V5__admin_role_management.sql
+-- SOURCE: consolidated platform-service V5
 INSERT IGNORE INTO admin_menu (parent_id, menu_code, menu_name, menu_type, route_path, component_key, icon, sort_order, visible, status, created_at, updated_at)
 VALUES (0, 'system:role', '角色管理', 'PAGE', '/roles', 'roles', 'UsersRound', 92, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
@@ -317,7 +317,7 @@ SELECT r.id, m.id FROM admin_role r JOIN admin_menu m ON m.menu_code = 'system:r
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('system:role:list', 'system:role:update') WHERE r.role_code = 'ADMIN';
 
--- SOURCE: docs/database/migrations/platform-service/V6__admin_management_permissions.sql
+-- SOURCE: consolidated platform-service V6
 INSERT IGNORE INTO admin_menu (parent_id, menu_code, menu_name, menu_type, route_path, component_key, icon, sort_order, visible, status, created_at, updated_at)
 SELECT id, 'system:role', '角色权限', 'PAGE', '/roles', 'roles', 'ShieldCheck', 92, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
 FROM admin_menu WHERE menu_code = 'system';
@@ -340,7 +340,7 @@ SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code
 INSERT IGNORE INTO admin_role_menu (role_id, menu_id)
 SELECT r.id, m.id FROM admin_role r JOIN admin_menu m ON m.menu_code = 'system:role' WHERE r.role_code = 'ADMIN';
 
--- SOURCE: docs/database/migrations/platform-service/V7__merchant_master_data.sql
+-- SOURCE: consolidated platform-service V7
 CREATE TABLE IF NOT EXISTS merchant_profile (
   merchant_id VARCHAR(64) PRIMARY KEY,
   legal_name VARCHAR(256) NOT NULL,
@@ -403,7 +403,7 @@ SELECT r.id, p.id FROM admin_role r JOIN admin_permission p
   ON p.permission_code IN ('merchant:profile', 'merchant:contact:update', 'merchant:callback:update', 'merchant:credential:rotate', 'merchant:credential:revoke')
 WHERE r.role_code IN ('ADMIN', 'OPS');
 
--- SOURCE: docs/database/migrations/platform-service/V8__admin_data_scope.sql
+-- SOURCE: consolidated platform-service V8
 CREATE TABLE IF NOT EXISTS admin_role_data_scope (
   role_id BIGINT NOT NULL,
   scope_type VARCHAR(16) NOT NULL,
@@ -424,7 +424,7 @@ SELECT id, 'ALL' FROM admin_role WHERE role_code = 'ADMIN';
 INSERT IGNORE INTO admin_role_data_scope (role_id, scope_type)
 SELECT id, 'ALL' FROM admin_role WHERE role_code = 'OPS';
 
--- SOURCE: docs/database/migrations/platform-service/V9__admin_permission_assignments.sql
+-- SOURCE: consolidated platform-service V9
 INSERT IGNORE INTO admin_permission (permission_code, permission_name, resource_type, status, created_at, updated_at)
 VALUES
   ('merchant-product:detail', '查看商户产品详情', 'MERCHANT_PRODUCT', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
@@ -439,7 +439,7 @@ WHERE r.role_code IN ('ADMIN', 'OPS')
 -- TRADE SERVICE
 USE pay_trade;
 
--- SOURCE: docs/database/migrations/trade-service/V1__payment_attempt_lifecycle.sql
+-- SOURCE: consolidated trade-service V1
 CREATE TABLE IF NOT EXISTS payment_attempt (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   attempt_id VARCHAR(64) NOT NULL,
@@ -459,7 +459,7 @@ CREATE TABLE IF NOT EXISTS payment_attempt (
   KEY idx_attempt_order (order_id, attempt_no)
 );
 
--- SOURCE: docs/database/migrations/trade-service/V2__callback_deduplication.sql
+-- SOURCE: consolidated trade-service V2
 
 CREATE TABLE IF NOT EXISTS payment_callback_record (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -475,7 +475,7 @@ CREATE TABLE IF NOT EXISTS payment_callback_record (
   KEY idx_callback_attempt (attempt_id)
 );
 
--- SOURCE: docs/database/migrations/trade-service/V3__payment_outbox.sql
+-- SOURCE: consolidated trade-service V3
 
 CREATE TABLE IF NOT EXISTS payment_outbox_event (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -494,7 +494,7 @@ CREATE TABLE IF NOT EXISTS payment_outbox_event (
   KEY idx_outbox_pending (status, next_retry_at)
 );
 
--- SOURCE: docs/database/migrations/trade-service/V4__payment_outbox_claim_and_dead_letter.sql
+-- SOURCE: consolidated trade-service V4
 
 ALTER TABLE payment_outbox_event
   ADD COLUMN locked_by VARCHAR(128),
@@ -508,7 +508,7 @@ ALTER TABLE payment_outbox_event
 ALTER TABLE payment_outbox_event
   MODIFY status VARCHAR(32) NOT NULL;
 
--- SOURCE: docs/database/migrations/trade-service/V5__payment_outbox_operation_audit.sql
+-- SOURCE: consolidated trade-service V5
 
 CREATE TABLE IF NOT EXISTS payment_outbox_operation_audit (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -522,12 +522,12 @@ CREATE TABLE IF NOT EXISTS payment_outbox_operation_audit (
   KEY idx_outbox_audit_event (event_id, created_at)
 );
 
--- SOURCE: docs/database/migrations/trade-service/V6__payment_outbox_claim_token.sql
+-- SOURCE: consolidated trade-service V6
 ALTER TABLE payment_outbox_event
   ADD COLUMN claim_token VARCHAR(128) NULL AFTER lock_until,
   ADD KEY idx_outbox_claim_token (claim_token);
 
--- SOURCE: docs/database/migrations/trade-service/V7__payment_attempt_query_schedule.sql
+-- SOURCE: consolidated trade-service V7
 ALTER TABLE payment_attempt
   ADD COLUMN query_count INT NOT NULL DEFAULT 0 AFTER version,
   ADD COLUMN next_query_at DATETIME(3) NULL AFTER query_count,
@@ -541,7 +541,7 @@ UPDATE payment_attempt
 SET next_query_at = DATE_ADD(started_at, INTERVAL 5 MINUTE)
 WHERE status = 'PROCESSING' AND next_query_at IS NULL;
 
--- SOURCE: docs/database/migrations/trade-service/V8__refund_lifecycle.sql
+-- SOURCE: consolidated trade-service V8
 CREATE TABLE IF NOT EXISTS payment_refund (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   refund_id VARCHAR(64) NOT NULL,
@@ -560,7 +560,7 @@ CREATE TABLE IF NOT EXISTS payment_refund (
   KEY idx_refund_order (order_id, created_at)
 );
 
--- SOURCE: docs/database/migrations/trade-service/V9__refund_execution_and_callback.sql
+-- SOURCE: consolidated trade-service V9
 ALTER TABLE payment_refund
   ADD COLUMN channel_refund_id VARCHAR(128) NULL AFTER currency,
   ADD COLUMN attempt_count INT NOT NULL DEFAULT 0 AFTER status,
@@ -595,7 +595,7 @@ CREATE TABLE IF NOT EXISTS refund_callback_record (
   UNIQUE KEY uk_refund_callback_id (callback_id)
 );
 
--- SOURCE: docs/database/migrations/trade-service/V10__refund_claim_lease.sql
+-- SOURCE: consolidated trade-service V10
 ALTER TABLE payment_refund
   ADD COLUMN processing_owner VARCHAR(128) NULL AFTER callback_id,
   ADD COLUMN processing_until DATETIME(3) NULL AFTER processing_owner;
@@ -604,7 +604,7 @@ CREATE INDEX idx_refund_execution ON payment_refund (status, next_attempt_at, pr
 -- FUND SERVICE
 USE pay_fund;
 
--- SOURCE: docs/database/migrations/fund-service/V1__fund_ledger_baseline.sql
+-- SOURCE: consolidated fund-service V1
 
 CREATE TABLE IF NOT EXISTS ledger_entry (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -625,7 +625,7 @@ CREATE TABLE IF NOT EXISTS ledger_entry (
   KEY idx_account_created (account_id, created_at)
 );
 
--- SOURCE: docs/database/migrations/fund-service/V2__payment_event_consumption.sql
+-- SOURCE: consolidated fund-service V2
 
 CREATE TABLE IF NOT EXISTS payment_event_consumption (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -649,14 +649,14 @@ CREATE TABLE IF NOT EXISTS payment_event_consumption (
   KEY idx_payment_consumption_status (status, last_received_at)
 );
 
--- SOURCE: docs/database/migrations/fund-service/V3__payment_event_consumption_claim.sql
+-- SOURCE: consolidated fund-service V3
 
 ALTER TABLE payment_event_consumption
   ADD COLUMN processing_owner VARCHAR(128),
   ADD COLUMN processing_until DATETIME(3),
   ADD KEY idx_payment_consumption_processing (status, processing_until);
 
--- SOURCE: docs/database/migrations/fund-service/V4__payment_event_replay_audit.sql
+-- SOURCE: consolidated fund-service V4
 
 ALTER TABLE payment_event_consumption
   ADD COLUMN failure_type VARCHAR(32) NULL AFTER last_error;
@@ -671,7 +671,7 @@ CREATE TABLE IF NOT EXISTS payment_event_replay_audit (
   KEY idx_payment_event_replay_audit_event (event_id, created_at)
 );
 
--- SOURCE: docs/database/migrations/fund-service/V5__reconciliation.sql
+-- SOURCE: consolidated fund-service V5
 CREATE TABLE IF NOT EXISTS settlement_bill (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   bill_id VARCHAR(64) NOT NULL,
@@ -714,7 +714,7 @@ CREATE TABLE IF NOT EXISTS settlement_bill_line (
   UNIQUE KEY uk_bill_line (bill_id, channel_order_id, transaction_type)
 );
 
--- SOURCE: docs/database/migrations/fund-service/V6__refund_event_consumption.sql
+-- SOURCE: consolidated fund-service V6
 CREATE TABLE IF NOT EXISTS refund_event_consumption (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   event_id VARCHAR(128) NOT NULL,
@@ -727,4 +727,3 @@ CREATE TABLE IF NOT EXISTS refund_event_consumption (
   processed_at DATETIME(3),
   UNIQUE KEY uk_refund_event (event_id)
 );
-

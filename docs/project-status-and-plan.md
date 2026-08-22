@@ -87,7 +87,7 @@ rocketmq:
   name-server: 127.0.0.1:9876
 ```
 
-原服务迁移文件已统一归档到 `docs/database/migrations/`，应用启动不再加载运行时迁移组件。当前由数据库发布流程按版本文件执行；本地真实 MySQL 已执行至 Fund V6，但生产 SQL 发布 Job、备份回滚、版本记录和新环境完整初始化仍未完成。
+原服务迁移版本已合并到 `docs/database/payment-acquiring-complete.sql`，应用启动不再加载运行时迁移组件。新环境由该完整 SQL 初始化；生产 SQL 发布 Job、备份回滚和版本记录仍由数据库发布流程负责。
 
 代码使用 `optional:nacos` 导入配置。生产环境需增加必要配置校验，避免 Nacos 缺失时使用不安全默认值启动。
 
@@ -161,7 +161,7 @@ UNKNOWN → PROCESSING / SUCCESS / FAILED / TIMEOUT / CANCELED
 - `trade-service/src/main/java/com/example/payments/trade/service/domain/OrderStatus.java`
 - `trade-service/src/main/java/com/example/payments/trade/service/domain/PaymentAttemptStatus.java`
 - `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentAttemptService.java`
-- `docs/database/migrations/trade-service/V1__payment_attempt_lifecycle.sql`
+- `docs/database/payment-acquiring-complete.sql`（Trade V1）
 
 ### 4.2 模拟渠道与回调
 
@@ -178,7 +178,7 @@ UNKNOWN → PROCESSING / SUCCESS / FAILED / TIMEOUT / CANCELED
 
 - `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentChannelAdapter.java`
 - `trade-service/src/main/java/com/example/payments/trade/service/application/SimulatedChannelAdapter.java`
-- `docs/database/migrations/trade-service/V2__callback_deduplication.sql`
+- `docs/database/payment-acquiring-complete.sql`（Trade V2）
 
 ### 4.3 Trade Outbox
 
@@ -214,11 +214,7 @@ Outbox 记录包含：
 
 - `trade-service/src/main/java/com/example/payments/trade/service/infrastructure/persistence/PaymentOutboxEventRepository.java`
 - `trade-service/src/main/resources/mapper/PaymentOutboxEventMapper.xml`
-- `docs/database/migrations/trade-service/V3__payment_outbox.sql`
-- `docs/database/migrations/trade-service/V4__payment_outbox_claim_and_dead_letter.sql`
-- `docs/database/migrations/trade-service/V5__payment_outbox_operation_audit.sql`
-- `docs/database/migrations/trade-service/V6__payment_outbox_claim_token.sql`
-- `docs/database/migrations/trade-service/V7__payment_attempt_query_schedule.sql`
+- `docs/database/payment-acquiring-complete.sql`（Trade V3-V7）
 - `trade-service/src/main/java/com/example/payments/trade/service/interfaces/rest/AdminOutboxController.java`
 
 ### 4.4 RocketMQ 发布
@@ -270,10 +266,7 @@ idempotency_key = payment-success:{orderId}
 - `fund-service/src/main/java/com/example/payments/fund/service/infrastructure/persistence/PaymentEventConsumptionMapper.java`
 - `fund-service/src/main/resources/mapper/LedgerEntryMapper.xml`
 - `fund-service/src/main/resources/mapper/PaymentEventConsumptionMapper.xml`
-- `docs/database/migrations/fund-service/V1__fund_ledger_baseline.sql`
-- `docs/database/migrations/fund-service/V2__payment_event_consumption.sql`
-- `docs/database/migrations/fund-service/V3__payment_event_consumption_claim.sql`
-- `docs/database/migrations/fund-service/V4__payment_event_replay_audit.sql`
+- `docs/database/payment-acquiring-complete.sql`（Fund V1-V4）
 - `fund-service/src/main/java/com/example/payments/fund/service/application/PaymentEventReplayAdminService.java`
 - `fund-service/src/main/java/com/example/payments/fund/service/interfaces/rest/AdminPaymentEventController.java`
 
@@ -720,7 +713,7 @@ DUPLICATE
 - `README.md`：构建、运行和接口示例
 - 外部 Docker/基础设施配置：RocketMQ Broker、MinIO、本地网络和监控规则
 - `docs/database/payment-acquiring-complete.sql`：新环境一次性初始化入口（数据库、表结构、初始化数据和全部版本变更）
-- `docs/database/migrations/`：各服务数据库结构、数据和版本 SQL
+- `docs/database/payment-acquiring-complete.sql`：各服务数据库结构、数据和已合并版本 SQL
 - `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentAttemptService.java`：Attempt 生命周期和订单协调
 - `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentOutboxPublisher.java`：Outbox 发布
 - `fund-service/src/main/java/com/example/payments/fund/service/application/PaymentSuccessEventConsumer.java`：支付成功事件消费
