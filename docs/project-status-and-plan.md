@@ -160,7 +160,7 @@ UNKNOWN → PROCESSING / SUCCESS / FAILED / TIMEOUT / CANCELED
 
 - `trade-service/src/main/java/com/example/payments/trade/service/domain/OrderStatus.java`
 - `trade-service/src/main/java/com/example/payments/trade/service/domain/PaymentAttemptStatus.java`
-- `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentAttemptService.java`
+- `trade-service/src/main/java/com/example/payments/trade/service/service/PaymentAttemptService.java`
 - `docs/database/payment-acquiring-complete.sql`（Trade V1）
 
 ### 4.2 模拟渠道与回调
@@ -176,8 +176,8 @@ UNKNOWN → PROCESSING / SUCCESS / FAILED / TIMEOUT / CANCELED
 
 核心文件：
 
-- `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentChannelAdapter.java`
-- `trade-service/src/main/java/com/example/payments/trade/service/application/SimulatedChannelAdapter.java`
+- `trade-service/src/main/java/com/example/payments/trade/service/service/PaymentChannelAdapter.java`
+- `trade-service/src/main/java/com/example/payments/trade/service/service/SimulatedChannelAdapter.java`
 - `docs/database/payment-acquiring-complete.sql`（Trade V2）
 
 ### 4.3 Trade Outbox
@@ -212,10 +212,10 @@ Outbox 记录包含：
 
 核心文件：
 
-- `trade-service/src/main/java/com/example/payments/trade/service/infrastructure/persistence/PaymentOutboxEventRepository.java`
+- `trade-service/src/main/java/com/example/payments/trade/service/mapper/PaymentOutboxEventRepository.java`
 - `trade-service/src/main/resources/mapper/PaymentOutboxEventMapper.xml`
 - `docs/database/payment-acquiring-complete.sql`（Trade V3-V7）
-- `trade-service/src/main/java/com/example/payments/trade/service/interfaces/rest/AdminOutboxController.java`
+- `trade-service/src/main/java/com/example/payments/trade/service/controller/AdminOutboxController.java`
 
 ### 4.4 RocketMQ 发布
 
@@ -234,7 +234,7 @@ PAYMENT_SUCCEEDED
 
 核心文件：
 
-- `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentOutboxPublisher.java`
+- `trade-service/src/main/java/com/example/payments/trade/service/service/PaymentOutboxPublisher.java`
 
 ### 4.5 Fund 消费与账务幂等
 
@@ -260,15 +260,15 @@ idempotency_key = payment-success:{orderId}
 
 核心文件：
 
-- `fund-service/src/main/java/com/example/payments/fund/service/application/PaymentSuccessEventConsumer.java`
-- `fund-service/src/main/java/com/example/payments/fund/service/interfaces/rest/LedgerController.java`
-- `fund-service/src/main/java/com/example/payments/fund/service/application/LedgerEntryApplicationService.java`
-- `fund-service/src/main/java/com/example/payments/fund/service/infrastructure/persistence/PaymentEventConsumptionMapper.java`
+- `fund-service/src/main/java/com/example/payments/fund/service/service/PaymentSuccessEventConsumer.java`
+- `fund-service/src/main/java/com/example/payments/fund/service/controller/LedgerController.java`
+- `fund-service/src/main/java/com/example/payments/fund/service/service/LedgerEntryApplicationService.java`
+- `fund-service/src/main/java/com/example/payments/fund/service/mapper/PaymentEventConsumptionMapper.java`
 - `fund-service/src/main/resources/mapper/LedgerEntryMapper.xml`
 - `fund-service/src/main/resources/mapper/PaymentEventConsumptionMapper.xml`
 - `docs/database/payment-acquiring-complete.sql`（Fund V1-V4）
-- `fund-service/src/main/java/com/example/payments/fund/service/application/PaymentEventReplayAdminService.java`
-- `fund-service/src/main/java/com/example/payments/fund/service/interfaces/rest/AdminPaymentEventController.java`
+- `fund-service/src/main/java/com/example/payments/fund/service/service/PaymentEventReplayAdminService.java`
+- `fund-service/src/main/java/com/example/payments/fund/service/controller/AdminPaymentEventController.java`
 
 ### 4.6 当前自动化测试
 
@@ -714,7 +714,7 @@ DUPLICATE
 - 外部 Docker/基础设施配置：RocketMQ Broker、MinIO、本地网络和监控规则
 - `docs/database/payment-acquiring-complete.sql`：新环境一次性初始化入口（数据库、表结构、初始化数据和全部版本变更）
 - `docs/database/payment-acquiring-complete.sql`：各服务数据库结构、数据和已合并版本 SQL
-- `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentAttemptService.java`：Attempt 生命周期和订单协调
-- `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentOutboxPublisher.java`：Outbox 发布
-- `fund-service/src/main/java/com/example/payments/fund/service/application/PaymentSuccessEventConsumer.java`：支付成功事件消费
-- `fund-service/src/main/java/com/example/payments/fund/service/interfaces/rest/LedgerController.java`：内部幂等入账接口
+- `trade-service/src/main/java/com/example/payments/trade/service/service/PaymentAttemptService.java`：Attempt 生命周期和订单协调
+- `trade-service/src/main/java/com/example/payments/trade/service/service/PaymentOutboxPublisher.java`：Outbox 发布
+- `fund-service/src/main/java/com/example/payments/fund/service/service/PaymentSuccessEventConsumer.java`：支付成功事件消费
+- `fund-service/src/main/java/com/example/payments/fund/service/controller/LedgerController.java`：内部幂等入账接口

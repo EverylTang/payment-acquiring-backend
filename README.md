@@ -99,6 +99,8 @@ docker exec -i local-mysql mysql -uroot -p < docs/database/payment-acquiring-com
 
 后端数据持久层统一使用 MyBatis-Plus，禁止新增 Spring JDBC/JdbcClient/JdbcTemplate 或直接 JDBC 访问；详细约定见 [`docs/persistence-guidelines.md`](docs/persistence-guidelines.md)。
 
+前后端目录分层约定见 [`docs/code-organization.md`](docs/code-organization.md)。
+
 Redis 和 MySQL 的连接密码由 Nacos 配置中心统一管理，不再通过项目根目录的环境变量文件或环境变量配置。
 
 不要提交真实 `.env`、数据库密码、渠道密钥或商户 API Key。

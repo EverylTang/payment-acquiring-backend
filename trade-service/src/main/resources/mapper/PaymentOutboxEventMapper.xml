@@ -2,8 +2,8 @@
 <!DOCTYPE mapper
   PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
   "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.example.payments.trade.service.infrastructure.persistence.PaymentOutboxEventMapper">
-  <resultMap id="OutboxResultMap" type="com.example.payments.trade.service.infrastructure.persistence.PaymentOutboxEventEntity">
+<mapper namespace="com.example.payments.trade.service.mapper.PaymentOutboxEventMapper">
+  <resultMap id="OutboxResultMap" type="com.example.payments.trade.service.mapper.PaymentOutboxEventEntity">
     <id property="id" column="id" />
     <result property="eventId" column="event_id" />
     <result property="aggregateType" column="aggregate_type" />
