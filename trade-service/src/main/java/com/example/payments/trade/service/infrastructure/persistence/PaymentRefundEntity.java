@@ -19,6 +19,8 @@ public class PaymentRefundEntity {
   private LocalDateTime nextAttemptAt;
   private String lastError;
   private String callbackId;
+  private String processingOwner;
+  private LocalDateTime processingUntil;
   private String reason;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
@@ -126,6 +128,22 @@ public class PaymentRefundEntity {
 
   public void setCallbackId(String value) {
     callbackId = value;
+  }
+
+  public String getProcessingOwner() {
+    return processingOwner;
+  }
+
+  public void setProcessingOwner(String value) {
+    processingOwner = value;
+  }
+
+  public LocalDateTime getProcessingUntil() {
+    return processingUntil;
+  }
+
+  public void setProcessingUntil(LocalDateTime value) {
+    processingUntil = value;
   }
 
   public String getReason() {

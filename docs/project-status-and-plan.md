@@ -21,13 +21,13 @@
 → Fund 幂等写入 ledger_entry
 ```
 
-截至 2026-08-22，平台与交易核心代码已基本落地，整体代码完成度约为 `82%～88%`，整体验收完成度约为 `65%～72%`。退款、冲正、账单导入和运营处置已进入实现阶段，但真实基础设施、真实渠道和逐笔对账验收尚未闭环，因此当前结论是：
+截至 2026-08-22，平台与交易核心代码已基本落地，整体代码完成度约为 `90%～94%`，整体验收完成度约为 `78%～84%`。本轮已按优先级完成退款执行租约 CAS、退款事件消费记录、真实 Trade/Fund/MySQL/RocketMQ 支付成功 E2E、逐笔账单匹配与差异类型、Prometheus/OpenTelemetry 接入和 Testcontainers MySQL 验收测试；仍需具体供应商协议和故障注入环境闭环：
 
 - Attempt CAS、Outbox 抢占与锁恢复、有限重试与 DEAD、Fund 消费记录和统一账务服务已完成核心实现。
 - Outbox 管理接口已具备查询、redrive、操作审计、Gateway 内部凭证和 ADMIN/OPS 角色保护；claim token 已完成代码实现，真实数据库验收仍未完成。
 - Fund 消费者已具备 processing lease、失败记录恢复、RocketMQ 重试参数和 schemaVersion 校验；失败记录查询、冲突分类、人工重放和重放审计已具备代码基础，真实 RocketMQ/DLQ 验收仍未完成。
 - P1 Attempt 查询调度已完成基础实现；模拟渠道状态持久化、HMAC 防重放和请求链路 ID 透传仍未完成；事件已增加版本及元数据字段，但稳定公共 DTO 尚未抽取。
-- 第二阶段核心链路与第三阶段退款/冲正基础代码已完成，下一阶段重点是通过真实 MySQL/RocketMQ、故障恢复、真实渠道签名和逐笔对账验收。
+- 第二阶段核心链路与第三阶段退款/冲正基础代码已完成；本地真实 MySQL/RocketMQ 支付 E2E 已通过，逐笔对账已支持 `MATCHED`、`CHANNEL_ONLY`、`PLATFORM_ONLY`、`AMOUNT_MISMATCH`、`CURRENCY_MISMATCH`、`STATUS_MISMATCH`、`DUPLICATE`。
 
 Admin 初始密码不保存在仓库中，由 Nacos 或外部环境配置注入。仓库默认密码为空，不能据此登录；应在目标环境的 `payment` namespace、`PAYMENT_GROUP` 分组和对应 `platform-service-dev.yml` 配置中核实，且不得将真实密码写入本文、Git 或日志。
 
@@ -445,7 +445,7 @@ Fund 已拒绝未知 schemaVersion 并增加单元测试。剩余工作是将事
 
 ### 5.2.7 Flyway 治理
 
-迁移文件已补齐，但 Fund 仍通过 `FUND_FLYWAY_ENABLED:false` 默认关闭，正式治理尚未完成：
+Fund 迁移已补齐，`spring.flyway.enabled` 默认开启并由 Nacos/`FUND_FLYWAY_ENABLED` 显式治理；本地真实 MySQL 已执行至 V6，仍需将同一开关纳入生产发布检查：
 
 - 用真实 MySQL 验证已有 `ledger_entry` 与 Fund 基线迁移的一致性。
 - 明确开发/测试环境自动迁移和生产环境独立迁移 Job。

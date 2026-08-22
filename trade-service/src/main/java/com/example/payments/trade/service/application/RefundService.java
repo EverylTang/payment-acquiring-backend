@@ -23,6 +23,7 @@ import java.util.UUID;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import io.micrometer.core.instrument.MeterRegistry;
 
 @Service
 public class RefundService {
@@ -34,6 +35,8 @@ public class RefundService {
   private final RefundCallbackRecordMapper callbackMapper;
   private final RefundAttemptMapper attemptMapper;
   private final PaymentAttemptMapper paymentAttemptMapper;
+  private final MeterRegistry metrics;
+  private final String workerId = UUID.randomUUID().toString();
 
   public RefundService(
       PaymentRefundMapper mapper,
@@ -43,7 +46,8 @@ public class RefundService {
       ObjectMapper objectMapper,
       RefundCallbackRecordMapper callbackMapper,
       RefundAttemptMapper attemptMapper,
-      PaymentAttemptMapper paymentAttemptMapper) {
+      PaymentAttemptMapper paymentAttemptMapper,
+      MeterRegistry metrics) {
     this.mapper = mapper;
     this.orderService = orderService;
     this.channel = channel;
@@ -52,6 +56,7 @@ public class RefundService {
     this.callbackMapper = callbackMapper;
     this.attemptMapper = attemptMapper;
     this.paymentAttemptMapper = paymentAttemptMapper;
+    this.metrics = metrics;
   }
 
   @Transactional
@@ -120,10 +125,9 @@ public class RefundService {
     var refund = get(refundId);
     if (RefundStatus.SUCCESS.name().equals(refund.getStatus())
         || RefundStatus.CANCELED.name().equals(refund.getStatus())) return refund;
-    refund.setStatus(RefundStatus.PROCESSING.name());
-    refund.setAttemptCount((refund.getAttemptCount() == null ? 0 : refund.getAttemptCount()) + 1);
-    refund.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
-    mapper.updateById(refund);
+    var now = LocalDateTime.now(ZoneOffset.UTC);
+    if (mapper.claimForExecution(refundId, workerId, now, now.plusMinutes(2)) != 1) return get(refundId);
+    refund = get(refundId);
     try {
       var attemptNo =
           attemptMapper
@@ -170,6 +174,8 @@ public class RefundService {
               ? LocalDateTime.now(ZoneOffset.UTC)
               : null);
       refund.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
+      refund.setProcessingOwner(null);
+      refund.setProcessingUntil(null);
       mapper.updateById(refund);
       if (RefundStatus.SUCCESS.name().equals(refund.getStatus())) publishReversal(refund);
       return refund;
@@ -186,7 +192,12 @@ public class RefundService {
               : LocalDateTime.now(ZoneOffset.UTC)
                   .plusSeconds(Math.min(3600, 30L << Math.min(refund.getAttemptCount(), 6))));
       refund.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
+      refund.setProcessingOwner(null);
+      refund.setProcessingUntil(null);
       mapper.updateById(refund);
+      if (RefundStatus.DEAD.name().equals(refund.getStatus())) {
+        metrics.counter("payment.refund.dead", "service", "trade").increment();
+      }
       return refund;
     }
   }
@@ -194,11 +205,8 @@ public class RefundService {
   public List<PaymentRefundEntity> due(int limit) {
     return mapper.selectList(
         new LambdaQueryWrapper<PaymentRefundEntity>()
-            .in(
-                PaymentRefundEntity::getStatus,
-                RefundStatus.CREATED.name(),
-                RefundStatus.FAILED.name())
-            .le(PaymentRefundEntity::getNextAttemptAt, LocalDateTime.now(ZoneOffset.UTC))
+            .and(w -> w.and(x -> x.in(PaymentRefundEntity::getStatus, RefundStatus.CREATED.name(), RefundStatus.FAILED.name()).le(PaymentRefundEntity::getNextAttemptAt, LocalDateTime.now(ZoneOffset.UTC)))
+                .or(x -> x.eq(PaymentRefundEntity::getStatus, RefundStatus.PROCESSING.name()).lt(PaymentRefundEntity::getProcessingUntil, LocalDateTime.now(ZoneOffset.UTC))))
             .last("LIMIT " + Math.min(limit, 100)));
   }
 

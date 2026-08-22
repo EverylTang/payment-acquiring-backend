@@ -23,9 +23,13 @@ spring:
         group: ${NACOS_GROUP:PAYMENT_GROUP}
         file-extension: yml
   flyway:
-    enabled: ${FUND_FLYWAY_ENABLED:false}
+    enabled: ${FUND_FLYWAY_ENABLED:true}
     baseline-on-migrate: true
     baseline-version: 0
+rocketmq:
+  name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
+  producer:
+    group: ${ROCKETMQ_PRODUCER_GROUP:fund-replay-producer}
 fund:
   security:
     gateway-token: ${GATEWAY_INTERNAL_TOKEN:}
@@ -35,3 +39,14 @@ fund:
   refund-success:
     topic: ${FUND_REFUND_SUCCESS_TOPIC:REFUND_SUCCEEDED}
     consumer-group: ${FUND_REFUND_SUCCESS_CONSUMER_GROUP:fund-refund-success}
+management:
+  tracing:
+    sampling:
+      probability: ${OTEL_SAMPLING_PROBABILITY:0.1}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://127.0.0.1:4318/v1/traces}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

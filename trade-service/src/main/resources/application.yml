@@ -1,6 +1,19 @@
 trade:
   security:
     gateway-token: ${GATEWAY_INTERNAL_TOKEN:}
+  outbox:
+    batch-size: ${TRADE_OUTBOX_BATCH_SIZE:50}
+    max-attempts: ${TRADE_OUTBOX_MAX_ATTEMPTS:8}
+    retry-base-seconds: ${TRADE_OUTBOX_RETRY_BASE_SECONDS:5}
+    retry-max-seconds: ${TRADE_OUTBOX_RETRY_MAX_SECONDS:300}
+    claim-timeout-seconds: ${TRADE_OUTBOX_CLAIM_TIMEOUT_SECONDS:60}
+  attempt:
+    query:
+      batch-size: ${TRADE_ATTEMPT_QUERY_BATCH_SIZE:50}
+      max-count: ${TRADE_ATTEMPT_QUERY_MAX_COUNT:8}
+      lock-seconds: ${TRADE_ATTEMPT_QUERY_LOCK_SECONDS:60}
+      retry-base-seconds: ${TRADE_ATTEMPT_QUERY_RETRY_BASE_SECONDS:30}
+      retry-max-seconds: ${TRADE_ATTEMPT_QUERY_RETRY_MAX_SECONDS:300}
 spring:
   application:
     name: trade-service
@@ -25,3 +38,18 @@ spring:
         namespace: ${NACOS_NAMESPACE:payment}
         group: ${NACOS_GROUP:PAYMENT_GROUP}
         file-extension: yml
+rocketmq:
+  name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
+  producer:
+    group: ${ROCKETMQ_PRODUCER_GROUP:trade-producer}
+management:
+  tracing:
+    sampling:
+      probability: ${OTEL_SAMPLING_PROBABILITY:0.1}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://127.0.0.1:4318/v1/traces}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
