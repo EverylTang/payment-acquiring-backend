@@ -21,7 +21,7 @@
 → Fund 幂等写入 ledger_entry
 ```
 
-截至 2026-08-22，平台与交易核心代码已基本落地，整体代码完成度约为 `90%～94%`，整体验收完成度约为 `80%～85%`。本轮已按优先级完成退款执行租约 CAS、退款事件消费记录、真实 Trade/Fund/MySQL/RocketMQ 支付成功 E2E、逐笔账单匹配与差异类型、Prometheus/OpenTelemetry 接入和 Testcontainers MySQL 验收测试；后端 `mvn test` 和前端 `npm run build` 均通过，并清理了构建产物、系统元数据和空包目录。仍需具体供应商协议和故障注入环境闭环：
+截至 2026-08-22，平台与交易核心代码已基本落地，整体代码完成度约为 `90%～94%`，整体验收完成度约为 `80%～85%`。本轮已按优先级完成退款执行租约 CAS、退款事件消费记录、真实 Trade/Fund/MySQL/RocketMQ 支付成功 E2E、逐笔账单匹配与差异类型、Prometheus/OpenTelemetry 配置和数据库 SQL 归档；后端 `mvn test` 和前端 `npm run build` 均通过，并清理了构建产物、系统元数据和空包目录。仍需具体供应商协议和故障注入环境闭环：
 
 - Attempt CAS、Outbox 抢占与锁恢复、有限重试与 DEAD、Fund 消费记录和统一账务服务已完成核心实现。
 - Outbox 管理接口已具备查询、redrive、操作审计、Gateway 内部凭证和 ADMIN/OPS 角色保护；claim token 已完成代码实现，真实数据库验收仍未完成。
@@ -87,7 +87,7 @@ rocketmq:
   name-server: 127.0.0.1:9876
 ```
 
-Trade 已配置存量数据库 Flyway 基线。Trade 新增 `V4__payment_outbox_claim_and_dead_letter.sql`、`V5__payment_outbox_operation_audit.sql`、`V6__payment_outbox_claim_token.sql` 和 `V7__payment_attempt_query_schedule.sql`；Fund 新增 `V1__fund_ledger_baseline.sql`、`V2__payment_event_consumption.sql`、`V3__payment_event_consumption_claim.sql` 和 `V4__payment_event_replay_audit.sql`。Fund 当前默认开启 Flyway，并可通过 `FUND_FLYWAY_ENABLED` 显式关闭；本地真实 MySQL 已执行至 V6，但生产迁移 Job、初始化脚本去重和新环境完整迁移仍未完成。
+原服务迁移文件已统一归档到 `docs/database/migrations/`，应用启动不再加载运行时迁移组件。当前由数据库发布流程按版本文件执行；本地真实 MySQL 已执行至 Fund V6，但生产 SQL 发布 Job、备份回滚、版本记录和新环境完整初始化仍未完成。
 
 代码使用 `optional:nacos` 导入配置。生产环境需增加必要配置校验，避免 Nacos 缺失时使用不安全默认值启动。
 
@@ -119,7 +119,7 @@ Trade 已配置存量数据库 Flyway 基线。Trade 新增 `V4__payment_outbox_
 - 渠道、渠道能力、路由、费率、风控配置。
 - 配置草稿、审核、批准、发布和快照查询。
 - 发布前规则完整性、金额区间、费率和冲突校验。
-- MySQL 持久化和 Flyway 迁移。
+- MySQL 持久化和数据库版本 SQL。
 
 待完善：
 
@@ -161,7 +161,7 @@ UNKNOWN → PROCESSING / SUCCESS / FAILED / TIMEOUT / CANCELED
 - `trade-service/src/main/java/com/example/payments/trade/service/domain/OrderStatus.java`
 - `trade-service/src/main/java/com/example/payments/trade/service/domain/PaymentAttemptStatus.java`
 - `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentAttemptService.java`
-- `trade-service/src/main/resources/db/migration/V1__payment_attempt_lifecycle.sql`
+- `docs/database/migrations/trade-service/V1__payment_attempt_lifecycle.sql`
 
 ### 4.2 模拟渠道与回调
 
@@ -178,7 +178,7 @@ UNKNOWN → PROCESSING / SUCCESS / FAILED / TIMEOUT / CANCELED
 
 - `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentChannelAdapter.java`
 - `trade-service/src/main/java/com/example/payments/trade/service/application/SimulatedChannelAdapter.java`
-- `trade-service/src/main/resources/db/migration/V2__callback_deduplication.sql`
+- `docs/database/migrations/trade-service/V2__callback_deduplication.sql`
 
 ### 4.3 Trade Outbox
 
@@ -214,11 +214,11 @@ Outbox 记录包含：
 
 - `trade-service/src/main/java/com/example/payments/trade/service/infrastructure/persistence/PaymentOutboxEventRepository.java`
 - `trade-service/src/main/resources/mapper/PaymentOutboxEventMapper.xml`
-- `trade-service/src/main/resources/db/migration/V3__payment_outbox.sql`
-- `trade-service/src/main/resources/db/migration/V4__payment_outbox_claim_and_dead_letter.sql`
-- `trade-service/src/main/resources/db/migration/V5__payment_outbox_operation_audit.sql`
-- `trade-service/src/main/resources/db/migration/V6__payment_outbox_claim_token.sql`
-- `trade-service/src/main/resources/db/migration/V7__payment_attempt_query_schedule.sql`
+- `docs/database/migrations/trade-service/V3__payment_outbox.sql`
+- `docs/database/migrations/trade-service/V4__payment_outbox_claim_and_dead_letter.sql`
+- `docs/database/migrations/trade-service/V5__payment_outbox_operation_audit.sql`
+- `docs/database/migrations/trade-service/V6__payment_outbox_claim_token.sql`
+- `docs/database/migrations/trade-service/V7__payment_attempt_query_schedule.sql`
 - `trade-service/src/main/java/com/example/payments/trade/service/interfaces/rest/AdminOutboxController.java`
 
 ### 4.4 RocketMQ 发布
@@ -270,10 +270,10 @@ idempotency_key = payment-success:{orderId}
 - `fund-service/src/main/java/com/example/payments/fund/service/infrastructure/persistence/PaymentEventConsumptionMapper.java`
 - `fund-service/src/main/resources/mapper/LedgerEntryMapper.xml`
 - `fund-service/src/main/resources/mapper/PaymentEventConsumptionMapper.xml`
-- `fund-service/src/main/resources/db/migration/V1__fund_ledger_baseline.sql`
-- `fund-service/src/main/resources/db/migration/V2__payment_event_consumption.sql`
-- `fund-service/src/main/resources/db/migration/V3__payment_event_consumption_claim.sql`
-- `fund-service/src/main/resources/db/migration/V4__payment_event_replay_audit.sql`
+- `docs/database/migrations/fund-service/V1__fund_ledger_baseline.sql`
+- `docs/database/migrations/fund-service/V2__payment_event_consumption.sql`
+- `docs/database/migrations/fund-service/V3__payment_event_consumption_claim.sql`
+- `docs/database/migrations/fund-service/V4__payment_event_replay_audit.sql`
 - `fund-service/src/main/java/com/example/payments/fund/service/application/PaymentEventReplayAdminService.java`
 - `fund-service/src/main/java/com/example/payments/fund/service/interfaces/rest/AdminPaymentEventController.java`
 
@@ -309,7 +309,7 @@ git diff --check passed
 
 当前仅完成代码级或环境级基础验证，以下真实验收仍未执行：
 
-- Testcontainers RocketMQ 集成测试（当前仅有需显式 `RUN_TESTCONTAINERS=true` 才运行的 MySQL 迁移测试）。
+- Testcontainers MySQL/RocketMQ 集成测试和独立 SQL 发布验收。
 - Broker 停止/恢复和 Trade/Fund 重启恢复验收。
 - RocketMQ 实际最大重试次数、DLQ 和人工重放验收。
 - Grafana、告警平台和 OpenTelemetry Collector 联调。
@@ -387,7 +387,7 @@ Trade、Fund 管理接口已增加 Gateway 内部 Token、用户身份和 ADMIN/
 8. 人工重放后成功入账。
 9. Trade/Fund 重启后未完成事件自动恢复。
 
-建议增加 Testcontainers 或独立 Docker 验收脚本，并纳入 CI。
+建议增加 Testcontainers 或独立 Docker 验收脚本，并纳入 CI；其中 SQL 发布应验证空库初始化、增量版本和回滚备份。
 
 ## 5.2 P1：第二阶段收尾建议完成
 
@@ -447,14 +447,14 @@ aggregateVersion
 
 Fund 已拒绝未知 schemaVersion 并增加单元测试。剩余工作是将事件契约提取为稳定 DTO、增加完整序列化兼容测试、从请求上下文透传 requestId/traceId，并明确当前 aggregateVersion 表示 Attempt 版本。
 
-### 5.2.7 Flyway 治理
+### 5.2.7 数据库 SQL 发布治理
 
-Fund 迁移已补齐，`spring.flyway.enabled` 默认开启并由 Nacos/`FUND_FLYWAY_ENABLED` 显式治理；本地真实 MySQL 已执行至 V6，仍需将同一开关纳入生产发布检查：
+数据库结构和数据 SQL 已归档到 `docs/database/`，应用不再内置运行时迁移配置。仍需完成：
 
-- 用真实 MySQL 验证已有 `ledger_entry` 与 Fund 基线迁移的一致性。
-- 明确开发/测试环境自动迁移和生产环境独立迁移 Job。
-- 确认初始化脚本不再与 Flyway 重复管理同一张表。
-- 验证新环境从空库到可运行服务的完整迁移流程。
+- 用真实 MySQL 验证已有 `ledger_entry` 与归档 SQL 的一致性。
+- 建立开发/测试/生产独立 SQL 发布 Job、备份和回滚流程。
+- 为每个数据库记录已执行 SQL 版本和校验哈希。
+- 验证新环境从空库到可运行服务的完整初始化流程。
 
 ## 6. 第二阶段验收与收尾计划
 
@@ -485,7 +485,7 @@ Fund 迁移已补齐，`spring.flyway.enabled` 默认开启并由 Nacos/`FUND_FL
 
 已完成：
 
-1. Fund 消费记录表、processing lease 和 Flyway 迁移。
+1. Fund 消费记录表、processing lease 和数据库版本 SQL。
 2. 统一账务应用服务和重复消息字段一致性核对。
 3. RocketMQ 重试参数、失败分类、失败记录查询、人工重放、RBAC 和审计基础。
 
@@ -509,7 +509,7 @@ Fund 迁移已补齐，`spring.flyway.enabled` 默认开启并由 Nacos/`FUND_FL
 1. 增加 MySQL、RocketMQ 真实集成测试。
 2. 验证 Broker 停止、恢复和 Trade/Fund 服务重启。
 3. 将端到端验收纳入 CI。
-4. 完成 Trade/Fund Flyway 基线和新环境初始化。
+4. 完成 Trade/Fund SQL 发布基线和新环境初始化。
 5. 更新 README、本地启动和故障恢复手册。
 6. 补充 Gateway、Trade、Fund 管理接口安全测试。
 
@@ -720,9 +720,9 @@ DUPLICATE
 - `README.md`：构建、运行和接口示例
 - `docker-compose.yml`：RocketMQ Broker、MinIO 和本地网络
 - `infra/rocketmq/broker.conf`：RocketMQ Broker 本地配置
-- `infra/mysql/init/00-databases.sql`：数据库创建
-- `infra/mysql/init/10-mvp-schema.sql`：MVP 初始化表
-- `trade-service/src/main/resources/db/migration/`：Trade Flyway 迁移
+- `docs/database/00-databases.sql`：数据库创建
+- `docs/database/10-mvp-schema.sql`：MVP 初始化表
+- `docs/database/migrations/`：各服务数据库结构、数据和版本 SQL
 - `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentAttemptService.java`：Attempt 生命周期和订单协调
 - `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentOutboxPublisher.java`：Outbox 发布
 - `fund-service/src/main/java/com/example/payments/fund/service/application/PaymentSuccessEventConsumer.java`：支付成功事件消费

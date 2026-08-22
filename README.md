@@ -22,7 +22,7 @@ payment-acquiring-backend/
 ├── platform-service/          # 8081
 ├── trade-service/             # 8082
 ├── fund-service/              # 8083
-├── infra/mysql/init/          # 数据库初始化
+├── docs/database/             # 完整数据库表结构、初始化数据和版本 SQL
 ├── infra/rocketmq/            # Broker 配置
 ├── docker-compose.yml         # 本地 Broker + MinIO
 └── .gitignore
@@ -42,7 +42,7 @@ mvn -pl trade-service -am package -DskipTests
 
 ## 运行
 
-启动前请确认本地 Nacos 已运行，并已在 `payment` namespace、`PAYMENT_GROUP` 中发布公共配置和对应服务的环境配置。各服务代码内的 `application.yml` 仅保留 Nacos 启动引导，数据库、Redis、端口、Flyway、JWT 和路由配置均从 Nacos 加载。
+启动前请确认本地 Nacos 已运行，并已在 `payment` namespace、`PAYMENT_GROUP` 中发布公共配置和对应服务的环境配置。各服务代码内的 `application.yml` 仅保留 Nacos 启动引导，数据库、Redis、端口、JWT 和路由配置均从 Nacos 加载；数据库结构和数据由 `docs/database/` 的发布 SQL 管理。
 
 Platform 首次初始化管理员时，可在 Nacos 的 `platform-service-dev.yml` 中临时开启 Bootstrap；已有管理员后应关闭该开关，并通过安全方式轮换初始密码。
 
@@ -74,11 +74,10 @@ docker ps --filter name=payment-
 宿主机未安装 MySQL 客户端时，可直接通过 Docker 执行初始化脚本：
 
 ```bash
-docker exec -i local-mysql mysql -uroot -p < infra/mysql/init/00-databases.sql
-docker exec -i local-mysql mysql -uroot -p < infra/mysql/init/10-mvp-schema.sql
+docker exec -i local-mysql mysql -uroot -p < docs/database/00-databases.sql
 ```
 
-脚本会创建 `pay_platform`、`pay_trade`、`pay_fund` 和 `pay_audit` 数据库，以及 MVP 所需的订单、支付尝试和账务分录表。交易服务使用 `pay_trade.payment_order` 真实落库，资金服务使用 `pay_fund.ledger_entry` 真实落库。
+完整数据库 SQL（包括表结构、初始化数据和版本变更）位于 `docs/database/`，执行顺序见 [`docs/database/README.md`](docs/database/README.md)。数据库发布流程会创建 `pay_platform`、`pay_trade`、`pay_fund` 和 `pay_audit` 数据库，并按服务 SQL 创建完整表结构和初始化数据。交易服务使用 `pay_trade.payment_order` 真实落库，资金服务使用 `pay_fund.ledger_entry` 真实落库。
 
 Redis 和 MySQL 的连接密码由 Nacos 配置中心统一管理，不再通过项目根目录的环境变量文件或环境变量配置。
 
@@ -101,7 +100,7 @@ git push -u origin main
 
 - Gateway 基础路由、请求 ID、内部 Token 和后台 JWT 校验。
 - Platform 管理员登录、BCrypt、JWT、RBAC 基础能力和管理员 Bootstrap。
-- Platform 商户、产品、渠道、路由、费率、风控配置落库，以及 Flyway V1-V3 自动迁移。
+- Platform 商户、产品、渠道、路由、费率、风控配置落库，以及数据库版本 SQL V1-V3。
 - 配置草稿、审核、批准、发布基础流程和已发布配置快照。
 - Trade 订单创建幂等、查询、取消、终态保护、模拟回调和 MySQL 落库。
 - Fund 支付成功幂等入账和 MySQL 落库。
@@ -109,7 +108,7 @@ git push -u origin main
 
 当前已补充：Payment Attempt 查询与回调安全基础、Trade 到 Fund 的 Outbox/RocketMQ 可靠事件链路、退款执行/重试/回调幂等、Fund 退款冲正、账单导入和差异处置基础接口、运营后台 DLQ/对账页面。
 
-当前已在本地真实 MySQL/RocketMQ 完成支付成功 E2E（Trade Outbox -> RocketMQ -> Fund ledger），Fund Flyway 已执行至 V6，退款 CAS/事件消费幂等、逐笔对账差异分类、Prometheus/OpenTelemetry 配置和 Testcontainers 验收测试已补齐。后端 `mvn test`、前端 `npm run build` 均通过；构建产物和系统元数据不纳入源码。仍需接入具体供应商退款协议，并在 CI/生产环境执行 `RUN_TESTCONTAINERS=true`、DLQ 故障注入、Broker/Trade/Fund 重启恢复和告警联调。
+当前已在本地真实 MySQL/RocketMQ 完成支付成功 E2E（Trade Outbox -> RocketMQ -> Fund ledger），Fund 数据库已执行至 V6，退款 CAS/事件消费幂等、逐笔对账差异分类、Prometheus/OpenTelemetry 配置已补齐。后端 `mvn test`、前端 `npm run build` 均通过；构建产物和系统元数据不纳入源码。仍需接入具体供应商退款协议，并在 CI/生产环境执行 SQL 发布、DLQ 故障注入、Broker/Trade/Fund 重启恢复和告警联调。
 
 未完成项按优先级：
 

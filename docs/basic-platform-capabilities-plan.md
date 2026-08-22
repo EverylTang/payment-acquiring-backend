@@ -114,7 +114,7 @@ admin_data_scope 数据范围
 - `admin_menu_permission`
 - `admin_operation_audit`
 
-现有 `admin_user`、`admin_role`、`admin_user_role` 应优先复用，通过后续 Flyway 迁移扩展，不修改历史迁移文件。
+现有 `admin_user`、`admin_role`、`admin_user_role` 应优先复用，通过后续数据库版本 SQL 扩展，不修改已发布 SQL 文件。
 
 ### 4.2 权限编码
 
@@ -432,7 +432,7 @@ GET    /api/admin/v1/merchant-products/{bindingId}/audits
 - 状态变更使用显式动作接口，避免任意修改状态字段。
 - 业务冲突返回稳定错误码，例如重复绑定、对象已停用、权限不足、配置被引用。
 - Controller 只负责边界转换和鉴权，状态校验放在应用服务和领域逻辑中。
-- 新表使用新的 Flyway 迁移，历史迁移文件不回改。
+- 新表使用新的版本 SQL，历史已发布 SQL 文件不回改。
 
 ### 前端
 

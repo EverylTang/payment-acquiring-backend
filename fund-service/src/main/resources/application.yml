@@ -22,10 +22,6 @@ spring:
         namespace: ${NACOS_NAMESPACE:payment}
         group: ${NACOS_GROUP:PAYMENT_GROUP}
         file-extension: yml
-  flyway:
-    enabled: ${FUND_FLYWAY_ENABLED:true}
-    baseline-on-migrate: true
-    baseline-version: 0
 rocketmq:
   name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
   producer:
