@@ -111,6 +111,12 @@ git push -u origin main
 
 当前已在本地真实 MySQL/RocketMQ 完成支付成功 E2E（Trade Outbox -> RocketMQ -> Fund ledger），Fund Flyway 已执行至 V6，退款 CAS/事件消费幂等、逐笔对账差异分类、Prometheus/OpenTelemetry 配置和 Testcontainers 验收测试已补齐。后端 `mvn test`、前端 `npm run build` 均通过；构建产物和系统元数据不纳入源码。仍需接入具体供应商退款协议，并在 CI/生产环境执行 `RUN_TESTCONTAINERS=true`、DLQ 故障注入、Broker/Trade/Fund 重启恢复和告警联调。
 
+未完成项按优先级：
+
+- P0：RocketMQ 实际重试/DLQ/人工重放、Broker 与服务重启恢复、Outbox/Attempt 多实例真实 MySQL 验证、管理接口安全测试、迁移 Job 和 CI 集成验收。
+- P1：真实支付/退款渠道协议、标准 HMAC 与防重放、模拟渠道持久化、订单与 Attempt 事务拆分、账单文件/MinIO 导入、完整差异处置审批、配置差异与回滚、完整菜单按钮和数据权限、稳定事件 DTO 与链路字段透传。
+- P2：Grafana/告警平台和 OTel Collector 联调、业务指标生产验证、限流熔断、商户签名认证、密钥轮换、Nacos 权限隔离、容量与故障注入测试。
+
 创建订单示例：
 
 ```bash

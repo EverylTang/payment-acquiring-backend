@@ -87,7 +87,7 @@ rocketmq:
   name-server: 127.0.0.1:9876
 ```
 
-Trade 已配置存量数据库 Flyway 基线。Trade 新增 `V4__payment_outbox_claim_and_dead_letter.sql`、`V5__payment_outbox_operation_audit.sql`、`V6__payment_outbox_claim_token.sql` 和 `V7__payment_attempt_query_schedule.sql`；Fund 新增 `V1__fund_ledger_baseline.sql`、`V2__payment_event_consumption.sql`、`V3__payment_event_consumption_claim.sql` 和 `V4__payment_event_replay_audit.sql`。Fund 当前通过 `FUND_FLYWAY_ENABLED:false` 默认关闭；在真实 MySQL 验证基线和初始化流程前，不应宣称 Fund 已完成正式迁移接管。
+Trade 已配置存量数据库 Flyway 基线。Trade 新增 `V4__payment_outbox_claim_and_dead_letter.sql`、`V5__payment_outbox_operation_audit.sql`、`V6__payment_outbox_claim_token.sql` 和 `V7__payment_attempt_query_schedule.sql`；Fund 新增 `V1__fund_ledger_baseline.sql`、`V2__payment_event_consumption.sql`、`V3__payment_event_consumption_claim.sql` 和 `V4__payment_event_replay_audit.sql`。Fund 当前默认开启 Flyway，并可通过 `FUND_FLYWAY_ENABLED` 显式关闭；本地真实 MySQL 已执行至 V6，但生产迁移 Job、初始化脚本去重和新环境完整迁移仍未完成。
 
 代码使用 `optional:nacos` 导入配置。生产环境需增加必要配置校验，避免 Nacos 缺失时使用不安全默认值启动。
 
@@ -307,11 +307,13 @@ git diff --check passed
 
 这些测试主要是纯领域或 Mockito 单元测试，尚不能替代真实 MySQL 和 RocketMQ 端到端验收。
 
-当前仍未执行：
+当前仅完成代码级或环境级基础验证，以下真实验收仍未执行：
 
-- Testcontainers MySQL/RocketMQ 集成测试。
+- Testcontainers RocketMQ 集成测试（当前仅有需显式 `RUN_TESTCONTAINERS=true` 才运行的 MySQL 迁移测试）。
 - Broker 停止/恢复和 Trade/Fund 重启恢复验收。
 - RocketMQ 实际最大重试次数、DLQ 和人工重放验收。
+- Grafana、告警平台和 OpenTelemetry Collector 联调。
+- 容量、压力和故障注入测试。
 
 ## 5. 第二阶段剩余验收与收尾项
 
@@ -388,6 +390,8 @@ Trade、Fund 管理接口已增加 Gateway 内部 Token、用户身份和 ADMIN/
 建议增加 Testcontainers 或独立 Docker 验收脚本，并纳入 CI。
 
 ## 5.2 P1：第二阶段收尾建议完成
+
+除下述交易可靠性收尾外，P1 仍缺少真实渠道协议适配、标准 HMAC/防重放、模拟渠道状态持久化、订单与 Attempt 事务拆分、账单文件上传/下载与 MinIO 版本管理、完整差异认领/复核/审批、配置差异与回滚、完整菜单按钮/数据权限，以及稳定事件 DTO 和 requestId/traceId 全链路透传。
 
 ### 5.2.1 模拟渠道状态持久化
 
@@ -673,8 +677,9 @@ DUPLICATE
 
 - 真实渠道退款 API、渠道级查询/取消协议和供应商签名适配。
 - 逐笔渠道账单文件上传、MinIO 原始文件版本和逐笔匹配。
-- Testcontainers 集成测试、Broker/DLQ 实际故障注入和服务重启恢复。
-- Prometheus、OpenTelemetry、告警和容量测试。
+- Testcontainers RocketMQ 集成测试、Broker/DLQ 实际故障注入和服务重启恢复。
+- Prometheus 指标已配置，但 Grafana、告警平台、OpenTelemetry Collector 和生产指标验证尚未完成。
+- 限流、熔断、商户签名认证、密钥轮换、Nacos 权限隔离和容量测试。
 
 | 里程碑 | 内容 | 进入条件 | 完成标准 |
 | --- | --- | --- | --- |
