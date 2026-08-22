@@ -5,10 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-import java.sql.Timestamp;
+
 import java.time.Instant;
 import java.util.UUID;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.example.payments.platform.service.infrastructure.persistence.MybatisPlusClient;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,13 +25,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/v1/merchants")
 public class AdminMerchantController {
-  private final JdbcClient jdbcClient;
+  private final MybatisPlusClient mybatisClient;
   private final AdminMerchantAccessService accessService;
   private final ObjectMapper objectMapper;
 
   public AdminMerchantController(
-      JdbcClient jdbcClient, AdminMerchantAccessService accessService, ObjectMapper objectMapper) {
-    this.jdbcClient = jdbcClient;
+      MybatisPlusClient mybatisClient, AdminMerchantAccessService accessService, ObjectMapper objectMapper) {
+    this.mybatisClient = mybatisClient;
     this.accessService = accessService;
     this.objectMapper = objectMapper;
   }
@@ -47,13 +47,13 @@ public class AdminMerchantController {
     var total =
         accessService
             .bindScope(
-                jdbcClient.sql("SELECT COUNT(*) FROM merchant m WHERE " + where), authentication)
+                mybatisClient.sql("SELECT COUNT(*) FROM merchant m WHERE " + where), authentication)
             .query(Long.class)
             .single();
     var items =
         accessService
             .bindScope(
-                jdbcClient
+                mybatisClient
                     .sql(
                         "SELECT merchant_id, name, status, settlement_currency, created_at,"
                             + " updated_at FROM merchant m WHERE "
@@ -73,7 +73,7 @@ public class AdminMerchantController {
     var where = accessService.predicate(authentication, "m");
     return accessService
         .bindScope(
-            jdbcClient
+            mybatisClient
                 .sql(
                     "SELECT merchant_id, name, status, settlement_currency, created_at, updated_at"
                         + " FROM merchant m WHERE merchant_id = :merchantId AND "
@@ -100,8 +100,8 @@ public class AdminMerchantController {
   @Transactional
   public MerchantResponse create(
       @Valid @RequestBody CreateRequest request, Authentication authentication) {
-    var now = Timestamp.from(Instant.now());
-    jdbcClient
+    var now = Instant.now();
+    mybatisClient
         .sql(
             "INSERT INTO merchant (merchant_id, name, status, settlement_currency, created_at,"
                 + " updated_at) VALUES (:id, :name, 'ACTIVE', :currency, :now, :now)")
@@ -121,13 +121,13 @@ public class AdminMerchantController {
       @PathVariable String merchantId,
       @Valid @RequestBody UpdateRequest request,
       Authentication authentication) {
-    jdbcClient
+    mybatisClient
         .sql(
             "UPDATE merchant SET name = :name, settlement_currency = :currency, updated_at = :now"
                 + " WHERE merchant_id = :merchantId")
         .param("name", request.name())
         .param("currency", request.settlementCurrency())
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .param("merchantId", merchantId)
         .update();
     audit(authentication.getName(), "UPDATE", merchantId, request);
@@ -141,12 +141,12 @@ public class AdminMerchantController {
       @PathVariable String merchantId,
       @Valid @RequestBody StatusRequest request,
       Authentication authentication) {
-    jdbcClient
+    mybatisClient
         .sql(
             "UPDATE merchant SET status = :status, updated_at = :now WHERE merchant_id ="
                 + " :merchantId")
         .param("status", request.status())
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .param("merchantId", merchantId)
         .update();
     audit(authentication.getName(), "CHANGE_STATUS", merchantId, request);
@@ -154,7 +154,7 @@ public class AdminMerchantController {
   }
 
   private void audit(String operator, String action, String id, Object payload) {
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO operation_audit (audit_id, operator_id, action, resource_type,"
                 + " resource_id, after_summary, created_at) VALUES (:audit, :operator, :action,"
@@ -164,7 +164,7 @@ public class AdminMerchantController {
         .param("action", action)
         .param("id", id)
         .param("summary", json(payload))
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .update();
   }
 

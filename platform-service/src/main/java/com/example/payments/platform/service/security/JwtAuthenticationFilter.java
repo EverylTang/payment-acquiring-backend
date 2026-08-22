@@ -7,7 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 import org.springframework.http.HttpHeaders;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.example.payments.platform.service.infrastructure.persistence.MybatisPlusClient;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,11 +17,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
   private final JwtService jwtService;
-  private final JdbcClient jdbcClient;
+  private final MybatisPlusClient mybatisClient;
 
-  public JwtAuthenticationFilter(JwtService jwtService, JdbcClient jdbcClient) {
+  public JwtAuthenticationFilter(JwtService jwtService, MybatisPlusClient mybatisClient) {
     this.jwtService = jwtService;
-    this.jdbcClient = jdbcClient;
+    this.mybatisClient = mybatisClient;
   }
 
   @Override
@@ -38,7 +38,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     .map(String::valueOf)
                     .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
                     .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT DISTINCT p.permission_code FROM admin_permission p JOIN"
                     + " admin_role_permission rp ON rp.permission_id = p.id JOIN admin_role r ON"

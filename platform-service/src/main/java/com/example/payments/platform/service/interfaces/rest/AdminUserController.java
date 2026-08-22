@@ -4,11 +4,11 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import java.sql.Timestamp;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.example.payments.platform.service.infrastructure.persistence.MybatisPlusClient;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,11 +27,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/admin/v1/users")
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminUserController {
-  private final JdbcClient jdbcClient;
+  private final MybatisPlusClient mybatisClient;
   private final PasswordEncoder passwordEncoder;
 
-  public AdminUserController(JdbcClient jdbcClient, PasswordEncoder passwordEncoder) {
-    this.jdbcClient = jdbcClient;
+  public AdminUserController(MybatisPlusClient mybatisClient, PasswordEncoder passwordEncoder) {
+    this.mybatisClient = mybatisClient;
     this.passwordEncoder = passwordEncoder;
   }
 
@@ -41,13 +41,13 @@ public class AdminUserController {
     var currentPage = Math.max(page, 1);
     var size = Math.min(Math.max(pageSize, 1), 100);
     var offset = (currentPage - 1) * size;
-    var total = jdbcClient.sql("SELECT COUNT(*) FROM admin_user").query(Long.class).single();
+    var total = mybatisClient.sql("SELECT COUNT(*) FROM admin_user").query(Long.class).single();
     var items = all().stream().skip(offset).limit(size).toList();
     return new AdminPageResponse<>(items, currentPage, size, total);
   }
 
   private List<UserResponse> all() {
-    return jdbcClient
+    return mybatisClient
         .sql(
             "SELECT u.id, u.username, u.display_name, u.status, GROUP_CONCAT(r.role_code ORDER BY"
                 + " r.role_code SEPARATOR ',') roles FROM admin_user u LEFT JOIN admin_user_role ur"
@@ -79,8 +79,8 @@ public class AdminUserController {
   public UserResponse create(
       @Valid @RequestBody CreateUserRequest request, Authentication authentication) {
     validateRoles(request.roles());
-    var now = Timestamp.from(Instant.now());
-    jdbcClient
+    var now = Instant.now();
+    mybatisClient
         .sql(
             "INSERT INTO admin_user (username, password_hash, display_name, status, created_at,"
                 + " updated_at) VALUES (:username, :passwordHash, :displayName, 'ACTIVE', :now,"
@@ -91,7 +91,7 @@ public class AdminUserController {
         .param("now", now)
         .update();
     var userId =
-        jdbcClient
+        mybatisClient
             .sql("SELECT id FROM admin_user WHERE username = :username")
             .param("username", request.username())
             .query(Long.class)
@@ -109,10 +109,10 @@ public class AdminUserController {
       Authentication authentication) {
     validateRoles(request.roles());
     ensureAdminPreserved(id, request.roles());
-    jdbcClient
+    mybatisClient
         .sql("UPDATE admin_user SET display_name = :displayName, updated_at = :now WHERE id = :id")
         .param("displayName", request.displayName())
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .param("id", id)
         .update();
     replaceRoles(id, request.roles());
@@ -130,10 +130,10 @@ public class AdminUserController {
     if ("DISABLED".equals(request.status()) && isLastActiveAdmin(id)) {
       throw new IllegalStateException("不能禁用最后一个有效系统管理员");
     }
-    jdbcClient
+    mybatisClient
         .sql("UPDATE admin_user SET status = :status, updated_at = :now WHERE id = :id")
         .param("status", request.status())
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .param("id", id)
         .update();
     audit(authentication.getName(), "CHANGE_STATUS", username(id));
@@ -146,11 +146,11 @@ public class AdminUserController {
       @PathVariable long id,
       @Valid @RequestBody ResetPasswordRequest request,
       Authentication authentication) {
-    jdbcClient
+    mybatisClient
         .sql(
             "UPDATE admin_user SET password_hash = :passwordHash, updated_at = :now WHERE id = :id")
         .param("passwordHash", passwordEncoder.encode(request.newPassword()))
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .param("id", id)
         .update();
     audit(authentication.getName(), "RESET_PASSWORD", username(id));
@@ -171,13 +171,13 @@ public class AdminUserController {
   }
 
   private void replaceRoles(long userId, List<String> roles) {
-    jdbcClient
+    mybatisClient
         .sql("DELETE FROM admin_user_role WHERE user_id = :userId")
         .param("userId", userId)
         .update();
     roles.forEach(
         role ->
-            jdbcClient
+            mybatisClient
                 .sql(
                     "INSERT INTO admin_user_role (user_id, role_id) SELECT :userId, id FROM"
                         + " admin_role WHERE role_code = :role")
@@ -187,7 +187,7 @@ public class AdminUserController {
   }
 
   private String username(long id) {
-    return jdbcClient
+    return mybatisClient
         .sql("SELECT username FROM admin_user WHERE id = :id")
         .param("id", id)
         .query(String.class)
@@ -195,7 +195,7 @@ public class AdminUserController {
   }
 
   private boolean isLastActiveAdmin(long id) {
-    return jdbcClient
+    return mybatisClient
             .sql(
                 "SELECT COUNT(*) FROM admin_user u JOIN admin_user_role ur ON ur.user_id = u.id"
                     + " JOIN admin_role r ON r.id = ur.role_id WHERE u.status = 'ACTIVE' AND"
@@ -209,7 +209,7 @@ public class AdminUserController {
   private void validateRoles(List<String> roles) {
     if (roles == null || roles.isEmpty()) throw new IllegalArgumentException("至少需要分配一个角色");
     var count =
-        jdbcClient
+        mybatisClient
             .sql("SELECT COUNT(*) FROM admin_role WHERE role_code IN (:roles)")
             .param("roles", roles)
             .query(Long.class)
@@ -223,7 +223,7 @@ public class AdminUserController {
   }
 
   private boolean isAdmin(long id) {
-    return jdbcClient
+    return mybatisClient
             .sql(
                 "SELECT COUNT(*) FROM admin_user_role ur JOIN admin_role r ON r.id = ur.role_id"
                     + " WHERE ur.user_id = :id AND r.role_code = 'ADMIN'")
@@ -234,7 +234,7 @@ public class AdminUserController {
   }
 
   private void audit(String operator, String action, String resourceId) {
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO operation_audit (audit_id, operator_id, action, resource_type,"
                 + " resource_id, created_at) VALUES (:audit, :operator, :action, 'ADMIN_USER',"
@@ -243,7 +243,7 @@ public class AdminUserController {
         .param("operator", operator)
         .param("action", action)
         .param("resourceId", resourceId)
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .update();
   }
 

@@ -2,11 +2,11 @@ package com.example.payments.platform.service.interfaces.rest;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import java.sql.Timestamp;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.example.payments.platform.service.infrastructure.persistence.MybatisPlusClient;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,12 +23,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/v1/merchant-products")
 public class AdminMerchantProductController {
-  private final JdbcClient jdbcClient;
+  private final MybatisPlusClient mybatisClient;
   private final AdminMerchantAccessService accessService;
 
   public AdminMerchantProductController(
-      JdbcClient jdbcClient, AdminMerchantAccessService accessService) {
-    this.jdbcClient = jdbcClient;
+      MybatisPlusClient mybatisClient, AdminMerchantAccessService accessService) {
+    this.mybatisClient = mybatisClient;
     this.accessService = accessService;
   }
 
@@ -45,14 +45,14 @@ public class AdminMerchantProductController {
     var total =
         accessService
             .bindScope(
-                jdbcClient.sql("SELECT COUNT(*) FROM merchant_product mp WHERE " + where),
+                mybatisClient.sql("SELECT COUNT(*) FROM merchant_product mp WHERE " + where),
                 authentication)
             .query(Long.class)
             .single();
     var items =
         accessService
             .bindScope(
-                jdbcClient
+                mybatisClient
                     .sql(
                         "SELECT mp.binding_id, mp.merchant_id, m.name merchant_name,"
                             + " mp.product_code, p.name product_name, mp.status, mp.created_at,"
@@ -70,7 +70,7 @@ public class AdminMerchantProductController {
   }
 
   private List<MerchantProductResponse> all() {
-    return jdbcClient
+    return mybatisClient
         .sql(
             "SELECT mp.binding_id, mp.merchant_id, m.name merchant_name, mp.product_code, p.name"
                 + " product_name, mp.status, mp.created_at, mp.updated_at FROM merchant_product mp"
@@ -87,7 +87,7 @@ public class AdminMerchantProductController {
     var where = accessService.predicate(authentication, "mp");
     return accessService
         .bindScope(
-            jdbcClient
+            mybatisClient
                 .sql(
                     "SELECT mp.binding_id, mp.merchant_id, m.name merchant_name, mp.product_code,"
                         + " p.name product_name, mp.status, mp.created_at, mp.updated_at FROM"
@@ -111,7 +111,7 @@ public class AdminMerchantProductController {
     ensureActive("merchant", "merchant_id", request.merchantId());
     ensureActive("logical_product", "product_code", request.productCode());
     var duplicate =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT COUNT(*) FROM merchant_product WHERE merchant_id = :merchantId AND"
                     + " product_code = :productCode")
@@ -120,9 +120,9 @@ public class AdminMerchantProductController {
             .query(Long.class)
             .single();
     if (duplicate > 0) throw new IllegalArgumentException("商户已绑定该产品");
-    var now = Timestamp.from(Instant.now());
+    var now = Instant.now();
     var bindingId = UUID.randomUUID().toString();
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO merchant_product (binding_id, merchant_id, product_code, status,"
                 + " created_at, updated_at) VALUES (:bindingId, :merchantId, :productCode,"
@@ -148,7 +148,7 @@ public class AdminMerchantProductController {
     ensureActive("merchant", "merchant_id", request.merchantId());
     ensureActive("logical_product", "product_code", request.productCode());
     var duplicate =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT COUNT(*) FROM merchant_product WHERE merchant_id = :merchantId AND"
                     + " product_code = :productCode AND binding_id <> :bindingId")
@@ -159,13 +159,13 @@ public class AdminMerchantProductController {
             .single();
     if (duplicate > 0) throw new IllegalArgumentException("商户已绑定该产品");
     var changed =
-        jdbcClient
+        mybatisClient
             .sql(
                 "UPDATE merchant_product SET merchant_id = :merchantId, product_code ="
                     + " :productCode, updated_at = :now WHERE binding_id = :bindingId")
             .param("merchantId", request.merchantId())
             .param("productCode", request.productCode())
-            .param("now", Timestamp.from(Instant.now()))
+            .param("now", Instant.now())
             .param("bindingId", bindingId)
             .update();
     if (changed == 0) throw new IllegalArgumentException("商户产品绑定不存在: " + bindingId);
@@ -182,12 +182,12 @@ public class AdminMerchantProductController {
       Authentication authentication) {
     var current = detail(bindingId, authentication);
     accessService.assertAllowed(authentication, current.merchantId());
-    jdbcClient
+    mybatisClient
         .sql(
             "UPDATE merchant_product SET status = :status, updated_at = :now WHERE binding_id ="
                 + " :bindingId")
         .param("status", request.status())
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .param("bindingId", bindingId)
         .update();
     audit(authentication.getName(), "CHANGE_STATUS", bindingId);
@@ -195,7 +195,7 @@ public class AdminMerchantProductController {
 
   private void ensureActive(String table, String idColumn, String value) {
     var active =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT COUNT(*) FROM "
                     + table
@@ -209,7 +209,7 @@ public class AdminMerchantProductController {
   }
 
   private void audit(String operator, String action, String resourceId) {
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO operation_audit (audit_id, operator_id, action, resource_type,"
                 + " resource_id, created_at) VALUES (:audit, :operator, :action,"
@@ -218,7 +218,7 @@ public class AdminMerchantProductController {
         .param("operator", operator)
         .param("action", action)
         .param("resourceId", resourceId)
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .update();
   }
 

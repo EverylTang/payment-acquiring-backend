@@ -7,10 +7,10 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import java.math.BigDecimal;
-import java.sql.Timestamp;
+
 import java.time.Instant;
 import java.util.UUID;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.example.payments.platform.service.infrastructure.persistence.MybatisPlusClient;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,11 +27,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/v1/products/{productCode}/capabilities")
 public class AdminProductCapabilityController {
-  private final JdbcClient jdbcClient;
+  private final MybatisPlusClient mybatisClient;
   private final ObjectMapper objectMapper;
 
-  public AdminProductCapabilityController(JdbcClient jdbcClient, ObjectMapper objectMapper) {
-    this.jdbcClient = jdbcClient;
+  public AdminProductCapabilityController(MybatisPlusClient mybatisClient, ObjectMapper objectMapper) {
+    this.mybatisClient = mybatisClient;
     this.objectMapper = objectMapper;
   }
 
@@ -43,13 +43,13 @@ public class AdminProductCapabilityController {
     var currentPage = Math.max(page, 1);
     var size = Math.min(Math.max(pageSize, 1), 100);
     var total =
-        jdbcClient
+        mybatisClient
             .sql("SELECT COUNT(*) FROM product_capability WHERE product_code = :productCode")
             .param("productCode", productCode)
             .query(Long.class)
             .single();
     var items =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT capability_id, product_code, country, currency, payment_method, min_amount,"
                     + " max_amount, supports_refund, status FROM product_capability WHERE"
@@ -72,7 +72,7 @@ public class AdminProductCapabilityController {
     ensureProduct(productCode);
     ensureRange(request);
     var capabilityId = UUID.randomUUID().toString();
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO product_capability (capability_id, product_code, country, currency,"
                 + " payment_method, min_amount, max_amount, supports_refund, status) VALUES (:id,"
@@ -99,7 +99,7 @@ public class AdminProductCapabilityController {
       @Valid @RequestBody CapabilityRequest request,
       Authentication authentication) {
     ensureRange(request);
-    jdbcClient
+    mybatisClient
         .sql(
             "UPDATE product_capability SET country = :country, currency = :currency, payment_method"
                 + " = :method, min_amount = :min, max_amount = :max, supports_refund = :refund"
@@ -125,7 +125,7 @@ public class AdminProductCapabilityController {
       @PathVariable String capabilityId,
       @Valid @RequestBody StatusRequest request,
       Authentication authentication) {
-    jdbcClient
+    mybatisClient
         .sql(
             "UPDATE product_capability SET status = :status WHERE capability_id = :id AND"
                 + " product_code = :product")
@@ -138,7 +138,7 @@ public class AdminProductCapabilityController {
   }
 
   private CapabilityResponse detail(String capabilityId) {
-    return jdbcClient
+    return mybatisClient
         .sql(
             "SELECT capability_id, product_code, country, currency, payment_method, min_amount,"
                 + " max_amount, supports_refund, status FROM product_capability WHERE capability_id"
@@ -149,7 +149,7 @@ public class AdminProductCapabilityController {
   }
 
   private void ensureProduct(String productCode) {
-    if (jdbcClient
+    if (mybatisClient
             .sql("SELECT COUNT(*) FROM logical_product WHERE product_code = :code")
             .param("code", productCode)
             .query(Long.class)
@@ -163,7 +163,7 @@ public class AdminProductCapabilityController {
   }
 
   private void audit(String operator, String action, String id, Object payload) {
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO operation_audit (audit_id, operator_id, action, resource_type,"
                 + " resource_id, after_summary, created_at) VALUES (:audit, :operator, :action,"
@@ -173,7 +173,7 @@ public class AdminProductCapabilityController {
         .param("action", action)
         .param("id", id)
         .param("summary", json(payload))
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .update();
   }
 

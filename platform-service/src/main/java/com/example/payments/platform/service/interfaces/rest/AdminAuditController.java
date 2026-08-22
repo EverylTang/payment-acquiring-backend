@@ -1,7 +1,7 @@
 package com.example.payments.platform.service.interfaces.rest;
 
 import java.time.Instant;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.example.payments.platform.service.infrastructure.persistence.MybatisPlusClient;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,10 +12,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/admin/v1/audits")
 @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY')")
 public class AdminAuditController {
-  private final JdbcClient jdbcClient;
+  private final MybatisPlusClient mybatisClient;
 
-  public AdminAuditController(JdbcClient jdbcClient) {
-    this.jdbcClient = jdbcClient;
+  public AdminAuditController(MybatisPlusClient mybatisClient) {
+    this.mybatisClient = mybatisClient;
   }
 
   @GetMapping
@@ -30,14 +30,14 @@ public class AdminAuditController {
         "WHERE (:resourceType IS NULL OR resource_type = :resourceType) AND (:operatorId IS NULL OR"
             + " operator_id = :operatorId)";
     var total =
-        jdbcClient
+        mybatisClient
             .sql("SELECT COUNT(*) FROM operation_audit " + where)
             .param("resourceType", blankToNull(resourceType))
             .param("operatorId", blankToNull(operatorId))
             .query(Long.class)
             .single();
     var items =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT audit_id, operator_id, action, resource_type, resource_id, request_id,"
                     + " reason, before_summary, after_summary, created_at FROM operation_audit "

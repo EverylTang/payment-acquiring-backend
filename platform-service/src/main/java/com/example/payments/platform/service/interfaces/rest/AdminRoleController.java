@@ -2,12 +2,12 @@ package com.example.payments.platform.service.interfaces.rest;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import java.sql.Timestamp;
+
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.example.payments.platform.service.infrastructure.persistence.MybatisPlusClient;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,10 +23,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/admin/v1/roles")
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminRoleController {
-  private final JdbcClient jdbcClient;
+  private final MybatisPlusClient mybatisClient;
 
-  public AdminRoleController(JdbcClient jdbcClient) {
-    this.jdbcClient = jdbcClient;
+  public AdminRoleController(MybatisPlusClient mybatisClient) {
+    this.mybatisClient = mybatisClient;
   }
 
   @GetMapping
@@ -34,9 +34,9 @@ public class AdminRoleController {
       @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
     var currentPage = Math.max(page, 1);
     var size = Math.min(Math.max(pageSize, 1), 100);
-    var total = jdbcClient.sql("SELECT COUNT(*) FROM admin_role").query(Long.class).single();
+    var total = mybatisClient.sql("SELECT COUNT(*) FROM admin_role").query(Long.class).single();
     var items =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT id, role_code, role_name FROM admin_role ORDER BY role_code LIMIT :limit"
                     + " OFFSET :offset")
@@ -51,7 +51,7 @@ public class AdminRoleController {
   public RolePermissions permissions(@PathVariable String roleCode) {
     var roleId = roleId(roleCode);
     var permissionCodes =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT p.permission_code FROM admin_permission p JOIN admin_role_permission rp ON"
                     + " rp.permission_id = p.id WHERE rp.role_id = :roleId ORDER BY"
@@ -60,7 +60,7 @@ public class AdminRoleController {
             .query(String.class)
             .list();
     var menuCodes =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT m.menu_code FROM admin_menu m JOIN admin_role_menu rm ON rm.menu_id = m.id"
                     + " WHERE rm.role_id = :roleId ORDER BY m.sort_order, m.id")
@@ -79,11 +79,11 @@ public class AdminRoleController {
     var roleId = roleId(roleCode);
     validateCodes(request.menuCodes(), "menu_code", "admin_menu", "菜单");
     validateCodes(request.permissionCodes(), "permission_code", "admin_permission", "权限");
-    jdbcClient
+    mybatisClient
         .sql("DELETE FROM admin_role_menu WHERE role_id = :roleId")
         .param("roleId", roleId)
         .update();
-    jdbcClient
+    mybatisClient
         .sql("DELETE FROM admin_role_permission WHERE role_id = :roleId")
         .param("roleId", roleId)
         .update();
@@ -91,7 +91,7 @@ public class AdminRoleController {
         .menuCodes()
         .forEach(
             code ->
-                jdbcClient
+                mybatisClient
                     .sql(
                         "INSERT INTO admin_role_menu (role_id, menu_id) SELECT :roleId, id FROM"
                             + " admin_menu WHERE menu_code = :code")
@@ -102,14 +102,14 @@ public class AdminRoleController {
         .permissionCodes()
         .forEach(
             code ->
-                jdbcClient
+                mybatisClient
                     .sql(
                         "INSERT INTO admin_role_permission (role_id, permission_id) SELECT :roleId,"
                             + " id FROM admin_permission WHERE permission_code = :code")
                     .param("roleId", roleId)
                     .param("code", code)
                     .update());
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO operation_audit (audit_id, operator_id, action, resource_type,"
                 + " resource_id, created_at) VALUES (:audit, :operator, 'UPDATE_PERMISSION',"
@@ -117,13 +117,13 @@ public class AdminRoleController {
         .param("audit", UUID.randomUUID().toString())
         .param("operator", authentication.getName())
         .param("resourceId", roleCode)
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .update();
     return permissions(roleCode);
   }
 
   private long roleId(String roleCode) {
-    return jdbcClient
+    return mybatisClient
         .sql("SELECT id FROM admin_role WHERE role_code = :roleCode")
         .param("roleCode", roleCode)
         .query(Long.class)
@@ -136,7 +136,7 @@ public class AdminRoleController {
       throw new IllegalArgumentException(label + "编码不能为空且不能重复");
     }
     var activeCount =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT COUNT(*) FROM "
                     + table

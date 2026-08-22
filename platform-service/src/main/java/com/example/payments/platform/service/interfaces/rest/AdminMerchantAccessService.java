@@ -1,21 +1,21 @@
 package com.example.payments.platform.service.interfaces.rest;
 
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.example.payments.platform.service.infrastructure.persistence.MybatisPlusClient;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AdminMerchantAccessService {
-  private final JdbcClient jdbcClient;
+  private final MybatisPlusClient mybatisClient;
 
-  public AdminMerchantAccessService(JdbcClient jdbcClient) {
-    this.jdbcClient = jdbcClient;
+  public AdminMerchantAccessService(MybatisPlusClient mybatisClient) {
+    this.mybatisClient = mybatisClient;
   }
 
   public String predicate(Authentication authentication, String alias) {
     var username = authentication.getName();
     var hasAll =
-        jdbcClient
+        mybatisClient
                 .sql(
                     "SELECT COUNT(*) FROM admin_role_data_scope ds JOIN admin_role r ON r.id ="
                         + " ds.role_id JOIN admin_user_role ur ON ur.role_id = r.id JOIN admin_user"
@@ -31,15 +31,15 @@ public class AdminMerchantAccessService {
         + " admin_user u ON u.id = ums.user_id WHERE u.username = :scopeUsername)";
   }
 
-  public JdbcClient.StatementSpec bindScope(
-      JdbcClient.StatementSpec statement, Authentication authentication) {
+  public MybatisPlusClient.StatementSpec bindScope(
+      MybatisPlusClient.StatementSpec statement, Authentication authentication) {
     return statement.param("scopeUsername", authentication.getName());
   }
 
   public void assertAllowed(Authentication authentication, String merchantId) {
     var username = authentication.getName();
     var allowed =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT COUNT(*) FROM merchant m WHERE m.merchant_id = :merchantId AND (EXISTS"
                     + " (SELECT 1 FROM admin_user_role ur JOIN admin_role_data_scope ds ON"

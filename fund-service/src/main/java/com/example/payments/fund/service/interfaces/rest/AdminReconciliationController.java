@@ -1,7 +1,7 @@
 package com.example.payments.fund.service.interfaces.rest;
 
 import java.math.BigDecimal;
-import java.sql.Date;
+
 import java.time.LocalDate;
 import java.time.Instant;
 import java.util.List;
@@ -9,19 +9,19 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.UUID;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.example.payments.fund.service.infrastructure.persistence.MybatisPlusClient;
 import org.springframework.web.bind.annotation.*;
 import io.micrometer.core.instrument.MeterRegistry;
 
 @RestController
 @RequestMapping("/api/admin/v1/reconciliation")
 public class AdminReconciliationController {
-  private final JdbcClient jdbc;
+  private final MybatisPlusClient mybatisClient;
   private final AdminRequestAuthorizer auth;
   private final MeterRegistry metrics;
 
-  public AdminReconciliationController(JdbcClient jdbc, AdminRequestAuthorizer auth, MeterRegistry metrics) {
-    this.jdbc = jdbc;
+  public AdminReconciliationController(MybatisPlusClient mybatisClient, AdminRequestAuthorizer auth, MeterRegistry metrics) {
+    this.mybatisClient = mybatisClient;
     this.auth = auth;
     this.metrics = metrics;
   }
@@ -37,7 +37,7 @@ public class AdminReconciliationController {
         request.billId() == null || request.billId().isBlank()
             ? "bill-" + UUID.randomUUID()
             : request.billId();
-    jdbc.sql(
+    mybatisClient.sql(
             "INSERT INTO settlement_bill (bill_id, channel_id, bill_date, currency, total_amount,"
                 + " total_count, status, imported_at) VALUES"
                 + " (:id,:channel,:date,:currency,:amount,:count,'IMPORTED',:now) ON DUPLICATE KEY"
@@ -45,17 +45,17 @@ public class AdminReconciliationController {
                 + " status='IMPORTED'")
         .param("id", id)
         .param("channel", request.channelId())
-        .param("date", Date.valueOf(request.billDate()))
+        .param("date", request.billDate())
         .param("currency", request.currency())
         .param("amount", request.totalAmount())
         .param("count", request.totalCount())
-        .param("now", java.sql.Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .update();
-    jdbc.sql("DELETE FROM settlement_bill_line WHERE bill_id=:bill")
+    mybatisClient.sql("DELETE FROM settlement_bill_line WHERE bill_id=:bill")
         .param("bill", id).update();
     if (request.lines() != null) {
       for (BillLineRequest line : request.lines()) {
-        jdbc.sql("INSERT INTO settlement_bill_line (bill_id,channel_order_id,merchant_id,order_id,transaction_type,status,amount,currency) "
+        mybatisClient.sql("INSERT INTO settlement_bill_line (bill_id,channel_order_id,merchant_id,order_id,transaction_type,status,amount,currency) "
                 + "VALUES (:bill,:channelOrder,:merchant,:order,:type,:status,:amount,:currency)")
             .param("bill", id).param("channelOrder", line.channelOrderId())
             .param("merchant", line.merchantId()).param("order", line.orderId())
@@ -74,7 +74,7 @@ public class AdminReconciliationController {
     auth.authorize(token, user, roles);
     return Map.of(
         "items",
-        jdbc.sql(
+        mybatisClient.sql(
                 "SELECT * FROM reconciliation_difference WHERE status='OPEN' ORDER BY created_at"
                     + " DESC LIMIT 200")
             .query()
@@ -89,7 +89,7 @@ public class AdminReconciliationController {
       @RequestHeader("X-Roles") String roles) {
     auth.authorize(token, user, roles);
     var bill =
-        jdbc.sql("SELECT currency,total_amount,total_count,bill_date FROM settlement_bill WHERE bill_id=:id")
+        mybatisClient.sql("SELECT currency,total_amount,total_count,bill_date FROM settlement_bill WHERE bill_id=:id")
             .param("id", billId)
             .query((rs, row) -> {
               var result = new HashMap<String, Object>();
@@ -100,7 +100,7 @@ public class AdminReconciliationController {
               return result;
             })
             .single();
-    var lines = jdbc.sql("SELECT * FROM settlement_bill_line WHERE bill_id=:bill")
+    var lines = mybatisClient.sql("SELECT * FROM settlement_bill_line WHERE bill_id=:bill")
         .param("bill", billId).query().listOfRows();
     if (lines.isEmpty()) throw new IllegalArgumentException("账单缺少逐笔明细");
     var differences = new ArrayList<Map<String, Object>>();
@@ -108,7 +108,7 @@ public class AdminReconciliationController {
       String orderId = (String) line.get("order_id");
       String type = String.valueOf(line.get("transaction_type"));
       String expectedCurrency = String.valueOf(line.get("currency"));
-      var actualRows = orderId == null ? List.<Map<String, Object>>of() : jdbc.sql(
+      var actualRows = orderId == null ? List.<Map<String, Object>>of() : mybatisClient.sql(
           "SELECT * FROM ledger_entry WHERE order_id=:order AND entry_type=:entryType")
           .param("order", orderId)
           .param("entryType", "REFUND".equalsIgnoreCase(type) ? "REFUND_REVERSAL" : "PAYMENT_SUCCESS")
@@ -134,24 +134,24 @@ public class AdminReconciliationController {
     }
     // 平台有账本但渠道账单没有对应逐笔记录。
     var date = (LocalDate) bill.get("bill_date");
-    var platformOnly = jdbc.sql("SELECT order_id,amount FROM ledger_entry WHERE currency=:currency AND created_at >= :start AND created_at < :end AND entry_type IN ('PAYMENT_SUCCESS','REFUND_REVERSAL') AND order_id NOT IN (SELECT order_id FROM settlement_bill_line WHERE bill_id=:bill AND order_id IS NOT NULL)")
-        .param("currency", bill.get("currency")).param("start", Date.valueOf(date))
-        .param("end", Date.valueOf(date.plusDays(1))).param("bill", billId).query().listOfRows();
+    var platformOnly = mybatisClient.sql("SELECT order_id,amount FROM ledger_entry WHERE currency=:currency AND created_at >= :start AND created_at < :end AND entry_type IN ('PAYMENT_SUCCESS','REFUND_REVERSAL') AND order_id NOT IN (SELECT order_id FROM settlement_bill_line WHERE bill_id=:bill AND order_id IS NOT NULL)")
+        .param("currency", bill.get("currency")).param("start", date)
+        .param("end", date.plusDays(1)).param("bill", billId).query().listOfRows();
     for (var row : platformOnly) {
       recordDifference(billId, "PLATFORM_ONLY", (String) row.get("order_id"), null, (BigDecimal) row.get("amount"), "平台账本缺少渠道逐笔记录");
       differences.add(Map.of("orderId", String.valueOf(row.get("order_id")), "differenceType", "PLATFORM_ONLY"));
     }
     String status = differences.isEmpty() ? "MATCHED" : "DIFFERENCE";
-    jdbc.sql("UPDATE settlement_bill SET status=:status WHERE bill_id=:id").param("status", status).param("id", billId).update();
+    mybatisClient.sql("UPDATE settlement_bill SET status=:status WHERE bill_id=:id").param("status", status).param("id", billId).update();
     return Map.of("billId", billId, "status", status, "differenceCount", differences.size(), "differences", differences);
   }
 
   private void recordDifference(String billId, String type, String orderId, BigDecimal expected, BigDecimal actual, String reason) {
     var key = "diff-" + billId + "-" + type + "-" + (orderId == null ? "unknown" : orderId);
-    jdbc.sql("INSERT INTO reconciliation_difference (difference_id,bill_id,difference_type,order_id,expected_amount,actual_amount,status,reason,created_at) VALUES (:id,:bill,:type,:order,:expected,:actual,'OPEN',:reason,:now) ON DUPLICATE KEY UPDATE expected_amount=VALUES(expected_amount),actual_amount=VALUES(actual_amount),reason=VALUES(reason),status=IF(status='RESOLVED',status,'OPEN')")
+    mybatisClient.sql("INSERT INTO reconciliation_difference (difference_id,bill_id,difference_type,order_id,expected_amount,actual_amount,status,reason,created_at) VALUES (:id,:bill,:type,:order,:expected,:actual,'OPEN',:reason,:now) ON DUPLICATE KEY UPDATE expected_amount=VALUES(expected_amount),actual_amount=VALUES(actual_amount),reason=VALUES(reason),status=IF(status='RESOLVED',status,'OPEN')")
         .param("id", key).param("bill", billId).param("type", type).param("order", orderId)
         .param("expected", expected).param("actual", actual).param("reason", reason)
-        .param("now", java.sql.Timestamp.from(Instant.now())).update();
+        .param("now", Instant.now()).update();
   }
 
   @PostMapping("/differences/{differenceId}/resolve")
@@ -163,13 +163,13 @@ public class AdminReconciliationController {
       @RequestHeader("X-Roles") String roles) {
     auth.authorize(token, user, roles);
     var updated =
-        jdbc.sql(
+        mybatisClient.sql(
                 "UPDATE reconciliation_difference SET status='RESOLVED', reason=:reason,"
                     + " resolved_by=:operator, resolved_at=:now WHERE difference_id=:id AND"
                     + " status='OPEN'")
             .param("reason", request.reason())
             .param("operator", user)
-            .param("now", java.sql.Timestamp.from(Instant.now()))
+            .param("now", Instant.now())
             .param("id", differenceId)
             .update();
     if (updated != 1) throw new IllegalArgumentException("差异不存在或已处理");

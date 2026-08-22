@@ -6,12 +6,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.sql.Timestamp;
+
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.example.payments.platform.service.infrastructure.persistence.MybatisPlusClient;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,17 +27,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/v1/merchants/{merchantId}")
 public class AdminMerchantProfileController {
-  private final JdbcClient jdbcClient;
+  private final MybatisPlusClient mybatisClient;
 
-  public AdminMerchantProfileController(JdbcClient jdbcClient) {
-    this.jdbcClient = jdbcClient;
+  public AdminMerchantProfileController(MybatisPlusClient mybatisClient) {
+    this.mybatisClient = mybatisClient;
   }
 
   @GetMapping("/profile")
   @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY')")
   public ProfileResponse profile(@PathVariable String merchantId) {
     ensureMerchant(merchantId);
-    return jdbcClient
+    return mybatisClient
         .sql(
             "SELECT merchant_id, legal_name, registered_country, industry, risk_level,"
                 + " tax_identifier, created_at, updated_at FROM merchant_profile WHERE merchant_id"
@@ -56,8 +56,8 @@ public class AdminMerchantProfileController {
       @Valid @RequestBody ProfileRequest request,
       Authentication authentication) {
     ensureMerchant(merchantId);
-    var now = Timestamp.from(Instant.now());
-    jdbcClient
+    var now = Instant.now();
+    mybatisClient
         .sql(
             "INSERT INTO merchant_profile (merchant_id, legal_name, registered_country, industry,"
                 + " risk_level, tax_identifier, created_at, updated_at) VALUES (:merchantId,"
@@ -82,7 +82,7 @@ public class AdminMerchantProfileController {
   @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY')")
   public List<ContactResponse> contacts(@PathVariable String merchantId) {
     ensureMerchant(merchantId);
-    return jdbcClient
+    return mybatisClient
         .sql(
             "SELECT id, merchant_id, contact_type, contact_name, email, phone, notify_enabled,"
                 + " created_at, updated_at FROM merchant_contact WHERE merchant_id = :merchantId"
@@ -100,8 +100,8 @@ public class AdminMerchantProfileController {
       @Valid @RequestBody ContactRequest request,
       Authentication authentication) {
     ensureMerchant(merchantId);
-    var now = Timestamp.from(Instant.now());
-    jdbcClient
+    var now = Instant.now();
+    mybatisClient
         .sql(
             "INSERT INTO merchant_contact (merchant_id, contact_type, contact_name, email, phone,"
                 + " notify_enabled, created_at, updated_at) VALUES (:merchantId, :type, :name,"
@@ -131,7 +131,7 @@ public class AdminMerchantProfileController {
       Authentication authentication) {
     ensureMerchant(merchantId);
     var changed =
-        jdbcClient
+        mybatisClient
             .sql(
                 "UPDATE merchant_contact SET contact_type = :type, contact_name = :name, email ="
                     + " :email, phone = :phone, notify_enabled = :notify, updated_at = :now WHERE"
@@ -141,7 +141,7 @@ public class AdminMerchantProfileController {
             .param("email", request.email())
             .param("phone", request.phone())
             .param("notify", request.notifyEnabled())
-            .param("now", Timestamp.from(Instant.now()))
+            .param("now", Instant.now())
             .param("id", contactId)
             .param("merchantId", merchantId)
             .update();
@@ -161,8 +161,8 @@ public class AdminMerchantProfileController {
       @Valid @RequestBody CallbackRequest request,
       Authentication authentication) {
     ensureMerchant(merchantId);
-    var now = Timestamp.from(Instant.now());
-    jdbcClient
+    var now = Instant.now();
+    mybatisClient
         .sql(
             "INSERT INTO merchant_callback_config (merchant_id, callback_url, event_types, status,"
                 + " created_at, updated_at) VALUES (:merchantId, :url, :events, :status, :now,"
@@ -183,7 +183,7 @@ public class AdminMerchantProfileController {
   @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY')")
   public CallbackResponse callback(@PathVariable String merchantId) {
     ensureMerchant(merchantId);
-    return jdbcClient
+    return mybatisClient
         .sql(
             "SELECT merchant_id, callback_url, CAST(event_types AS CHAR) event_types, status,"
                 + " created_at, updated_at FROM merchant_callback_config WHERE merchant_id ="
@@ -198,7 +198,7 @@ public class AdminMerchantProfileController {
   @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   public List<CredentialResponse> credentials(@PathVariable String merchantId) {
     ensureMerchant(merchantId);
-    return jdbcClient
+    return mybatisClient
         .sql(
             "SELECT credential_id, merchant_id, credential_type, secret_hint, status, created_at,"
                 + " rotated_at, revoked_at FROM merchant_credential WHERE merchant_id = :merchantId"
@@ -220,8 +220,8 @@ public class AdminMerchantProfileController {
         UUID.randomUUID().toString().replace("-", "")
             + UUID.randomUUID().toString().replace("-", "");
     var credentialId = UUID.randomUUID().toString();
-    var now = Timestamp.from(Instant.now());
-    jdbcClient
+    var now = Instant.now();
+    mybatisClient
         .sql(
             "UPDATE merchant_credential SET status = 'REVOKED', revoked_at = :now WHERE merchant_id"
                 + " = :merchantId AND credential_type = :type AND status = 'ACTIVE'")
@@ -229,7 +229,7 @@ public class AdminMerchantProfileController {
         .param("type", request.credentialType())
         .param("now", now)
         .update();
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO merchant_credential (credential_id, merchant_id, credential_type,"
                 + " secret_hash, secret_hint, status, created_at, rotated_at) VALUES (:id,"
@@ -254,14 +254,14 @@ public class AdminMerchantProfileController {
       Authentication authentication) {
     ensureMerchant(merchantId);
     var changed =
-        jdbcClient
+        mybatisClient
             .sql(
                 "UPDATE merchant_credential SET status = 'REVOKED', revoked_at = :now WHERE"
                     + " credential_id = :credentialId AND merchant_id = :merchantId AND status ="
                     + " 'ACTIVE'")
             .param("credentialId", credentialId)
             .param("merchantId", merchantId)
-            .param("now", Timestamp.from(Instant.now()))
+            .param("now", Instant.now())
             .update();
     if (changed == 0) throw new IllegalArgumentException("有效凭证不存在: " + credentialId);
     audit(authentication.getName(), "REVOKE_CREDENTIAL", credentialId);
@@ -275,7 +275,7 @@ public class AdminMerchantProfileController {
       @PathVariable long contactId,
       Authentication authentication) {
     ensureMerchant(merchantId);
-    jdbcClient
+    mybatisClient
         .sql("DELETE FROM merchant_contact WHERE id = :id AND merchant_id = :merchantId")
         .param("id", contactId)
         .param("merchantId", merchantId)
@@ -284,7 +284,7 @@ public class AdminMerchantProfileController {
   }
 
   private void ensureMerchant(String merchantId) {
-    if (jdbcClient
+    if (mybatisClient
             .sql("SELECT COUNT(*) FROM merchant WHERE merchant_id = :merchantId")
             .param("merchantId", merchantId)
             .query(Long.class)
@@ -293,7 +293,7 @@ public class AdminMerchantProfileController {
   }
 
   private void audit(String operator, String action, String resourceId) {
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO operation_audit (audit_id, operator_id, action, resource_type,"
                 + " resource_id, created_at) VALUES (:audit, :operator, :action, 'MERCHANT',"
@@ -302,7 +302,7 @@ public class AdminMerchantProfileController {
         .param("operator", operator)
         .param("action", action)
         .param("resourceId", resourceId)
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .update();
   }
 

@@ -6,12 +6,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import java.sql.Timestamp;
+
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.example.payments.platform.service.infrastructure.persistence.MybatisPlusClient;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,15 +27,15 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/admin/v1/config-releases")
 public class ConfigReleaseController {
-  private final JdbcClient jdbcClient;
+  private final MybatisPlusClient mybatisClient;
   private final ObjectMapper objectMapper;
   private final ConfigurationSnapshotService snapshotService;
 
   public ConfigReleaseController(
-      JdbcClient jdbcClient,
+      MybatisPlusClient mybatisClient,
       ObjectMapper objectMapper,
       ConfigurationSnapshotService snapshotService) {
-    this.jdbcClient = jdbcClient;
+    this.mybatisClient = mybatisClient;
     this.objectMapper = objectMapper;
     this.snapshotService = snapshotService;
   }
@@ -45,9 +45,9 @@ public class ConfigReleaseController {
       @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
     var currentPage = Math.max(page, 1);
     var size = Math.min(Math.max(pageSize, 1), 100);
-    var total = jdbcClient.sql("SELECT COUNT(*) FROM config_release").query(Long.class).single();
+    var total = mybatisClient.sql("SELECT COUNT(*) FROM config_release").query(Long.class).single();
     var items =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT release_id, version_no, status, created_by, approved_by, published_at,"
                     + " created_at FROM config_release ORDER BY version_no DESC LIMIT :limit OFFSET"
@@ -65,12 +65,12 @@ public class ConfigReleaseController {
   public ReleaseResponse create(
       @Valid @RequestBody CreateReleaseRequest request, Authentication authentication) {
     var version =
-        jdbcClient
+        mybatisClient
             .sql("SELECT COALESCE(MAX(version_no), 0) + 1 FROM config_release FOR UPDATE")
             .query(Long.class)
             .single();
     var releaseId = "release-" + UUID.randomUUID();
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO config_release (release_id, version_no, status, config_json, created_by,"
                 + " created_at) VALUES (:releaseId, :version, 'DRAFT', :config, :createdBy,"
@@ -79,7 +79,7 @@ public class ConfigReleaseController {
         .param("version", version)
         .param("config", json(request.configuration()))
         .param("createdBy", authentication.getName())
-        .param("createdAt", Timestamp.from(Instant.now()))
+        .param("createdAt", Instant.now())
         .update();
     audit(authentication.getName(), "CREATE", releaseId, request.reason(), request.configuration());
     return find(releaseId);
@@ -131,9 +131,9 @@ public class ConfigReleaseController {
       @PathVariable String releaseId,
       @RequestBody ReasonRequest request,
       Authentication authentication) {
-    var publishedAt = Timestamp.from(Instant.now());
+    var publishedAt = Instant.now();
     var updated =
-        jdbcClient
+        mybatisClient
             .sql(
                 "UPDATE config_release SET status = 'PUBLISHED', published_at = :publishedAt WHERE"
                     + " release_id = :releaseId AND status = 'APPROVED'")
@@ -141,7 +141,7 @@ public class ConfigReleaseController {
             .param("releaseId", releaseId)
             .update();
     requireUpdated(updated);
-    jdbcClient
+    mybatisClient
         .sql(
             "UPDATE config_release SET status = 'DISABLED' WHERE release_id <> :releaseId AND"
                 + " status = 'PUBLISHED'")
@@ -160,7 +160,7 @@ public class ConfigReleaseController {
   public Map<String, Object> diff(@PathVariable String releaseId) {
     var release = rawConfig(releaseId);
     var previous =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT config_json FROM config_release WHERE version_no < :version ORDER BY"
                     + " version_no DESC LIMIT 1")
@@ -195,12 +195,12 @@ public class ConfigReleaseController {
       Authentication authentication) {
     var source = rawConfig(releaseId);
     var version =
-        jdbcClient
+        mybatisClient
             .sql("SELECT COALESCE(MAX(version_no), 0) + 1 FROM config_release FOR UPDATE")
             .query(Long.class)
             .single();
     var newId = "release-rollback-" + UUID.randomUUID();
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO config_release (release_id, version_no, status, config_json, created_by,"
                 + " created_at) VALUES (:id, :version, 'DRAFT', :config, :createdBy, :now)")
@@ -208,7 +208,7 @@ public class ConfigReleaseController {
         .param("version", version)
         .param("config", source.config())
         .param("createdBy", authentication.getName())
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .update();
     audit(
         authentication.getName(),
@@ -227,7 +227,7 @@ public class ConfigReleaseController {
             : "UPDATE config_release SET status = :to, approved_by = :approver WHERE release_id ="
                   + " :releaseId AND status = :from";
     var statement =
-        jdbcClient.sql(sql).param("to", to).param("releaseId", releaseId).param("from", from);
+        mybatisClient.sql(sql).param("to", to).param("releaseId", releaseId).param("from", from);
     if (approver != null) statement = statement.param("approver", approver);
     requireUpdated(statement.update());
   }
@@ -237,7 +237,7 @@ public class ConfigReleaseController {
   }
 
   private ReleaseResponse find(String releaseId) {
-    return jdbcClient
+    return mybatisClient
         .sql(
             "SELECT release_id, version_no, status, created_by, approved_by, published_at,"
                 + " created_at FROM config_release WHERE release_id = :releaseId")
@@ -247,7 +247,7 @@ public class ConfigReleaseController {
   }
 
   private RawConfig rawConfig(String releaseId) {
-    return jdbcClient
+    return mybatisClient
         .sql(
             "SELECT version_no, CAST(config_json AS CHAR) config_json FROM config_release WHERE"
                 + " release_id = :releaseId")
@@ -266,7 +266,7 @@ public class ConfigReleaseController {
 
   private void audit(
       String operator, String action, String releaseId, String reason, Object after) {
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO operation_audit (audit_id, operator_id, action, resource_type,"
                 + " resource_id, reason, after_summary, created_at) VALUES (:auditId, :operator,"
@@ -277,7 +277,7 @@ public class ConfigReleaseController {
         .param("resourceId", releaseId)
         .param("reason", reason)
         .param("after", json(after))
-        .param("createdAt", Timestamp.from(Instant.now()))
+        .param("createdAt", Instant.now())
         .update();
   }
 

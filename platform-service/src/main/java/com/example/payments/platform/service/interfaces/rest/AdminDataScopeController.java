@@ -4,11 +4,11 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
-import java.sql.Timestamp;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.example.payments.platform.service.infrastructure.persistence.MybatisPlusClient;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,10 +23,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/admin/v1/data-scopes")
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminDataScopeController {
-  private final JdbcClient jdbcClient;
+  private final MybatisPlusClient mybatisClient;
 
-  public AdminDataScopeController(JdbcClient jdbcClient) {
-    this.jdbcClient = jdbcClient;
+  public AdminDataScopeController(MybatisPlusClient mybatisClient) {
+    this.mybatisClient = mybatisClient;
   }
 
   @GetMapping("/roles/{roleCode}")
@@ -34,7 +34,7 @@ public class AdminDataScopeController {
     var roleId = roleId(roleCode);
     return new RoleScopeResponse(
         roleCode,
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT scope_type FROM admin_role_data_scope WHERE role_id = :roleId ORDER BY"
                     + " scope_type")
@@ -50,7 +50,7 @@ public class AdminDataScopeController {
       @Valid @RequestBody RoleScopeRequest request,
       Authentication authentication) {
     var roleId = roleId(roleCode);
-    jdbcClient
+    mybatisClient
         .sql("DELETE FROM admin_role_data_scope WHERE role_id = :roleId")
         .param("roleId", roleId)
         .update();
@@ -58,7 +58,7 @@ public class AdminDataScopeController {
         .scopeTypes()
         .forEach(
             scope ->
-                jdbcClient
+                mybatisClient
                     .sql(
                         "INSERT INTO admin_role_data_scope (role_id, scope_type) VALUES (:roleId,"
                             + " :scope)")
@@ -73,7 +73,7 @@ public class AdminDataScopeController {
   public UserScopeResponse user(@PathVariable long userId) {
     return new UserScopeResponse(
         userId,
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT merchant_id FROM admin_user_merchant_scope WHERE user_id = :userId ORDER BY"
                     + " merchant_id")
@@ -88,14 +88,14 @@ public class AdminDataScopeController {
       @PathVariable long userId,
       @Valid @RequestBody UserScopeRequest request,
       Authentication authentication) {
-    if (jdbcClient
+    if (mybatisClient
             .sql("SELECT COUNT(*) FROM admin_user WHERE id = :userId")
             .param("userId", userId)
             .query(Long.class)
             .single()
         == 0) throw new IllegalArgumentException("用户不存在: " + userId);
     var active =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT COUNT(*) FROM merchant WHERE merchant_id IN (:merchantIds) AND status ="
                     + " 'ACTIVE'")
@@ -103,7 +103,7 @@ public class AdminDataScopeController {
             .query(Long.class)
             .single();
     if (active != request.merchantIds().size()) throw new IllegalArgumentException("存在无效或停用商户");
-    jdbcClient
+    mybatisClient
         .sql("DELETE FROM admin_user_merchant_scope WHERE user_id = :userId")
         .param("userId", userId)
         .update();
@@ -111,7 +111,7 @@ public class AdminDataScopeController {
         .merchantIds()
         .forEach(
             merchantId ->
-                jdbcClient
+                mybatisClient
                     .sql(
                         "INSERT INTO admin_user_merchant_scope (user_id, merchant_id) VALUES"
                             + " (:userId, :merchantId)")
@@ -123,7 +123,7 @@ public class AdminDataScopeController {
   }
 
   private long roleId(String roleCode) {
-    return jdbcClient
+    return mybatisClient
         .sql("SELECT id FROM admin_role WHERE role_code = :roleCode")
         .param("roleCode", roleCode)
         .query(Long.class)
@@ -131,7 +131,7 @@ public class AdminDataScopeController {
   }
 
   private void audit(String operator, String action, String resourceId) {
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO operation_audit (audit_id, operator_id, action, resource_type,"
                 + " resource_id, created_at) VALUES (:audit, :operator, :action, 'DATA_SCOPE',"
@@ -140,7 +140,7 @@ public class AdminDataScopeController {
         .param("operator", operator)
         .param("action", action)
         .param("resourceId", resourceId)
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .update();
   }
 

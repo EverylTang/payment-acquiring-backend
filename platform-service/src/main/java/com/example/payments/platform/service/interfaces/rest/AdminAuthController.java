@@ -5,7 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.util.List;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.example.payments.platform.service.infrastructure.persistence.MybatisPlusClient;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,19 +19,19 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/admin/v1/auth")
 public class AdminAuthController {
-  private final JdbcClient jdbcClient;
+  private final MybatisPlusClient mybatisClient;
   private final PasswordEncoder passwordEncoder;
   private final JwtService jwtService;
 
-  public AdminAuthController(JdbcClient jdbcClient, PasswordEncoder passwordEncoder, JwtService jwtService) {
-    this.jdbcClient = jdbcClient;
+  public AdminAuthController(MybatisPlusClient mybatisClient, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    this.mybatisClient = mybatisClient;
     this.passwordEncoder = passwordEncoder;
     this.jwtService = jwtService;
   }
 
   @PostMapping("/login")
   public LoginResponse login(@Valid @RequestBody LoginRequest request) {
-    var user = jdbcClient.sql("SELECT id, username, password_hash, display_name FROM admin_user WHERE username = :username AND status = 'ACTIVE'")
+    var user = mybatisClient.sql("SELECT id, username, password_hash, display_name FROM admin_user WHERE username = :username AND status = 'ACTIVE'")
         .param("username", request.username())
         .query(UserRecord.class)
         .optional()
@@ -46,7 +46,7 @@ public class AdminAuthController {
 
   @GetMapping("/me")
   public CurrentUser me(Authentication authentication) {
-    var user = jdbcClient.sql("SELECT id, username, display_name FROM admin_user WHERE username = :username AND status = 'ACTIVE'")
+    var user = mybatisClient.sql("SELECT id, username, display_name FROM admin_user WHERE username = :username AND status = 'ACTIVE'")
         .param("username", authentication.getName())
         .query((rs, rowNum) -> new UserRecord(rs.getLong("id"), rs.getString("username"), "", rs.getString("display_name")))
         .single();
@@ -54,7 +54,7 @@ public class AdminAuthController {
   }
 
   private List<String> roles(long userId) {
-    return jdbcClient.sql("SELECT r.role_code FROM admin_role r JOIN admin_user_role ur ON ur.role_id = r.id WHERE ur.user_id = :userId")
+    return mybatisClient.sql("SELECT r.role_code FROM admin_role r JOIN admin_user_role ur ON ur.role_id = r.id WHERE ur.user_id = :userId")
         .param("userId", userId)
         .query(String.class)
         .list();

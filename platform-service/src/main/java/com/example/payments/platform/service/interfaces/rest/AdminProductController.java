@@ -5,10 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-import java.sql.Timestamp;
+
 import java.time.Instant;
 import java.util.UUID;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.example.payments.platform.service.infrastructure.persistence.MybatisPlusClient;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,12 +25,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/v1/products")
 public class AdminProductController {
-  private final JdbcClient jdbcClient;
+  private final MybatisPlusClient mybatisClient;
 
   private final ObjectMapper objectMapper;
 
-  public AdminProductController(JdbcClient jdbcClient, ObjectMapper objectMapper) {
-    this.jdbcClient = jdbcClient;
+  public AdminProductController(MybatisPlusClient mybatisClient, ObjectMapper objectMapper) {
+    this.mybatisClient = mybatisClient;
     this.objectMapper = objectMapper;
   }
 
@@ -41,9 +41,9 @@ public class AdminProductController {
     var currentPage = Math.max(page, 1);
     var size = Math.min(Math.max(pageSize, 1), 100);
     var offset = (currentPage - 1) * size;
-    var total = jdbcClient.sql("SELECT COUNT(*) FROM logical_product").query(Long.class).single();
+    var total = mybatisClient.sql("SELECT COUNT(*) FROM logical_product").query(Long.class).single();
     var items =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT product_code, name, status, created_at, updated_at FROM logical_product"
                     + " ORDER BY created_at DESC LIMIT :limit OFFSET :offset")
@@ -57,7 +57,7 @@ public class AdminProductController {
   @GetMapping("/{productCode}")
   @PreAuthorize("hasAuthority('product:detail')")
   public ProductResponse detail(@PathVariable String productCode) {
-    return jdbcClient
+    return mybatisClient
         .sql(
             "SELECT product_code, name, status, created_at, updated_at FROM logical_product WHERE"
                 + " product_code = :productCode")
@@ -71,8 +71,8 @@ public class AdminProductController {
   @Transactional
   public ProductResponse create(
       @Valid @RequestBody CreateRequest request, Authentication authentication) {
-    var now = Timestamp.from(Instant.now());
-    jdbcClient
+    var now = Instant.now();
+    mybatisClient
         .sql(
             "INSERT INTO logical_product (product_code, name, status, created_at, updated_at)"
                 + " VALUES (:code, :name, 'ACTIVE', :now, :now)")
@@ -91,12 +91,12 @@ public class AdminProductController {
       @PathVariable String productCode,
       @Valid @RequestBody UpdateRequest request,
       Authentication authentication) {
-    jdbcClient
+    mybatisClient
         .sql(
             "UPDATE logical_product SET name = :name, updated_at = :now WHERE product_code ="
                 + " :productCode")
         .param("name", request.name())
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .param("productCode", productCode)
         .update();
     audit(authentication.getName(), "UPDATE", productCode, request);
@@ -110,12 +110,12 @@ public class AdminProductController {
       @PathVariable String productCode,
       @Valid @RequestBody StatusRequest request,
       Authentication authentication) {
-    jdbcClient
+    mybatisClient
         .sql(
             "UPDATE logical_product SET status = :status, updated_at = :now WHERE product_code ="
                 + " :productCode")
         .param("status", request.status())
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .param("productCode", productCode)
         .update();
     audit(authentication.getName(), "CHANGE_STATUS", productCode, request);
@@ -123,7 +123,7 @@ public class AdminProductController {
   }
 
   private void audit(String operator, String action, String id, Object payload) {
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO operation_audit (audit_id, operator_id, action, resource_type,"
                 + " resource_id, after_summary, created_at) VALUES (:audit, :operator, :action,"
@@ -133,7 +133,7 @@ public class AdminProductController {
         .param("action", action)
         .param("id", id)
         .param("summary", json(payload))
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .update();
   }
 

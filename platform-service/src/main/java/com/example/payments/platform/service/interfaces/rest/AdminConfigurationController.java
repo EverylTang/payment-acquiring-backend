@@ -9,11 +9,11 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
-import java.sql.Timestamp;
+
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.example.payments.platform.service.infrastructure.persistence.MybatisPlusClient;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,11 +29,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/v1")
 public class AdminConfigurationController {
-  private final JdbcClient jdbcClient;
+  private final MybatisPlusClient mybatisClient;
   private final ObjectMapper objectMapper;
 
-  public AdminConfigurationController(JdbcClient jdbcClient, ObjectMapper objectMapper) {
-    this.jdbcClient = jdbcClient;
+  public AdminConfigurationController(MybatisPlusClient mybatisClient, ObjectMapper objectMapper) {
+    this.mybatisClient = mybatisClient;
     this.objectMapper = objectMapper;
   }
 
@@ -72,7 +72,7 @@ public class AdminConfigurationController {
     var q = pageQuery(page, pageSize);
     var total = count("channel", "1=1");
     var items =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT channel_id, name, provider, status, weight, config_json FROM channel ORDER"
                     + " BY created_at DESC LIMIT :limit OFFSET :offset")
@@ -96,8 +96,8 @@ public class AdminConfigurationController {
   @Transactional
   public void createChannel(
       @Valid @RequestBody ChannelRequest request, Authentication authentication) {
-    var now = Timestamp.from(Instant.now());
-    jdbcClient
+    var now = Instant.now();
+    mybatisClient
         .sql(
             "INSERT INTO channel (channel_id, name, provider, status, weight, config_json,"
                 + " created_at, updated_at) VALUES (:id, :name, :provider, 'ACTIVE', :weight,"
@@ -109,7 +109,7 @@ public class AdminConfigurationController {
         .param("config", json(request.configuration()))
         .param("now", now)
         .update();
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO channel_capability (capability_id, channel_id, country, currency,"
                 + " payment_method, min_amount, max_amount, status) VALUES (:id, :channel,"
@@ -142,7 +142,7 @@ public class AdminConfigurationController {
     var q = pageQuery(page, pageSize);
     var total = count("routing_rule", "1=1");
     var items =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT rule_id, release_version, product_code, merchant_id, payment_method,"
                     + " country, currency, channel_id, priority, weight, status FROM routing_rule"
@@ -160,7 +160,7 @@ public class AdminConfigurationController {
   public void createRoutingRule(
       @Valid @RequestBody RoutingRuleRequest request, Authentication authentication) {
     var version = draftVersion(request.releaseId());
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO routing_rule (rule_id, release_version, product_code, merchant_id,"
                 + " payment_method, country, currency, channel_id, priority, weight, status) VALUES"
@@ -186,7 +186,7 @@ public class AdminConfigurationController {
     var q = pageQuery(page, pageSize);
     var total = count("pricing_rule", "1=1");
     var items =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT rule_id, release_version, product_code, merchant_id, currency, fee_rate,"
                     + " fixed_fee, fee_mode, min_amount, max_amount, status FROM pricing_rule ORDER"
@@ -204,7 +204,7 @@ public class AdminConfigurationController {
   public void createPricingRule(
       @Valid @RequestBody PricingRuleRequest request, Authentication authentication) {
     var version = draftVersion(request.releaseId());
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO pricing_rule (rule_id, release_version, product_code, merchant_id,"
                 + " currency, fee_rate, fixed_fee, fee_mode, min_amount, max_amount, status) VALUES"
@@ -230,7 +230,7 @@ public class AdminConfigurationController {
     var q = pageQuery(page, pageSize);
     var total = count("risk_policy", "1=1");
     var items =
-        jdbcClient
+        mybatisClient
             .sql(
                 "SELECT policy_id, release_version, name, priority, decision, condition_json,"
                     + " status FROM risk_policy ORDER BY release_version DESC, priority LIMIT"
@@ -257,7 +257,7 @@ public class AdminConfigurationController {
   public void createRiskPolicy(
       @Valid @RequestBody RiskPolicyRequest request, Authentication authentication) {
     var version = draftVersion(request.releaseId());
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO risk_policy (policy_id, release_version, name, priority, decision,"
                 + " condition_json, status) VALUES (:id, :version, :name, :priority, :decision,"
@@ -273,7 +273,7 @@ public class AdminConfigurationController {
   }
 
   private long draftVersion(String releaseId) {
-    return jdbcClient
+    return mybatisClient
         .sql(
             "SELECT version_no FROM config_release WHERE release_id = :releaseId AND status ="
                 + " 'DRAFT'")
@@ -283,7 +283,7 @@ public class AdminConfigurationController {
   }
 
   private long count(String table, String condition) {
-    return jdbcClient
+    return mybatisClient
         .sql("SELECT COUNT(*) FROM " + table + " WHERE " + condition)
         .query(Long.class)
         .single();
@@ -305,7 +305,7 @@ public class AdminConfigurationController {
   }
 
   private void updateStatus(String table, String idColumn, String id, String status) {
-    jdbcClient
+    mybatisClient
         .sql(
             "UPDATE "
                 + table
@@ -313,13 +313,13 @@ public class AdminConfigurationController {
                 + idColumn
                 + " = :id")
         .param("status", status)
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .param("id", id)
         .update();
   }
 
   private void audit(String operator, String action, String type, String id, Object after) {
-    jdbcClient
+    mybatisClient
         .sql(
             "INSERT INTO operation_audit (audit_id, operator_id, action, resource_type,"
                 + " resource_id, after_summary, created_at) VALUES (:audit, :operator, :action,"
@@ -330,7 +330,7 @@ public class AdminConfigurationController {
         .param("type", type)
         .param("id", id)
         .param("after", json(after))
-        .param("now", Timestamp.from(Instant.now()))
+        .param("now", Instant.now())
         .update();
   }
 

@@ -97,6 +97,8 @@ docker exec -i local-mysql mysql -uroot -p < docs/database/payment-acquiring-com
 
 完整数据库 SQL（包括表结构、初始化数据和版本变更）位于 [`docs/database/payment-acquiring-complete.sql`](docs/database/payment-acquiring-complete.sql)，执行说明见 [`docs/database/README.md`](docs/database/README.md)。该入口会创建 `pay_platform`、`pay_trade`、`pay_fund` 和 `pay_audit` 数据库，并按服务 SQL 创建完整表结构和初始化数据。交易服务使用 `pay_trade.payment_order` 真实落库，资金服务使用 `pay_fund.ledger_entry` 真实落库。
 
+后端数据持久层统一使用 MyBatis-Plus，禁止新增 Spring JDBC/JdbcClient/JdbcTemplate 或直接 JDBC 访问；详细约定见 [`docs/persistence-guidelines.md`](docs/persistence-guidelines.md)。
+
 Redis 和 MySQL 的连接密码由 Nacos 配置中心统一管理，不再通过项目根目录的环境变量文件或环境变量配置。
 
 不要提交真实 `.env`、数据库密码、渠道密钥或商户 API Key。
