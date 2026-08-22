@@ -35,26 +35,21 @@ public class PaymentEventReplayAdminService {
   public PaymentEventConsumptionEntity find(long id) {
     var record = mapper.selectById(id);
     if (record == null)
-      throw new ResponseStatusException(
-          HttpStatus.NOT_FOUND, "payment event consumption not found");
+      throw new ResponseStatusException( HttpStatus.NOT_FOUND, "payment event consumption not found");
     return record;
   }
 
-  public PaymentEventConsumptionEntity replay(
-      long id, String operator, String reason, String requestId) {
+  public PaymentEventConsumptionEntity replay( long id, String operator, String reason, String requestId) {
     if (reason == null || reason.isBlank() || reason.length() > 512) {
-      throw new ResponseStatusException(
-          HttpStatus.BAD_REQUEST, "reason must contain 1 to 512 characters");
+      throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "reason must contain 1 to 512 characters");
     }
     var record = find(id);
     if ("CONFLICT".equals(record.getFailureType())) {
-      throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "conflicting payment events cannot be replayed");
+      throw new ResponseStatusException( HttpStatus.CONFLICT, "conflicting payment events cannot be replayed");
     }
     var now = LocalDateTime.now(ZoneOffset.UTC);
     if (mapper.requestReplay(id, now) != 1) {
-      throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "only failed payment events can be replayed");
+      throw new ResponseStatusException( HttpStatus.CONFLICT, "only failed payment events can be replayed");
     }
     mapper.insertReplayAudit(record.getEventId(), operator, reason.trim(), requestId, now);
     try {

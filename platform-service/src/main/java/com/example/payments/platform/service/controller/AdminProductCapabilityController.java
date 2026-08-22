@@ -29,8 +29,7 @@ public class AdminProductCapabilityController {
   private final PlatformDataService mybatisClient;
   private final ObjectMapper objectMapper;
 
-  public AdminProductCapabilityController(
-      PlatformDataService mybatisClient, ObjectMapper objectMapper) {
+  public AdminProductCapabilityController( PlatformDataService mybatisClient, ObjectMapper objectMapper) {
     this.mybatisClient = mybatisClient;
     this.objectMapper = objectMapper;
   }

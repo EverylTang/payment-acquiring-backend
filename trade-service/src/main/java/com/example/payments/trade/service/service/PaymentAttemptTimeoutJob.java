@@ -13,10 +13,7 @@ public class PaymentAttemptTimeoutJob {
   private final PaymentAttemptService service;
   private final AttemptQueryProperties properties;
 
-  public PaymentAttemptTimeoutJob(
-      PaymentAttemptRepository repository,
-      PaymentAttemptService service,
-      AttemptQueryProperties properties) {
+  public PaymentAttemptTimeoutJob( PaymentAttemptRepository repository, PaymentAttemptService service, AttemptQueryProperties properties) {
     this.repository = repository;
     this.service = service;
     this.properties = properties;

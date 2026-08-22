@@ -105,35 +105,30 @@ public class OrderController {
   }
 
   @GetMapping("/{orderId}/attempts/{attemptId}")
-  public Map<String, Object> getAttempt(
-      @PathVariable String orderId, @PathVariable String attemptId) {
+  public Map<String, Object> getAttempt( @PathVariable String orderId, @PathVariable String attemptId) {
     var attempt = paymentAttemptService.get(attemptId, orderId);
     return attemptResponse(attempt);
   }
 
   @PostMapping("/{orderId}/attempts/{attemptId}/query")
-  public Map<String, Object> queryAttempt(
-      @PathVariable String orderId, @PathVariable String attemptId) {
+  public Map<String, Object> queryAttempt( @PathVariable String orderId, @PathVariable String attemptId) {
     return attemptResponse(
         paymentAttemptService.query(paymentAttemptService.get(attemptId, orderId).attemptId()));
   }
 
   @PostMapping("/{orderId}/attempts/{attemptId}/cancel")
-  public Map<String, Object> cancelAttempt(
-      @PathVariable String orderId, @PathVariable String attemptId) {
+  public Map<String, Object> cancelAttempt( @PathVariable String orderId, @PathVariable String attemptId) {
     paymentAttemptService.get(attemptId, orderId);
     return attemptResponse(paymentAttemptService.cancel(attemptId));
   }
 
   @PostMapping("/{orderId}/attempts/{attemptId}/retry")
-  public Map<String, Object> retryAttempt(
-      @PathVariable String orderId, @PathVariable String attemptId) {
+  public Map<String, Object> retryAttempt( @PathVariable String orderId, @PathVariable String attemptId) {
     var order = orderService.get(orderId);
     return attemptResponse(paymentAttemptService.retry(attemptId, order));
   }
 
-  private static Map<String, Object> attemptResponse(
-      com.example.payments.trade.service.domain.PaymentAttempt attempt) {
+  private static Map<String, Object> attemptResponse( com.example.payments.trade.service.domain.PaymentAttempt attempt) {
     return Map.of(
         "attemptId",
         attempt.attemptId(),
@@ -167,6 +162,5 @@ public class OrderController {
         attempt.responseSnapshot());
   }
 
-  public record CallbackRequest(
-      @NotBlank String callbackId, @NotBlank String rawPayload, @NotBlank String signature) {}
+  public record CallbackRequest( @NotBlank String callbackId, @NotBlank String rawPayload, @NotBlank String signature) {}
 }

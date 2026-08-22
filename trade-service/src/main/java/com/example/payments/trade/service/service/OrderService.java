@@ -60,8 +60,7 @@ public class OrderService {
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "order not found"));
   }
 
-  public Map<String, Object> list(
-      String merchantId, String status, String currency, int page, int pageSize) {
+  public Map<String, Object> list( String merchantId, String status, String currency, int page, int pageSize) {
     if (page < 1 || pageSize < 1 || pageSize > 100)
       throw new IllegalArgumentException("invalid pagination");
     var items =

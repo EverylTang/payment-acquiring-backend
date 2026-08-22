@@ -17,8 +17,7 @@ public class AdminPaymentEventController {
   private final PaymentEventReplayAdminService service;
   private final AdminRequestAuthorizer authorizer;
 
-  public AdminPaymentEventController(
-      PaymentEventReplayAdminService service, AdminRequestAuthorizer authorizer) {
+  public AdminPaymentEventController( PaymentEventReplayAdminService service, AdminRequestAuthorizer authorizer) {
     this.service = service;
     this.authorizer = authorizer;
   }

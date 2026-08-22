@@ -147,8 +147,7 @@ public class AdminDataScopeController {
 
   public record UserScopeResponse(long userId, List<String> merchantIds) {}
 
-  public record RoleScopeRequest(
-      @NotEmpty List<@Pattern(regexp = "ALL|ASSIGNED|SELF") String> scopeTypes) {}
+  public record RoleScopeRequest( @NotEmpty List<@Pattern(regexp = "ALL|ASSIGNED|SELF") String> scopeTypes) {}
 
   public record UserScopeRequest(@NotNull List<String> merchantIds) {}
 }

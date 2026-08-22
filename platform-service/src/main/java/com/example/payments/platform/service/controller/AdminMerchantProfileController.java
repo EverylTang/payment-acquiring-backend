@@ -247,10 +247,7 @@ public class AdminMerchantProfileController {
   @PostMapping("/credentials/{credentialId}/revoke")
   @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   @Transactional
-  public void revokeCredential(
-      @PathVariable String merchantId,
-      @PathVariable String credentialId,
-      Authentication authentication) {
+  public void revokeCredential( @PathVariable String merchantId, @PathVariable String credentialId, Authentication authentication) {
     ensureMerchant(merchantId);
     var changed =
         mybatisClient
@@ -269,10 +266,7 @@ public class AdminMerchantProfileController {
   @DeleteMapping("/contacts/{contactId}")
   @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   @Transactional
-  public void deleteContact(
-      @PathVariable String merchantId,
-      @PathVariable long contactId,
-      Authentication authentication) {
+  public void deleteContact( @PathVariable String merchantId, @PathVariable long contactId, Authentication authentication) {
     ensureMerchant(merchantId);
     mybatisClient
         .sql("DELETE FROM merchant_contact WHERE id = :id AND merchant_id = :merchantId")
@@ -375,6 +369,5 @@ public class AdminMerchantProfileController {
       Instant rotatedAt,
       Instant revokedAt) {}
 
-  public record RotatedCredential(
-      String credentialId, String credentialType, String secret, Instant createdAt) {}
+  public record RotatedCredential( String credentialId, String credentialType, String secret, Instant createdAt) {}
 }

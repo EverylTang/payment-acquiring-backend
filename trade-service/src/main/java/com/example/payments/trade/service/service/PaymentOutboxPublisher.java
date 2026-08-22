@@ -15,10 +15,7 @@ public class PaymentOutboxPublisher {
   private final RocketMQTemplate rocketMQTemplate;
   private final OutboxProperties properties;
 
-  public PaymentOutboxPublisher(
-      PaymentOutboxEventRepository repository,
-      RocketMQTemplate rocketMQTemplate,
-      OutboxProperties properties) {
+  public PaymentOutboxPublisher( PaymentOutboxEventRepository repository, RocketMQTemplate rocketMQTemplate, OutboxProperties properties) {
     this.repository = repository;
     this.rocketMQTemplate = rocketMQTemplate;
     this.properties = properties;

@@ -48,6 +48,5 @@ public class AdminPermissionCatalogController {
       boolean visible,
       int sortOrder) {}
 
-  public record PermissionResponse(
-      String permissionCode, String permissionName, String resourceType, String status) {}
+  public record PermissionResponse( String permissionCode, String permissionName, String resourceType, String status) {}
 }

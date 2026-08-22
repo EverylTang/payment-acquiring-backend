@@ -63,8 +63,7 @@ public class PaymentAttemptRepository {
     return mapper.countByOrderId(orderId);
   }
 
-  public List<PaymentAttemptQueryClaim> claimQueryable(
-      Instant now, int maxQueryCount, int limit, long lockSeconds) {
+  public List<PaymentAttemptQueryClaim> claimQueryable( Instant now, int maxQueryCount, int limit, long lockSeconds) {
     return mapper.findQueryable(toLocal(now), maxQueryCount, limit).stream()
         .map(
             entity -> {
@@ -87,13 +86,11 @@ public class PaymentAttemptRepository {
         .toList();
   }
 
-  public boolean completeQuery(
-      String attemptId, String claimToken, Instant now, Instant nextQueryAt) {
+  public boolean completeQuery( String attemptId, String claimToken, Instant now, Instant nextQueryAt) {
     return mapper.completeQuery(attemptId, claimToken, toLocal(now), toLocal(nextQueryAt)) == 1;
   }
 
-  public boolean releaseQueryClaim(
-      String attemptId, String claimToken, Instant now, Instant nextQueryAt) {
+  public boolean releaseQueryClaim( String attemptId, String claimToken, Instant now, Instant nextQueryAt) {
     return mapper.releaseQueryClaim(attemptId, claimToken, toLocal(now), toLocal(nextQueryAt)) == 1;
   }
 
@@ -101,8 +98,7 @@ public class PaymentAttemptRepository {
     return update(expected, 0L, attempt);
   }
 
-  public boolean update(
-      PaymentAttemptStatus expected, long expectedVersion, PaymentAttempt attempt) {
+  public boolean update( PaymentAttemptStatus expected, long expectedVersion, PaymentAttempt attempt) {
     return mapper.updateAttempt(
             attempt.attemptId(),
             expected.name(),
@@ -130,8 +126,7 @@ public class PaymentAttemptRepository {
         e.getVersion());
   }
 
-  public record PaymentAttemptQueryClaim(
-      PaymentAttempt attempt, int queryCount, String claimToken) {}
+  public record PaymentAttemptQueryClaim( PaymentAttempt attempt, int queryCount, String claimToken) {}
 
   private static LocalDateTime toLocal(Instant value) {
     return value == null ? null : LocalDateTime.ofInstant(value, ZoneOffset.UTC);

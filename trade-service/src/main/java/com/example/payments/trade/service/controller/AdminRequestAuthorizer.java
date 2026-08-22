@@ -19,8 +19,7 @@ public class AdminRequestAuthorizer {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "invalid gateway credential");
     }
     if (userId == null || userId.isBlank()) {
-      throw new ResponseStatusException(
-          HttpStatus.UNAUTHORIZED, "administrator identity is required");
+      throw new ResponseStatusException( HttpStatus.UNAUTHORIZED, "administrator identity is required");
     }
     boolean allowed =
         roles != null

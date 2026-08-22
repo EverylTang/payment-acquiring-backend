@@ -16,8 +16,7 @@ public class ConfigurationController {
   private final ConfigurationSnapshotService snapshotService;
   private final PlatformDataService mybatisClient;
 
-  public ConfigurationController(
-      ConfigurationSnapshotService snapshotService, PlatformDataService mybatisClient) {
+  public ConfigurationController( ConfigurationSnapshotService snapshotService, PlatformDataService mybatisClient) {
     this.snapshotService = snapshotService;
     this.mybatisClient = mybatisClient;
   }

@@ -61,8 +61,7 @@ public class ConfigReleaseController {
   @PostMapping
   @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   @Transactional
-  public ReleaseResponse create(
-      @Valid @RequestBody CreateReleaseRequest request, Authentication authentication) {
+  public ReleaseResponse create( @Valid @RequestBody CreateReleaseRequest request, Authentication authentication) {
     var version =
         mybatisClient
             .sql("SELECT COALESCE(MAX(version_no), 0) + 1 FROM config_release FOR UPDATE")
@@ -87,10 +86,7 @@ public class ConfigReleaseController {
   @PostMapping("/{releaseId}/submit")
   @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   @Transactional
-  public ReleaseResponse submit(
-      @PathVariable String releaseId,
-      @Valid @RequestBody ReasonRequest request,
-      Authentication authentication) {
+  public ReleaseResponse submit( @PathVariable String releaseId, @Valid @RequestBody ReasonRequest request, Authentication authentication) {
     var release = find(releaseId);
     var errors = snapshotService.validate(release.versionNo());
     if (!errors.isEmpty()) {
@@ -109,10 +105,7 @@ public class ConfigReleaseController {
   @PostMapping("/{releaseId}/approve")
   @PreAuthorize("hasRole('ADMIN')")
   @Transactional
-  public ReleaseResponse approve(
-      @PathVariable String releaseId,
-      @RequestBody ReasonRequest request,
-      Authentication authentication) {
+  public ReleaseResponse approve( @PathVariable String releaseId, @RequestBody ReasonRequest request, Authentication authentication) {
     transition(releaseId, "IN_REVIEW", "APPROVED", authentication.getName());
     audit(
         authentication.getName(),
@@ -126,10 +119,7 @@ public class ConfigReleaseController {
   @PostMapping("/{releaseId}/publish")
   @PreAuthorize("hasRole('ADMIN')")
   @Transactional
-  public ReleaseResponse publish(
-      @PathVariable String releaseId,
-      @RequestBody ReasonRequest request,
-      Authentication authentication) {
+  public ReleaseResponse publish( @PathVariable String releaseId, @RequestBody ReasonRequest request, Authentication authentication) {
     var publishedAt = Instant.now();
     var updated =
         mybatisClient
@@ -188,10 +178,7 @@ public class ConfigReleaseController {
   @PostMapping("/{releaseId}/rollback")
   @PreAuthorize("hasRole('ADMIN')")
   @Transactional
-  public ReleaseResponse rollback(
-      @PathVariable String releaseId,
-      @Valid @RequestBody ReasonRequest request,
-      Authentication authentication) {
+  public ReleaseResponse rollback( @PathVariable String releaseId, @Valid @RequestBody ReasonRequest request, Authentication authentication) {
     var source = rawConfig(releaseId);
     var version =
         mybatisClient
@@ -263,8 +250,7 @@ public class ConfigReleaseController {
     }
   }
 
-  private void audit(
-      String operator, String action, String releaseId, String reason, Object after) {
+  private void audit( String operator, String action, String releaseId, String reason, Object after) {
     mybatisClient
         .sql(
             "INSERT INTO operation_audit (audit_id, operator_id, action, resource_type,"
@@ -288,8 +274,7 @@ public class ConfigReleaseController {
     }
   }
 
-  public record CreateReleaseRequest(
-      @NotNull Map<String, Object> configuration, @NotBlank String reason) {}
+  public record CreateReleaseRequest( @NotNull Map<String, Object> configuration, @NotBlank String reason) {}
 
   public record ReasonRequest(@NotBlank String reason) {}
 

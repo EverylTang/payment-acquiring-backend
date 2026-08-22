@@ -29,8 +29,7 @@ public class AdminRoleController {
   }
 
   @GetMapping
-  public AdminPageResponse<RoleResponse> list(
-      @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
+  public AdminPageResponse<RoleResponse> list( @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
     var currentPage = Math.max(page, 1);
     var size = Math.min(Math.max(pageSize, 1), 100);
     var total = mybatisClient.sql("SELECT COUNT(*) FROM admin_role").query(Long.class).single();
@@ -152,6 +151,5 @@ public class AdminRoleController {
 
   public record RolePermissions(List<String> menuCodes, List<String> permissionCodes) {}
 
-  public record PermissionUpdateRequest(
-      @NotNull List<String> menuCodes, @NotNull List<String> permissionCodes) {}
+  public record PermissionUpdateRequest( @NotNull List<String> menuCodes, @NotNull List<String> permissionCodes) {}
 }

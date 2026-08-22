@@ -31,8 +31,7 @@ public class AdminConfigurationController {
   private final PlatformDataService mybatisClient;
   private final ObjectMapper objectMapper;
 
-  public AdminConfigurationController(
-      PlatformDataService mybatisClient, ObjectMapper objectMapper) {
+  public AdminConfigurationController( PlatformDataService mybatisClient, ObjectMapper objectMapper) {
     this.mybatisClient = mybatisClient;
     this.objectMapper = objectMapper;
   }
@@ -94,8 +93,7 @@ public class AdminConfigurationController {
   @PostMapping("/channels")
   @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   @Transactional
-  public void createChannel(
-      @Valid @RequestBody ChannelRequest request, Authentication authentication) {
+  public void createChannel( @Valid @RequestBody ChannelRequest request, Authentication authentication) {
     var now = Instant.now();
     mybatisClient
         .sql(
@@ -128,10 +126,7 @@ public class AdminConfigurationController {
   @PutMapping("/channels/{channelId}/status")
   @PreAuthorize("hasRole('ADMIN')")
   @Transactional
-  public void updateChannelStatus(
-      @PathVariable String channelId,
-      @Valid @RequestBody StatusRequest request,
-      Authentication authentication) {
+  public void updateChannelStatus( @PathVariable String channelId, @Valid @RequestBody StatusRequest request, Authentication authentication) {
     updateStatus("channel", "channel_id", channelId, request.status());
     audit(authentication.getName(), "CHANGE_STATUS", "CHANNEL", channelId, request);
   }
@@ -157,8 +152,7 @@ public class AdminConfigurationController {
   @PostMapping("/routing-rules")
   @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   @Transactional
-  public void createRoutingRule(
-      @Valid @RequestBody RoutingRuleRequest request, Authentication authentication) {
+  public void createRoutingRule( @Valid @RequestBody RoutingRuleRequest request, Authentication authentication) {
     var version = draftVersion(request.releaseId());
     mybatisClient
         .sql(
@@ -201,8 +195,7 @@ public class AdminConfigurationController {
   @PostMapping("/pricing-rules")
   @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'FINANCE')")
   @Transactional
-  public void createPricingRule(
-      @Valid @RequestBody PricingRuleRequest request, Authentication authentication) {
+  public void createPricingRule( @Valid @RequestBody PricingRuleRequest request, Authentication authentication) {
     var version = draftVersion(request.releaseId());
     mybatisClient
         .sql(
@@ -254,8 +247,7 @@ public class AdminConfigurationController {
   @PostMapping("/risk-policies")
   @PreAuthorize("hasAnyRole('ADMIN', 'RISK')")
   @Transactional
-  public void createRiskPolicy(
-      @Valid @RequestBody RiskPolicyRequest request, Authentication authentication) {
+  public void createRiskPolicy( @Valid @RequestBody RiskPolicyRequest request, Authentication authentication) {
     var version = draftVersion(request.releaseId());
     mybatisClient
         .sql(

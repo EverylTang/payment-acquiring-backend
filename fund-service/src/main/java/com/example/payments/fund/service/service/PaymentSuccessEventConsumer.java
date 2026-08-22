@@ -166,8 +166,7 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
         || !merchantId.equals(record.getMerchantId())
         || !currency.equals(record.getCurrency())
         || amount.compareTo(record.getAmount()) != 0) {
-      throw new LedgerEntryApplicationService.LedgerConflictException(
-          "event consumption conflicts");
+      throw new LedgerEntryApplicationService.LedgerConflictException( "event consumption conflicts");
     }
   }
 

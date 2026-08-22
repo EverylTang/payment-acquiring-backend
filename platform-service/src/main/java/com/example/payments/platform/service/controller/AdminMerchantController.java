@@ -29,10 +29,7 @@ public class AdminMerchantController {
   private final AdminMerchantAccessService accessService;
   private final ObjectMapper objectMapper;
 
-  public AdminMerchantController(
-      PlatformDataService mybatisClient,
-      AdminMerchantAccessService accessService,
-      ObjectMapper objectMapper) {
+  public AdminMerchantController( PlatformDataService mybatisClient, AdminMerchantAccessService accessService, ObjectMapper objectMapper) {
     this.mybatisClient = mybatisClient;
     this.accessService = accessService;
     this.objectMapper = objectMapper;
@@ -100,8 +97,7 @@ public class AdminMerchantController {
   @PostMapping
   @PreAuthorize("hasAuthority('merchant:create')")
   @Transactional
-  public MerchantResponse create(
-      @Valid @RequestBody CreateRequest request, Authentication authentication) {
+  public MerchantResponse create( @Valid @RequestBody CreateRequest request, Authentication authentication) {
     var now = Instant.now();
     mybatisClient
         .sql(
@@ -119,10 +115,7 @@ public class AdminMerchantController {
   @PutMapping("/{merchantId}")
   @PreAuthorize("hasAuthority('merchant:update')")
   @Transactional
-  public MerchantResponse update(
-      @PathVariable String merchantId,
-      @Valid @RequestBody UpdateRequest request,
-      Authentication authentication) {
+  public MerchantResponse update( @PathVariable String merchantId, @Valid @RequestBody UpdateRequest request, Authentication authentication) {
     mybatisClient
         .sql(
             "UPDATE merchant SET name = :name, settlement_currency = :currency, updated_at = :now"
@@ -139,10 +132,7 @@ public class AdminMerchantController {
   @PatchMapping("/{merchantId}/status")
   @PreAuthorize("hasAuthority('merchant:status')")
   @Transactional
-  public MerchantResponse status(
-      @PathVariable String merchantId,
-      @Valid @RequestBody StatusRequest request,
-      Authentication authentication) {
+  public MerchantResponse status( @PathVariable String merchantId, @Valid @RequestBody StatusRequest request, Authentication authentication) {
     mybatisClient
         .sql(
             "UPDATE merchant SET status = :status, updated_at = :now WHERE merchant_id ="
@@ -178,13 +168,9 @@ public class AdminMerchantController {
     }
   }
 
-  public record CreateRequest(
-      @NotBlank String merchantId,
-      @NotBlank String name,
-      @Pattern(regexp = "[A-Z]{3}") String settlementCurrency) {}
+  public record CreateRequest( @NotBlank String merchantId, @NotBlank String name, @Pattern(regexp = "[A-Z]{3}") String settlementCurrency) {}
 
-  public record UpdateRequest(
-      @NotBlank String name, @Pattern(regexp = "[A-Z]{3}") String settlementCurrency) {}
+  public record UpdateRequest( @NotBlank String name, @Pattern(regexp = "[A-Z]{3}") String settlementCurrency) {}
 
   public record StatusRequest(@Pattern(regexp = "ACTIVE|DISABLED") String status) {}
 

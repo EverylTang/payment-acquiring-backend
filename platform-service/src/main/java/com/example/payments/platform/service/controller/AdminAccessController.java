@@ -54,8 +54,7 @@ public class AdminAccessController {
     return new AccessResponse(roles, menus, permissions);
   }
 
-  public record AccessResponse(
-      List<String> roles, List<MenuItem> menus, List<String> permissions) {}
+  public record AccessResponse( List<String> roles, List<MenuItem> menus, List<String> permissions) {}
 
   public record MenuItem(
       String menuCode,

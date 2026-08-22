@@ -22,8 +22,7 @@ public class AdminAuthController {
   private final PasswordEncoder passwordEncoder;
   private final JwtService jwtService;
 
-  public AdminAuthController(
-      PlatformDataService mybatisClient, PasswordEncoder passwordEncoder, JwtService jwtService) {
+  public AdminAuthController( PlatformDataService mybatisClient, PasswordEncoder passwordEncoder, JwtService jwtService) {
     this.mybatisClient = mybatisClient;
     this.passwordEncoder = passwordEncoder;
     this.jwtService = jwtService;
@@ -86,8 +85,7 @@ public class AdminAuthController {
 
   public record LoginRequest(@NotBlank String username, @NotBlank String password) {}
 
-  public record LoginResponse(
-      String accessToken, String tokenType, long expiresIn, CurrentUser user) {}
+  public record LoginResponse( String accessToken, String tokenType, long expiresIn, CurrentUser user) {}
 
   public record CurrentUser(String username, String displayName, List<String> roles) {}
 

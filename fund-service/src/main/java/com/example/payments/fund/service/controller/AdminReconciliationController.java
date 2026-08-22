@@ -19,8 +19,7 @@ public class AdminReconciliationController {
   private final AdminRequestAuthorizer auth;
   private final MeterRegistry metrics;
 
-  public AdminReconciliationController(
-      FundDataService mybatisClient, AdminRequestAuthorizer auth, MeterRegistry metrics) {
+  public AdminReconciliationController( FundDataService mybatisClient, AdminRequestAuthorizer auth, MeterRegistry metrics) {
     this.mybatisClient = mybatisClient;
     this.auth = auth;
     this.metrics = metrics;
@@ -211,13 +210,7 @@ public class AdminReconciliationController {
         differences);
   }
 
-  private void recordDifference(
-      String billId,
-      String type,
-      String orderId,
-      BigDecimal expected,
-      BigDecimal actual,
-      String reason) {
+  private void recordDifference( String billId, String type, String orderId, BigDecimal expected, BigDecimal actual, String reason) {
     var key = "diff-" + billId + "-" + type + "-" + (orderId == null ? "unknown" : orderId);
     mybatisClient
         .sql(

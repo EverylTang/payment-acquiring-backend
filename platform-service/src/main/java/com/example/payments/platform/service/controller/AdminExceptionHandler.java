@@ -48,8 +48,7 @@ public class AdminExceptionHandler {
     return response(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "服务暂时不可用");
   }
 
-  private ResponseEntity<Map<String, String>> response(
-      HttpStatus status, String code, String message) {
+  private ResponseEntity<Map<String, String>> response( HttpStatus status, String code, String message) {
     return ResponseEntity.status(status)
         .body(Map.of("code", code, "message", message == null ? "请求失败" : message));
   }

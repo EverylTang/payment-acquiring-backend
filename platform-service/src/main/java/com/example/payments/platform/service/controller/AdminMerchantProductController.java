@@ -26,8 +26,7 @@ public class AdminMerchantProductController {
   private final PlatformDataService mybatisClient;
   private final AdminMerchantAccessService accessService;
 
-  public AdminMerchantProductController(
-      PlatformDataService mybatisClient, AdminMerchantAccessService accessService) {
+  public AdminMerchantProductController( PlatformDataService mybatisClient, AdminMerchantAccessService accessService) {
     this.mybatisClient = mybatisClient;
     this.accessService = accessService;
   }
@@ -82,8 +81,7 @@ public class AdminMerchantProductController {
 
   @GetMapping("/{bindingId}")
   @PreAuthorize("hasAuthority('merchant-product:detail')")
-  public MerchantProductResponse detail(
-      @PathVariable String bindingId, Authentication authentication) {
+  public MerchantProductResponse detail( @PathVariable String bindingId, Authentication authentication) {
     var where = accessService.predicate(authentication, "mp");
     return accessService
         .bindScope(
@@ -105,8 +103,7 @@ public class AdminMerchantProductController {
   @PostMapping
   @PreAuthorize("hasAuthority('merchant-product:bind')")
   @Transactional
-  public MerchantProductResponse bind(
-      @Valid @RequestBody BindRequest request, Authentication authentication) {
+  public MerchantProductResponse bind( @Valid @RequestBody BindRequest request, Authentication authentication) {
     accessService.assertAllowed(authentication, request.merchantId());
     ensureActive("merchant", "merchant_id", request.merchantId());
     ensureActive("logical_product", "product_code", request.productCode());
@@ -176,10 +173,7 @@ public class AdminMerchantProductController {
   @PatchMapping("/{bindingId}/status")
   @PreAuthorize("hasAuthority('merchant-product:status')")
   @Transactional
-  public void changeStatus(
-      @PathVariable String bindingId,
-      @Valid @RequestBody StatusRequest request,
-      Authentication authentication) {
+  public void changeStatus( @PathVariable String bindingId, @Valid @RequestBody StatusRequest request, Authentication authentication) {
     var current = detail(bindingId, authentication);
     accessService.assertAllowed(authentication, current.merchantId());
     mybatisClient

@@ -69,8 +69,7 @@ public class AdminProductController {
   @PostMapping
   @PreAuthorize("hasAuthority('product:create')")
   @Transactional
-  public ProductResponse create(
-      @Valid @RequestBody CreateRequest request, Authentication authentication) {
+  public ProductResponse create( @Valid @RequestBody CreateRequest request, Authentication authentication) {
     var now = Instant.now();
     mybatisClient
         .sql(
@@ -87,10 +86,7 @@ public class AdminProductController {
   @PutMapping("/{productCode}")
   @PreAuthorize("hasAuthority('product:update')")
   @Transactional
-  public ProductResponse update(
-      @PathVariable String productCode,
-      @Valid @RequestBody UpdateRequest request,
-      Authentication authentication) {
+  public ProductResponse update( @PathVariable String productCode, @Valid @RequestBody UpdateRequest request, Authentication authentication) {
     mybatisClient
         .sql(
             "UPDATE logical_product SET name = :name, updated_at = :now WHERE product_code ="
@@ -106,10 +102,7 @@ public class AdminProductController {
   @PatchMapping("/{productCode}/status")
   @PreAuthorize("hasAuthority('product:status')")
   @Transactional
-  public ProductResponse status(
-      @PathVariable String productCode,
-      @Valid @RequestBody StatusRequest request,
-      Authentication authentication) {
+  public ProductResponse status( @PathVariable String productCode, @Valid @RequestBody StatusRequest request, Authentication authentication) {
     mybatisClient
         .sql(
             "UPDATE logical_product SET status = :status, updated_at = :now WHERE product_code ="
@@ -151,6 +144,5 @@ public class AdminProductController {
 
   public record StatusRequest(@Pattern(regexp = "ACTIVE|DISABLED") String status) {}
 
-  public record ProductResponse(
-      String productCode, String name, String status, Instant createdAt, Instant updatedAt) {}
+  public record ProductResponse( String productCode, String name, String status, Instant createdAt, Instant updatedAt) {}
 }

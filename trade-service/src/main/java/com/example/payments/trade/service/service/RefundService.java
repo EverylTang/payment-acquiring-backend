@@ -58,8 +58,7 @@ public class RefundService {
   }
 
   @Transactional
-  public PaymentRefundEntity create(
-      String orderId, String idempotencyKey, BigDecimal amount, String reason) {
+  public PaymentRefundEntity create( String orderId, String idempotencyKey, BigDecimal amount, String reason) {
     var order = orderService.get(orderId);
     if (!"SUCCESS".equals(order.status().name())) throw new IllegalStateException("只有支付成功订单允许退款");
     if (amount.signum() <= 0) throw new IllegalArgumentException("退款金额必须大于 0");

@@ -62,14 +62,12 @@ public class PaymentOrderRepository {
     return Optional.ofNullable(mapper.findByIdempotency(merchantId, key)).map(this::toDomain);
   }
 
-  public boolean updateStatus(
-      String orderId, OrderStatus expected, OrderStatus next, Instant paidAt) {
+  public boolean updateStatus( String orderId, OrderStatus expected, OrderStatus next, Instant paidAt) {
     return mapper.updateStatus(orderId, expected, next, paidAt == null ? null : toLocal(paidAt))
         == 1;
   }
 
-  public List<PaymentOrder> search(
-      String merchantId, String status, String currency, int page, int pageSize) {
+  public List<PaymentOrder> search( String merchantId, String status, String currency, int page, int pageSize) {
     var wrapper =
         new LambdaQueryWrapper<PaymentOrderEntity>()
             .eq(

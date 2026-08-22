@@ -17,8 +17,7 @@ public class AdminOutboxController {
   private final PaymentOutboxAdminService service;
   private final AdminRequestAuthorizer authorizer;
 
-  public AdminOutboxController(
-      PaymentOutboxAdminService service, AdminRequestAuthorizer authorizer) {
+  public AdminOutboxController( PaymentOutboxAdminService service, AdminRequestAuthorizer authorizer) {
     this.service = service;
     this.authorizer = authorizer;
   }

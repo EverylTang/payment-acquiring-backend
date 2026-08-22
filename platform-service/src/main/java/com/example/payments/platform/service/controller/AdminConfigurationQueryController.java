@@ -15,9 +15,7 @@ public class AdminConfigurationQueryController {
   private final ConfigurationSnapshotService snapshotService;
   private final ConfigurationController configurationController;
 
-  public AdminConfigurationQueryController(
-      ConfigurationSnapshotService snapshotService,
-      ConfigurationController configurationController) {
+  public AdminConfigurationQueryController( ConfigurationSnapshotService snapshotService, ConfigurationController configurationController) {
     this.snapshotService = snapshotService;
     this.configurationController = configurationController;
   }

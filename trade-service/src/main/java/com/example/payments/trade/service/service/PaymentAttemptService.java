@@ -260,8 +260,7 @@ public class PaymentAttemptService {
             null));
   }
 
-  private PaymentAttempt applyResult(
-      PaymentAttempt attempt, PaymentChannelAdapter.PaymentChannelResult result) {
+  private PaymentAttempt applyResult( PaymentAttempt attempt, PaymentChannelAdapter.PaymentChannelResult result) {
     var status = statusOf(result.status());
     var next =
         new PaymentAttempt(

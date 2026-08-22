@@ -46,10 +46,7 @@ public final class MybatisPlusClient {
     }
 
     public <T> Query<T> query(Class<T> type) {
-      return new Query<>(
-          runner.selectList(render(), params.values().toArray()).stream()
-              .map(row -> convert(row, type))
-              .toList());
+      return new Query<>( runner.selectList(render(), params.values().toArray()).stream() .map(row -> convert(row, type)) .toList());
     }
 
     public <T> Query<T> query(RowMapper<T> mapper) {

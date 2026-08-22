@@ -31,8 +31,7 @@ public class PaymentOutboxAdminService {
   }
 
   @Transactional
-  public PaymentOutboxEventEntity redrive(
-      String eventId, String operator, String reason, String requestId) {
+  public PaymentOutboxEventEntity redrive( String eventId, String operator, String reason, String requestId) {
     if (reason == null || reason.isBlank() || reason.length() > 512) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "redrive reason is required");
     }

@@ -31,8 +31,7 @@ public class AdminMerchantAccessService {
         + " admin_user u ON u.id = ums.user_id WHERE u.username = :scopeUsername)";
   }
 
-  public MybatisPlusClient.StatementSpec bindScope(
-      MybatisPlusClient.StatementSpec statement, Authentication authentication) {
+  public MybatisPlusClient.StatementSpec bindScope( MybatisPlusClient.StatementSpec statement, Authentication authentication) {
     return statement.param("scopeUsername", authentication.getName());
   }
 

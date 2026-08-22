@@ -35,12 +35,7 @@ public class PaymentCallbackRecordRepository {
     }
   }
 
-  public void markProcessed(
-      String callbackId,
-      String attemptId,
-      String channelOrderId,
-      String status,
-      Instant processedAt) {
+  public void markProcessed( String callbackId, String attemptId, String channelOrderId, String status, Instant processedAt) {
     var entity = mapper.findByCallbackId(callbackId);
     entity.setAttemptId(attemptId);
     entity.setChannelOrderId(channelOrderId);

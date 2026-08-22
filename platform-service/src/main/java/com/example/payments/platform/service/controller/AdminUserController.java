@@ -35,8 +35,7 @@ public class AdminUserController {
   }
 
   @GetMapping
-  public AdminPageResponse<UserResponse> list(
-      @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
+  public AdminPageResponse<UserResponse> list( @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
     var currentPage = Math.max(page, 1);
     var size = Math.min(Math.max(pageSize, 1), 100);
     var offset = (currentPage - 1) * size;
@@ -75,8 +74,7 @@ public class AdminUserController {
 
   @PostMapping
   @Transactional
-  public UserResponse create(
-      @Valid @RequestBody CreateUserRequest request, Authentication authentication) {
+  public UserResponse create( @Valid @RequestBody CreateUserRequest request, Authentication authentication) {
     validateRoles(request.roles());
     var now = Instant.now();
     mybatisClient
@@ -102,10 +100,7 @@ public class AdminUserController {
 
   @PutMapping("/{id}")
   @Transactional
-  public UserResponse update(
-      @PathVariable long id,
-      @Valid @RequestBody UpdateUserRequest request,
-      Authentication authentication) {
+  public UserResponse update( @PathVariable long id, @Valid @RequestBody UpdateUserRequest request, Authentication authentication) {
     validateRoles(request.roles());
     ensureAdminPreserved(id, request.roles());
     mybatisClient
@@ -122,10 +117,7 @@ public class AdminUserController {
 
   @PatchMapping("/{id}/status")
   @Transactional
-  public UserResponse changeStatus(
-      @PathVariable long id,
-      @Valid @RequestBody StatusRequest request,
-      Authentication authentication) {
+  public UserResponse changeStatus( @PathVariable long id, @Valid @RequestBody StatusRequest request, Authentication authentication) {
     if ("DISABLED".equals(request.status()) && isLastActiveAdmin(id)) {
       throw new IllegalStateException("不能禁用最后一个有效系统管理员");
     }
@@ -141,10 +133,7 @@ public class AdminUserController {
 
   @PostMapping("/{id}/reset-password")
   @Transactional
-  public void resetPassword(
-      @PathVariable long id,
-      @Valid @RequestBody ResetPasswordRequest request,
-      Authentication authentication) {
+  public void resetPassword( @PathVariable long id, @Valid @RequestBody ResetPasswordRequest request, Authentication authentication) {
     mybatisClient
         .sql(
             "UPDATE admin_user SET password_hash = :passwordHash, updated_at = :now WHERE id = :id")
@@ -157,10 +146,7 @@ public class AdminUserController {
 
   @PutMapping("/{id}/roles")
   @Transactional
-  public UserResponse updateRoles(
-      @PathVariable long id,
-      @Valid @RequestBody RoleUpdateRequest request,
-      Authentication authentication) {
+  public UserResponse updateRoles( @PathVariable long id, @Valid @RequestBody RoleUpdateRequest request, Authentication authentication) {
     username(id);
     validateRoles(request.roles());
     ensureAdminPreserved(id, request.roles());
@@ -260,6 +246,5 @@ public class AdminUserController {
 
   public record RoleUpdateRequest(List<String> roles) {}
 
-  public record UserResponse(
-      long id, String username, String displayName, String status, List<String> roles) {}
+  public record UserResponse( long id, String username, String displayName, String status, List<String> roles) {}
 }

@@ -64,13 +64,7 @@ public class RefundController {
 
   public record CallbackRequest(@NotBlank String status, @NotBlank String payload) {}
 
-  public record RefundResponse(
-      String refundId,
-      String orderId,
-      BigDecimal amount,
-      String currency,
-      String status,
-      String reason) {
+  public record RefundResponse( String refundId, String orderId, BigDecimal amount, String currency, String status, String reason) {
     static RefundResponse from(com.example.payments.trade.service.model.PaymentRefundEntity value) {
       return new RefundResponse(
           value.getRefundId(),

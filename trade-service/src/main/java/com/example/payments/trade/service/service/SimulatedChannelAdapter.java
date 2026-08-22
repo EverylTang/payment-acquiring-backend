@@ -11,9 +11,7 @@ import org.springframework.stereotype.Component;
 public class SimulatedChannelAdapter implements PaymentChannelAdapter {
   private final String signingSecret;
 
-  public SimulatedChannelAdapter(
-      @Value("${trade.channel.simulated.signing-secret:local-simulated-channel-secret}")
-          String signingSecret) {
+  public SimulatedChannelAdapter( @Value("${trade.channel.simulated.signing-secret:local-simulated-channel-secret}") String signingSecret) {
     this.signingSecret = signingSecret;
   }
 
@@ -48,20 +46,17 @@ public class SimulatedChannelAdapter implements PaymentChannelAdapter {
   @Override
   public PaymentChannelResult queryPayment(PaymentChannelQuery request) {
     String behavior = request.channelOrderId().contains("processing") ? "PROCESSING" : "SUCCESS";
-    return new PaymentChannelResult(
-        request.channelOrderId(), behavior, "{\"status\":\"" + behavior + "\"}", null, null);
+    return new PaymentChannelResult( request.channelOrderId(), behavior, "{\"status\":\"" + behavior + "\"}", null, null);
   }
 
   @Override
   public PaymentChannelResult cancelPayment(PaymentChannelQuery request) {
-    return new PaymentChannelResult(
-        request.channelOrderId(), "CANCELED", "{\"status\":\"CANCELED\"}", null, null);
+    return new PaymentChannelResult( request.channelOrderId(), "CANCELED", "{\"status\":\"CANCELED\"}", null, null);
   }
 
   @Override
   public PaymentRefundResult refundPayment(PaymentRefundRequest request) {
-    return new PaymentRefundResult(
-        "sim-refund-" + request.refundId(), "SUCCESS", "{\"status\":\"SUCCESS\"}", null);
+    return new PaymentRefundResult( "sim-refund-" + request.refundId(), "SUCCESS", "{\"status\":\"SUCCESS\"}", null);
   }
 
   @Override
@@ -76,8 +71,7 @@ public class SimulatedChannelAdapter implements PaymentChannelAdapter {
     String[] fields = request.rawPayload().split("\\|", -1);
     if (fields.length != 2 || fields[0].isBlank())
       throw new IllegalArgumentException("invalid refund callback payload");
-    return new PaymentRefundCallback(
-        request.callbackId(), fields[0], fields[1].toUpperCase(), request.rawPayload());
+    return new PaymentRefundCallback( request.callbackId(), fields[0], fields[1].toUpperCase(), request.rawPayload());
   }
 
   @Override
@@ -92,8 +86,7 @@ public class SimulatedChannelAdapter implements PaymentChannelAdapter {
     if (fields.length != 3 || fields[1].isBlank() || fields[2].isBlank()) {
       throw new IllegalArgumentException("invalid callback payload");
     }
-    return new PaymentCallback(
-        request.callbackId(), fields[0], fields[1].toUpperCase(), request.rawPayload());
+    return new PaymentCallback( request.callbackId(), fields[0], fields[1].toUpperCase(), request.rawPayload());
   }
 
   public String sign(String rawPayload) {

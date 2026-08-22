@@ -16,12 +16,7 @@ public class LedgerEntryApplicationService {
     this.mapper = mapper;
   }
 
-  public Result recordPaymentSuccess(
-      String idempotencyKey,
-      String orderId,
-      String merchantId,
-      BigDecimal amount,
-      String currency) {
+  public Result recordPaymentSuccess( String idempotencyKey, String orderId, String merchantId, BigDecimal amount, String currency) {
     var existing = mapper.findByIdempotency(idempotencyKey);
     if (existing != null) return verify(existing, orderId, merchantId, amount, currency, true);
     var entry = new LedgerEntryEntity();
@@ -45,8 +40,7 @@ public class LedgerEntryApplicationService {
     }
   }
 
-  public Result recordRefundReversal(
-      String refundId, String orderId, String merchantId, BigDecimal amount, String currency) {
+  public Result recordRefundReversal( String refundId, String orderId, String merchantId, BigDecimal amount, String currency) {
     var key = "refund-reversal:" + refundId;
     var existing = mapper.findByIdempotency(key);
     if (existing != null)
