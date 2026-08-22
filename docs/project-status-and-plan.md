@@ -21,7 +21,7 @@
 → Fund 幂等写入 ledger_entry
 ```
 
-截至 2026-08-22，平台与交易核心代码已基本落地，整体代码完成度约为 `90%～94%`，整体验收完成度约为 `78%～84%`。本轮已按优先级完成退款执行租约 CAS、退款事件消费记录、真实 Trade/Fund/MySQL/RocketMQ 支付成功 E2E、逐笔账单匹配与差异类型、Prometheus/OpenTelemetry 接入和 Testcontainers MySQL 验收测试；仍需具体供应商协议和故障注入环境闭环：
+截至 2026-08-22，平台与交易核心代码已基本落地，整体代码完成度约为 `90%～94%`，整体验收完成度约为 `80%～85%`。本轮已按优先级完成退款执行租约 CAS、退款事件消费记录、真实 Trade/Fund/MySQL/RocketMQ 支付成功 E2E、逐笔账单匹配与差异类型、Prometheus/OpenTelemetry 接入和 Testcontainers MySQL 验收测试；后端 `mvn test` 和前端 `npm run build` 均通过，并清理了构建产物、系统元数据和空包目录。仍需具体供应商协议和故障注入环境闭环：
 
 - Attempt CAS、Outbox 抢占与锁恢复、有限重试与 DEAD、Fund 消费记录和统一账务服务已完成核心实现。
 - Outbox 管理接口已具备查询、redrive、操作审计、Gateway 内部凭证和 ADMIN/OPS 角色保护；claim token 已完成代码实现，真实数据库验收仍未完成。

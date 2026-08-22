@@ -109,7 +109,7 @@ git push -u origin main
 
 当前已补充：Payment Attempt 查询与回调安全基础、Trade 到 Fund 的 Outbox/RocketMQ 可靠事件链路、退款执行/重试/回调幂等、Fund 退款冲正、账单导入和差异处置基础接口、运营后台 DLQ/对账页面。
 
-当前已在本地真实 MySQL/RocketMQ 完成支付成功 E2E（Trade Outbox -> RocketMQ -> Fund ledger），Fund Flyway 已执行至 V6，退款 CAS/事件消费幂等、逐笔对账差异分类、Prometheus/OpenTelemetry 配置和 Testcontainers 验收测试已补齐。仍需接入具体供应商退款协议，并在 CI/生产环境执行 `RUN_TESTCONTAINERS=true`、DLQ 故障注入、Broker/Trade/Fund 重启恢复和告警联调。
+当前已在本地真实 MySQL/RocketMQ 完成支付成功 E2E（Trade Outbox -> RocketMQ -> Fund ledger），Fund Flyway 已执行至 V6，退款 CAS/事件消费幂等、逐笔对账差异分类、Prometheus/OpenTelemetry 配置和 Testcontainers 验收测试已补齐。后端 `mvn test`、前端 `npm run build` 均通过；构建产物和系统元数据不纳入源码。仍需接入具体供应商退款协议，并在 CI/生产环境执行 `RUN_TESTCONTAINERS=true`、DLQ 故障注入、Broker/Trade/Fund 重启恢复和告警联调。
 
 创建订单示例：
 
