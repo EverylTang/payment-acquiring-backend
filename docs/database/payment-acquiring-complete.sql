@@ -14,118 +14,118 @@ USE pay_platform;
 -- PLATFORM SERVICE
 -- SOURCE: consolidated platform-service V1
 CREATE TABLE IF NOT EXISTS admin_user (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  username VARCHAR(64) NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  display_name VARCHAR(128) NOT NULL,
-  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
-  created_at DATETIME(3) NOT NULL,
-  updated_at DATETIME(3) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  username VARCHAR(64) NOT NULL COMMENT '登录用户名',
+  password_hash VARCHAR(255) NOT NULL COMMENT '密码哈希',
+  display_name VARCHAR(128) NOT NULL COMMENT '显示名称',
+  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '业务状态',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
   UNIQUE KEY uk_admin_username (username)
 );
 
 CREATE TABLE IF NOT EXISTS admin_role (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  role_code VARCHAR(64) NOT NULL,
-  role_name VARCHAR(128) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  role_code VARCHAR(64) NOT NULL COMMENT '角色编码',
+  role_name VARCHAR(128) NOT NULL COMMENT '角色名称',
   UNIQUE KEY uk_admin_role_code (role_code)
 );
 
 CREATE TABLE IF NOT EXISTS admin_user_role (
-  user_id BIGINT NOT NULL,
-  role_id BIGINT NOT NULL,
+  user_id BIGINT NOT NULL COMMENT '用户ID',
+  role_id BIGINT NOT NULL COMMENT '角色ID',
   PRIMARY KEY (user_id, role_id)
 );
 
 CREATE TABLE IF NOT EXISTS config_release (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  release_id VARCHAR(64) NOT NULL,
-  version_no BIGINT NOT NULL,
-  status VARCHAR(32) NOT NULL,
-  config_json JSON NOT NULL,
-  created_by VARCHAR(64) NOT NULL,
-  approved_by VARCHAR(64),
-  published_at DATETIME(3),
-  created_at DATETIME(3) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  release_id VARCHAR(64) NOT NULL COMMENT '发布ID',
+  version_no BIGINT NOT NULL COMMENT '版本编号',
+  status VARCHAR(32) NOT NULL COMMENT '业务状态',
+  config_json JSON NOT NULL COMMENT '配置JSON',
+  created_by VARCHAR(64) NOT NULL COMMENT '创建人',
+  approved_by VARCHAR(64) COMMENT '审批人',
+  published_at DATETIME(3) COMMENT '发布时间',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
   UNIQUE KEY uk_release_id (release_id),
   UNIQUE KEY uk_release_version (version_no)
 );
 
 CREATE TABLE IF NOT EXISTS merchant (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  merchant_id VARCHAR(64) NOT NULL,
-  name VARCHAR(128) NOT NULL,
-  status VARCHAR(16) NOT NULL,
-  settlement_currency VARCHAR(3) NOT NULL,
-  created_at DATETIME(3) NOT NULL,
-  updated_at DATETIME(3) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  merchant_id VARCHAR(64) NOT NULL COMMENT '商户ID',
+  name VARCHAR(128) NOT NULL COMMENT '名称',
+  status VARCHAR(16) NOT NULL COMMENT '业务状态',
+  settlement_currency VARCHAR(3) NOT NULL COMMENT '结算币种',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
   UNIQUE KEY uk_merchant_id (merchant_id)
 );
 
 CREATE TABLE IF NOT EXISTS logical_product (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  product_code VARCHAR(64) NOT NULL,
-  name VARCHAR(128) NOT NULL,
-  status VARCHAR(16) NOT NULL,
-  created_at DATETIME(3) NOT NULL,
-  updated_at DATETIME(3) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  product_code VARCHAR(64) NOT NULL COMMENT '产品编码',
+  name VARCHAR(128) NOT NULL COMMENT '名称',
+  status VARCHAR(16) NOT NULL COMMENT '业务状态',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
   UNIQUE KEY uk_product_code (product_code)
 );
 
 CREATE TABLE IF NOT EXISTS channel (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  channel_id VARCHAR(64) NOT NULL,
-  name VARCHAR(128) NOT NULL,
-  provider VARCHAR(64) NOT NULL,
-  status VARCHAR(16) NOT NULL,
-  weight INT NOT NULL DEFAULT 0,
-  config_json JSON NOT NULL,
-  created_at DATETIME(3) NOT NULL,
-  updated_at DATETIME(3) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  channel_id VARCHAR(64) NOT NULL COMMENT '渠道ID',
+  name VARCHAR(128) NOT NULL COMMENT '名称',
+  provider VARCHAR(64) NOT NULL COMMENT '服务商',
+  status VARCHAR(16) NOT NULL COMMENT '业务状态',
+  weight INT NOT NULL DEFAULT 0 COMMENT '权重',
+  config_json JSON NOT NULL COMMENT '配置JSON',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
   UNIQUE KEY uk_channel_id (channel_id)
 );
 
 CREATE TABLE IF NOT EXISTS routing_rule (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  rule_id VARCHAR(64) NOT NULL,
-  release_version BIGINT NOT NULL,
-  product_code VARCHAR(64) NOT NULL,
-  merchant_id VARCHAR(64),
-  payment_method VARCHAR(64) NOT NULL,
-  country VARCHAR(8),
-  currency VARCHAR(3) NOT NULL,
-  channel_id VARCHAR(64) NOT NULL,
-  priority INT NOT NULL,
-  weight INT NOT NULL,
-  status VARCHAR(16) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  rule_id VARCHAR(64) NOT NULL COMMENT '规则ID',
+  release_version BIGINT NOT NULL COMMENT '配置发布版本',
+  product_code VARCHAR(64) NOT NULL COMMENT '产品编码',
+  merchant_id VARCHAR(64) COMMENT '商户ID',
+  payment_method VARCHAR(64) NOT NULL COMMENT '支付方式',
+  country VARCHAR(8) COMMENT '国家或地区',
+  currency VARCHAR(3) NOT NULL COMMENT '币种',
+  channel_id VARCHAR(64) NOT NULL COMMENT '渠道ID',
+  priority INT NOT NULL COMMENT '优先级',
+  weight INT NOT NULL COMMENT '权重',
+  status VARCHAR(16) NOT NULL COMMENT '业务状态',
   UNIQUE KEY uk_routing_rule_id (rule_id)
 );
 
 CREATE TABLE IF NOT EXISTS pricing_rule (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  rule_id VARCHAR(64) NOT NULL,
-  release_version BIGINT NOT NULL,
-  product_code VARCHAR(64) NOT NULL,
-  merchant_id VARCHAR(64),
-  currency VARCHAR(3) NOT NULL,
-  fee_rate DECIMAL(10, 6) NOT NULL,
-  fixed_fee DECIMAL(20, 2) NOT NULL,
-  fee_mode VARCHAR(16) NOT NULL,
-  min_amount DECIMAL(20, 2),
-  max_amount DECIMAL(20, 2),
-  status VARCHAR(16) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  rule_id VARCHAR(64) NOT NULL COMMENT '规则ID',
+  release_version BIGINT NOT NULL COMMENT '配置发布版本',
+  product_code VARCHAR(64) NOT NULL COMMENT '产品编码',
+  merchant_id VARCHAR(64) COMMENT '商户ID',
+  currency VARCHAR(3) NOT NULL COMMENT '币种',
+  fee_rate DECIMAL(10, 6) NOT NULL COMMENT '费率',
+  fixed_fee DECIMAL(20, 2) NOT NULL COMMENT '固定手续费',
+  fee_mode VARCHAR(16) NOT NULL COMMENT '费率模式',
+  min_amount DECIMAL(20, 2) COMMENT '最小金额',
+  max_amount DECIMAL(20, 2) COMMENT '最大金额',
+  status VARCHAR(16) NOT NULL COMMENT '业务状态',
   UNIQUE KEY uk_pricing_rule_id (rule_id)
 );
 
 CREATE TABLE IF NOT EXISTS risk_policy (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  policy_id VARCHAR(64) NOT NULL,
-  release_version BIGINT NOT NULL,
-  name VARCHAR(128) NOT NULL,
-  priority INT NOT NULL,
-  decision VARCHAR(16) NOT NULL,
-  condition_json JSON NOT NULL,
-  status VARCHAR(16) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  policy_id VARCHAR(64) NOT NULL COMMENT '策略ID',
+  release_version BIGINT NOT NULL COMMENT '配置发布版本',
+  name VARCHAR(128) NOT NULL COMMENT '名称',
+  priority INT NOT NULL COMMENT '优先级',
+  decision VARCHAR(16) NOT NULL COMMENT '风控决策',
+  condition_json JSON NOT NULL COMMENT '风控条件配置',
+  status VARCHAR(16) NOT NULL COMMENT '业务状态',
   UNIQUE KEY uk_risk_policy_id (policy_id)
 );
 
@@ -134,17 +134,17 @@ INSERT IGNORE INTO admin_role (role_code, role_name) VALUES
 
 -- SOURCE: consolidated platform-service V2
 CREATE TABLE IF NOT EXISTS operation_audit (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  audit_id VARCHAR(64) NOT NULL,
-  operator_id VARCHAR(64) NOT NULL,
-  action VARCHAR(64) NOT NULL,
-  resource_type VARCHAR(64) NOT NULL,
-  resource_id VARCHAR(64) NOT NULL,
-  request_id VARCHAR(128),
-  reason VARCHAR(512),
-  before_summary JSON,
-  after_summary JSON,
-  created_at DATETIME(3) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  audit_id VARCHAR(64) NOT NULL COMMENT '审计ID',
+  operator_id VARCHAR(64) NOT NULL COMMENT '操作人ID',
+  action VARCHAR(64) NOT NULL COMMENT '操作动作',
+  resource_type VARCHAR(64) NOT NULL COMMENT '资源类型',
+  resource_id VARCHAR(64) NOT NULL COMMENT '资源ID',
+  request_id VARCHAR(128) COMMENT '请求ID',
+  reason VARCHAR(512) COMMENT '原因说明',
+  before_summary JSON COMMENT '操作前摘要',
+  after_summary JSON COMMENT '操作后摘要',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
   UNIQUE KEY uk_audit_id (audit_id),
   KEY idx_audit_resource (resource_type, resource_id, created_at),
   KEY idx_audit_operator (operator_id, created_at)
@@ -152,42 +152,42 @@ CREATE TABLE IF NOT EXISTS operation_audit (
 
 -- SOURCE: consolidated platform-service V3
 CREATE TABLE IF NOT EXISTS product_capability (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  capability_id VARCHAR(64) NOT NULL,
-  product_code VARCHAR(64) NOT NULL,
-  country VARCHAR(8) NOT NULL,
-  currency VARCHAR(3) NOT NULL,
-  payment_method VARCHAR(64) NOT NULL,
-  min_amount DECIMAL(20, 2) NOT NULL,
-  max_amount DECIMAL(20, 2) NOT NULL,
-  supports_refund BOOLEAN NOT NULL DEFAULT FALSE,
-  status VARCHAR(16) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  capability_id VARCHAR(64) NOT NULL COMMENT '能力ID',
+  product_code VARCHAR(64) NOT NULL COMMENT '产品编码',
+  country VARCHAR(8) NOT NULL COMMENT '国家或地区',
+  currency VARCHAR(3) NOT NULL COMMENT '币种',
+  payment_method VARCHAR(64) NOT NULL COMMENT '支付方式',
+  min_amount DECIMAL(20, 2) NOT NULL COMMENT '最小金额',
+  max_amount DECIMAL(20, 2) NOT NULL COMMENT '最大金额',
+  supports_refund BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否支持退款',
+  status VARCHAR(16) NOT NULL COMMENT '业务状态',
   UNIQUE KEY uk_product_capability_id (capability_id),
   UNIQUE KEY uk_product_capability_scope (product_code, country, currency, payment_method)
 );
 
 CREATE TABLE IF NOT EXISTS merchant_product (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  binding_id VARCHAR(64) NOT NULL,
-  merchant_id VARCHAR(64) NOT NULL,
-  product_code VARCHAR(64) NOT NULL,
-  status VARCHAR(16) NOT NULL,
-  created_at DATETIME(3) NOT NULL,
-  updated_at DATETIME(3) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  binding_id VARCHAR(64) NOT NULL COMMENT '绑定ID',
+  merchant_id VARCHAR(64) NOT NULL COMMENT '商户ID',
+  product_code VARCHAR(64) NOT NULL COMMENT '产品编码',
+  status VARCHAR(16) NOT NULL COMMENT '业务状态',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
   UNIQUE KEY uk_merchant_product_id (binding_id),
   UNIQUE KEY uk_merchant_product_scope (merchant_id, product_code)
 );
 
 CREATE TABLE IF NOT EXISTS channel_capability (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  capability_id VARCHAR(64) NOT NULL,
-  channel_id VARCHAR(64) NOT NULL,
-  country VARCHAR(8) NOT NULL,
-  currency VARCHAR(3) NOT NULL,
-  payment_method VARCHAR(64) NOT NULL,
-  min_amount DECIMAL(20, 2) NOT NULL,
-  max_amount DECIMAL(20, 2) NOT NULL,
-  status VARCHAR(16) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  capability_id VARCHAR(64) NOT NULL COMMENT '能力ID',
+  channel_id VARCHAR(64) NOT NULL COMMENT '渠道ID',
+  country VARCHAR(8) NOT NULL COMMENT '国家或地区',
+  currency VARCHAR(3) NOT NULL COMMENT '币种',
+  payment_method VARCHAR(64) NOT NULL COMMENT '支付方式',
+  min_amount DECIMAL(20, 2) NOT NULL COMMENT '最小金额',
+  max_amount DECIMAL(20, 2) NOT NULL COMMENT '最大金额',
+  status VARCHAR(16) NOT NULL COMMENT '业务状态',
   UNIQUE KEY uk_channel_capability_id (capability_id),
   UNIQUE KEY uk_channel_capability_scope (channel_id, country, currency, payment_method)
 );
@@ -224,43 +224,43 @@ VALUES ('risk-initial', 1, '默认放行策略', 1000, 'PASS', JSON_OBJECT('prod
 
 -- SOURCE: consolidated platform-service V4
 CREATE TABLE IF NOT EXISTS admin_menu (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  parent_id BIGINT NOT NULL DEFAULT 0,
-  menu_code VARCHAR(128) NOT NULL,
-  menu_name VARCHAR(128) NOT NULL,
-  menu_type VARCHAR(16) NOT NULL,
-  route_path VARCHAR(255),
-  component_key VARCHAR(255),
-  icon VARCHAR(64),
-  sort_order INT NOT NULL DEFAULT 0,
-  visible BOOLEAN NOT NULL DEFAULT TRUE,
-  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
-  created_at DATETIME(3) NOT NULL,
-  updated_at DATETIME(3) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  parent_id BIGINT NOT NULL DEFAULT 0 COMMENT '父级ID',
+  menu_code VARCHAR(128) NOT NULL COMMENT '菜单编码',
+  menu_name VARCHAR(128) NOT NULL COMMENT '菜单名称',
+  menu_type VARCHAR(16) NOT NULL COMMENT '菜单类型',
+  route_path VARCHAR(255) COMMENT '路由路径',
+  component_key VARCHAR(255) COMMENT '组件标识',
+  icon VARCHAR(64) COMMENT '菜单图标',
+  sort_order INT NOT NULL DEFAULT 0 COMMENT '排序序号',
+  visible BOOLEAN NOT NULL DEFAULT TRUE COMMENT '是否显示',
+  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '业务状态',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
   UNIQUE KEY uk_admin_menu_code (menu_code),
   KEY idx_admin_menu_parent (parent_id, sort_order)
 );
 
 CREATE TABLE IF NOT EXISTS admin_permission (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  permission_code VARCHAR(128) NOT NULL,
-  permission_name VARCHAR(128) NOT NULL,
-  resource_type VARCHAR(64) NOT NULL,
-  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
-  created_at DATETIME(3) NOT NULL,
-  updated_at DATETIME(3) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  permission_code VARCHAR(128) NOT NULL COMMENT '权限编码',
+  permission_name VARCHAR(128) NOT NULL COMMENT '权限名称',
+  resource_type VARCHAR(64) NOT NULL COMMENT '资源类型',
+  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '业务状态',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
   UNIQUE KEY uk_admin_permission_code (permission_code)
 );
 
 CREATE TABLE IF NOT EXISTS admin_role_menu (
-  role_id BIGINT NOT NULL,
-  menu_id BIGINT NOT NULL,
+  role_id BIGINT NOT NULL COMMENT '角色ID',
+  menu_id BIGINT NOT NULL COMMENT '菜单ID',
   PRIMARY KEY (role_id, menu_id)
 );
 
 CREATE TABLE IF NOT EXISTS admin_role_permission (
-  role_id BIGINT NOT NULL,
-  permission_id BIGINT NOT NULL,
+  role_id BIGINT NOT NULL COMMENT '角色ID',
+  permission_id BIGINT NOT NULL COMMENT '权限ID',
   PRIMARY KEY (role_id, permission_id)
 );
 
@@ -342,50 +342,50 @@ SELECT r.id, m.id FROM admin_role r JOIN admin_menu m ON m.menu_code = 'system:r
 
 -- SOURCE: consolidated platform-service V7
 CREATE TABLE IF NOT EXISTS merchant_profile (
-  merchant_id VARCHAR(64) PRIMARY KEY,
-  legal_name VARCHAR(256) NOT NULL,
-  registered_country VARCHAR(8) NOT NULL,
-  industry VARCHAR(128),
-  risk_level VARCHAR(16) NOT NULL DEFAULT 'MEDIUM',
-  tax_identifier VARCHAR(128),
-  created_at DATETIME(3) NOT NULL,
-  updated_at DATETIME(3) NOT NULL
+  merchant_id VARCHAR(64) PRIMARY KEY COMMENT '商户ID',
+  legal_name VARCHAR(256) NOT NULL COMMENT '法定名称',
+  registered_country VARCHAR(8) NOT NULL COMMENT '注册国家或地区',
+  industry VARCHAR(128) COMMENT '所属行业',
+  risk_level VARCHAR(16) NOT NULL DEFAULT 'MEDIUM' COMMENT '风险等级',
+  tax_identifier VARCHAR(128) COMMENT '税务识别号',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  updated_at DATETIME(3) NOT NULL COMMENT '更新时间'
 );
 
 CREATE TABLE IF NOT EXISTS merchant_contact (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  merchant_id VARCHAR(64) NOT NULL,
-  contact_type VARCHAR(32) NOT NULL,
-  contact_name VARCHAR(128) NOT NULL,
-  email VARCHAR(256),
-  phone VARCHAR(64),
-  notify_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at DATETIME(3) NOT NULL,
-  updated_at DATETIME(3) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  merchant_id VARCHAR(64) NOT NULL COMMENT '商户ID',
+  contact_type VARCHAR(32) NOT NULL COMMENT '联系人类型',
+  contact_name VARCHAR(128) NOT NULL COMMENT '联系人姓名',
+  email VARCHAR(256) COMMENT '邮箱地址',
+  phone VARCHAR(64) COMMENT '电话号码',
+  notify_enabled BOOLEAN NOT NULL DEFAULT TRUE COMMENT '是否启用通知',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
   UNIQUE KEY uk_merchant_contact_type (merchant_id, contact_type),
   KEY idx_merchant_contact (merchant_id)
 );
 
 CREATE TABLE IF NOT EXISTS merchant_callback_config (
-  merchant_id VARCHAR(64) PRIMARY KEY,
-  callback_url VARCHAR(1024) NOT NULL,
-  event_types JSON NOT NULL,
-  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
-  created_at DATETIME(3) NOT NULL,
-  updated_at DATETIME(3) NOT NULL
+  merchant_id VARCHAR(64) PRIMARY KEY COMMENT '商户ID',
+  callback_url VARCHAR(1024) NOT NULL COMMENT '回调地址',
+  event_types JSON NOT NULL COMMENT '回调事件类型列表',
+  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '业务状态',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  updated_at DATETIME(3) NOT NULL COMMENT '更新时间'
 );
 
 CREATE TABLE IF NOT EXISTS merchant_credential (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  credential_id VARCHAR(64) NOT NULL,
-  merchant_id VARCHAR(64) NOT NULL,
-  credential_type VARCHAR(32) NOT NULL,
-  secret_hash CHAR(64) NOT NULL,
-  secret_hint VARCHAR(16) NOT NULL,
-  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
-  created_at DATETIME(3) NOT NULL,
-  rotated_at DATETIME(3),
-  revoked_at DATETIME(3),
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  credential_id VARCHAR(64) NOT NULL COMMENT '凭证ID',
+  merchant_id VARCHAR(64) NOT NULL COMMENT '商户ID',
+  credential_type VARCHAR(32) NOT NULL COMMENT '凭证类型',
+  secret_hash CHAR(64) NOT NULL COMMENT '密钥哈希',
+  secret_hint VARCHAR(16) NOT NULL COMMENT '密钥提示',
+  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '业务状态',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  rotated_at DATETIME(3) COMMENT '轮换时间',
+  revoked_at DATETIME(3) COMMENT '撤销时间',
   UNIQUE KEY uk_merchant_credential_id (credential_id),
   KEY idx_merchant_credential (merchant_id, status)
 );
@@ -405,14 +405,14 @@ WHERE r.role_code IN ('ADMIN', 'OPS');
 
 -- SOURCE: consolidated platform-service V8
 CREATE TABLE IF NOT EXISTS admin_role_data_scope (
-  role_id BIGINT NOT NULL,
-  scope_type VARCHAR(16) NOT NULL,
+  role_id BIGINT NOT NULL COMMENT '角色ID',
+  scope_type VARCHAR(16) NOT NULL COMMENT '数据范围类型',
   PRIMARY KEY (role_id, scope_type)
 );
 
 CREATE TABLE IF NOT EXISTS admin_user_merchant_scope (
-  user_id BIGINT NOT NULL,
-  merchant_id VARCHAR(64) NOT NULL,
+  user_id BIGINT NOT NULL COMMENT '用户ID',
+  merchant_id VARCHAR(64) NOT NULL COMMENT '商户ID',
   PRIMARY KEY (user_id, merchant_id),
   KEY idx_user_merchant_scope (merchant_id)
 );
@@ -441,19 +441,19 @@ USE pay_trade;
 
 -- SOURCE: consolidated trade-service V1
 CREATE TABLE IF NOT EXISTS payment_attempt (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  attempt_id VARCHAR(64) NOT NULL,
-  order_id VARCHAR(64) NOT NULL,
-  channel_id VARCHAR(64) NOT NULL,
-  channel_request_no VARCHAR(128) NOT NULL,
-  attempt_no INT NOT NULL,
-  status VARCHAR(32) NOT NULL,
-  request_summary JSON,
-  response_summary JSON,
-  failure_code VARCHAR(64),
-  started_at DATETIME(3),
-  completed_at DATETIME(3),
-  version BIGINT NOT NULL DEFAULT 0,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  attempt_id VARCHAR(64) NOT NULL COMMENT '尝试ID',
+  order_id VARCHAR(64) NOT NULL COMMENT '订单ID',
+  channel_id VARCHAR(64) NOT NULL COMMENT '渠道ID',
+  channel_request_no VARCHAR(128) NOT NULL COMMENT '渠道请求号',
+  attempt_no INT NOT NULL COMMENT '尝试序号',
+  status VARCHAR(32) NOT NULL COMMENT '业务状态',
+  request_summary JSON COMMENT '请求摘要',
+  response_summary JSON COMMENT '响应摘要',
+  failure_code VARCHAR(64) COMMENT '失败编码',
+  started_at DATETIME(3) COMMENT '开始时间',
+  completed_at DATETIME(3) COMMENT '完成时间',
+  version BIGINT NOT NULL DEFAULT 0 COMMENT '版本号',
   UNIQUE KEY uk_attempt_id (attempt_id),
   UNIQUE KEY uk_channel_request (channel_id, channel_request_no),
   KEY idx_attempt_order (order_id, attempt_no)
@@ -462,15 +462,15 @@ CREATE TABLE IF NOT EXISTS payment_attempt (
 -- SOURCE: consolidated trade-service V2
 
 CREATE TABLE IF NOT EXISTS payment_callback_record (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  callback_id VARCHAR(128) NOT NULL,
-  attempt_id VARCHAR(64),
-  channel_order_id VARCHAR(128),
-  raw_payload TEXT NOT NULL,
-  signature VARCHAR(256) NOT NULL,
-  status VARCHAR(32) NOT NULL,
-  received_at DATETIME(3) NOT NULL,
-  processed_at DATETIME(3),
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  callback_id VARCHAR(128) NOT NULL COMMENT '回调ID',
+  attempt_id VARCHAR(64) COMMENT '尝试ID',
+  channel_order_id VARCHAR(128) COMMENT '渠道订单号',
+  raw_payload TEXT NOT NULL COMMENT '原始回调数据',
+  signature VARCHAR(256) NOT NULL COMMENT '签名',
+  status VARCHAR(32) NOT NULL COMMENT '业务状态',
+  received_at DATETIME(3) NOT NULL COMMENT '接收时间',
+  processed_at DATETIME(3) COMMENT '处理时间',
   UNIQUE KEY uk_callback_id (callback_id),
   KEY idx_callback_attempt (attempt_id)
 );
@@ -478,18 +478,18 @@ CREATE TABLE IF NOT EXISTS payment_callback_record (
 -- SOURCE: consolidated trade-service V3
 
 CREATE TABLE IF NOT EXISTS payment_outbox_event (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  event_id VARCHAR(128) NOT NULL,
-  aggregate_type VARCHAR(64) NOT NULL,
-  aggregate_id VARCHAR(64) NOT NULL,
-  event_type VARCHAR(64) NOT NULL,
-  payload JSON NOT NULL,
-  status VARCHAR(32) NOT NULL,
-  attempt_count INT NOT NULL DEFAULT 0,
-  next_retry_at DATETIME(3) NOT NULL,
-  last_error VARCHAR(512),
-  created_at DATETIME(3) NOT NULL,
-  published_at DATETIME(3),
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  event_id VARCHAR(128) NOT NULL COMMENT '事件ID',
+  aggregate_type VARCHAR(64) NOT NULL COMMENT '聚合类型',
+  aggregate_id VARCHAR(64) NOT NULL COMMENT '聚合ID',
+  event_type VARCHAR(64) NOT NULL COMMENT '事件类型',
+  payload JSON NOT NULL COMMENT '事件数据',
+  status VARCHAR(32) NOT NULL COMMENT '业务状态',
+  attempt_count INT NOT NULL DEFAULT 0 COMMENT '尝试次数',
+  next_retry_at DATETIME(3) NOT NULL COMMENT '下次重试时间',
+  last_error VARCHAR(512) COMMENT '错误信息',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  published_at DATETIME(3) COMMENT '发布时间',
   UNIQUE KEY uk_outbox_event_id (event_id),
   KEY idx_outbox_pending (status, next_retry_at)
 );
@@ -511,14 +511,14 @@ ALTER TABLE payment_outbox_event
 -- SOURCE: consolidated trade-service V5
 
 CREATE TABLE IF NOT EXISTS payment_outbox_operation_audit (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  event_id VARCHAR(128) NOT NULL,
-  operator VARCHAR(128) NOT NULL,
-  reason VARCHAR(512) NOT NULL,
-  from_status VARCHAR(32) NOT NULL,
-  to_status VARCHAR(32) NOT NULL,
-  request_id VARCHAR(128),
-  created_at DATETIME(3) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  event_id VARCHAR(128) NOT NULL COMMENT '事件ID',
+  operator VARCHAR(128) NOT NULL COMMENT '操作人',
+  reason VARCHAR(512) NOT NULL COMMENT '原因说明',
+  from_status VARCHAR(32) NOT NULL COMMENT '原状态',
+  to_status VARCHAR(32) NOT NULL COMMENT '目标状态',
+  request_id VARCHAR(128) COMMENT '请求ID',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
   KEY idx_outbox_audit_event (event_id, created_at)
 );
 
@@ -543,18 +543,18 @@ WHERE status = 'PROCESSING' AND next_query_at IS NULL;
 
 -- SOURCE: consolidated trade-service V8
 CREATE TABLE IF NOT EXISTS payment_refund (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  refund_id VARCHAR(64) NOT NULL,
-  order_id VARCHAR(64) NOT NULL,
-  merchant_id VARCHAR(64) NOT NULL,
-  idempotency_key VARCHAR(128) NOT NULL,
-  amount DECIMAL(20, 2) NOT NULL,
-  currency VARCHAR(3) NOT NULL,
-  status VARCHAR(32) NOT NULL,
-  reason VARCHAR(512),
-  created_at DATETIME(3) NOT NULL,
-  updated_at DATETIME(3) NOT NULL,
-  completed_at DATETIME(3),
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  refund_id VARCHAR(64) NOT NULL COMMENT '退款ID',
+  order_id VARCHAR(64) NOT NULL COMMENT '订单ID',
+  merchant_id VARCHAR(64) NOT NULL COMMENT '商户ID',
+  idempotency_key VARCHAR(128) NOT NULL COMMENT '幂等键',
+  amount DECIMAL(20, 2) NOT NULL COMMENT '金额',
+  currency VARCHAR(3) NOT NULL COMMENT '币种',
+  status VARCHAR(32) NOT NULL COMMENT '业务状态',
+  reason VARCHAR(512) COMMENT '原因说明',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
+  completed_at DATETIME(3) COMMENT '完成时间',
   UNIQUE KEY uk_refund_id (refund_id),
   UNIQUE KEY uk_refund_idempotency (merchant_id, idempotency_key),
   KEY idx_refund_order (order_id, created_at)
@@ -569,29 +569,29 @@ ALTER TABLE payment_refund
   ADD COLUMN callback_id VARCHAR(128) NULL AFTER last_error;
 CREATE UNIQUE INDEX uk_refund_callback ON payment_refund (callback_id);
 CREATE TABLE IF NOT EXISTS refund_attempt (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  attempt_id VARCHAR(64) NOT NULL,
-  refund_id VARCHAR(64) NOT NULL,
-  channel_id VARCHAR(64) NOT NULL,
-  channel_request_no VARCHAR(128),
-  attempt_no INT NOT NULL,
-  status VARCHAR(32) NOT NULL,
-  request_snapshot JSON,
-  response_snapshot JSON,
-  failure_code VARCHAR(64),
-  started_at DATETIME(3) NOT NULL,
-  completed_at DATETIME(3),
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  attempt_id VARCHAR(64) NOT NULL COMMENT '尝试ID',
+  refund_id VARCHAR(64) NOT NULL COMMENT '退款ID',
+  channel_id VARCHAR(64) NOT NULL COMMENT '渠道ID',
+  channel_request_no VARCHAR(128) COMMENT '渠道请求号',
+  attempt_no INT NOT NULL COMMENT '尝试序号',
+  status VARCHAR(32) NOT NULL COMMENT '业务状态',
+  request_snapshot JSON COMMENT '退款请求快照',
+  response_snapshot JSON COMMENT '退款响应快照',
+  failure_code VARCHAR(64) COMMENT '失败编码',
+  started_at DATETIME(3) NOT NULL COMMENT '开始时间',
+  completed_at DATETIME(3) COMMENT '完成时间',
   UNIQUE KEY uk_refund_attempt (attempt_id),
   KEY idx_refund_attempt (refund_id, attempt_no)
 );
 CREATE TABLE IF NOT EXISTS refund_callback_record (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  callback_id VARCHAR(128) NOT NULL,
-  refund_id VARCHAR(64) NOT NULL,
-  payload_hash VARCHAR(64) NOT NULL,
-  status VARCHAR(16) NOT NULL,
-  created_at DATETIME(3) NOT NULL,
-  processed_at DATETIME(3),
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  callback_id VARCHAR(128) NOT NULL COMMENT '回调ID',
+  refund_id VARCHAR(64) NOT NULL COMMENT '退款ID',
+  payload_hash VARCHAR(64) NOT NULL COMMENT '数据哈希',
+  status VARCHAR(16) NOT NULL COMMENT '业务状态',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  processed_at DATETIME(3) COMMENT '处理时间',
   UNIQUE KEY uk_refund_callback_id (callback_id)
 );
 
@@ -607,19 +607,19 @@ USE pay_fund;
 -- SOURCE: consolidated fund-service V1
 
 CREATE TABLE IF NOT EXISTS ledger_entry (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  entry_id VARCHAR(64) NOT NULL,
-  account_id VARCHAR(64) NOT NULL,
-  order_id VARCHAR(64),
-  refund_id VARCHAR(64),
-  entry_type VARCHAR(32) NOT NULL,
-  debit_credit VARCHAR(8) NOT NULL,
-  amount DECIMAL(20, 2) NOT NULL,
-  currency VARCHAR(3) NOT NULL,
-  available_at DATETIME(3),
-  idempotency_key VARCHAR(128) NOT NULL,
-  reversal_of VARCHAR(64),
-  created_at DATETIME(3) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  entry_id VARCHAR(64) NOT NULL COMMENT '台账分录ID',
+  account_id VARCHAR(64) NOT NULL COMMENT '资金账户ID',
+  order_id VARCHAR(64) COMMENT '订单ID',
+  refund_id VARCHAR(64) COMMENT '退款ID',
+  entry_type VARCHAR(32) NOT NULL COMMENT '分录类型',
+  debit_credit VARCHAR(8) NOT NULL COMMENT '借贷方向',
+  amount DECIMAL(20, 2) NOT NULL COMMENT '金额',
+  currency VARCHAR(3) NOT NULL COMMENT '币种',
+  available_at DATETIME(3) COMMENT '可用时间',
+  idempotency_key VARCHAR(128) NOT NULL COMMENT '幂等键',
+  reversal_of VARCHAR(64) COMMENT '冲正来源分录',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
   UNIQUE KEY uk_entry_id (entry_id),
   UNIQUE KEY uk_ledger_idempotency (idempotency_key),
   KEY idx_account_created (account_id, created_at)
@@ -628,23 +628,23 @@ CREATE TABLE IF NOT EXISTS ledger_entry (
 -- SOURCE: consolidated fund-service V2
 
 CREATE TABLE IF NOT EXISTS payment_event_consumption (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  event_id VARCHAR(128) NOT NULL,
-  event_type VARCHAR(64) NOT NULL,
-  order_id VARCHAR(64) NOT NULL,
-  attempt_id VARCHAR(64),
-  merchant_id VARCHAR(64) NOT NULL,
-  amount DECIMAL(20, 2) NOT NULL,
-  currency VARCHAR(3) NOT NULL,
-  payload JSON NOT NULL,
-  payload_hash CHAR(64) NOT NULL,
-  status VARCHAR(32) NOT NULL,
-  consume_count INT NOT NULL DEFAULT 1,
-  first_received_at DATETIME(3) NOT NULL,
-  last_received_at DATETIME(3) NOT NULL,
-  processed_at DATETIME(3),
-  last_error VARCHAR(512),
-  ledger_entry_id VARCHAR(64),
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  event_id VARCHAR(128) NOT NULL COMMENT '事件ID',
+  event_type VARCHAR(64) NOT NULL COMMENT '事件类型',
+  order_id VARCHAR(64) NOT NULL COMMENT '订单ID',
+  attempt_id VARCHAR(64) COMMENT '尝试ID',
+  merchant_id VARCHAR(64) NOT NULL COMMENT '商户ID',
+  amount DECIMAL(20, 2) NOT NULL COMMENT '金额',
+  currency VARCHAR(3) NOT NULL COMMENT '币种',
+  payload JSON NOT NULL COMMENT '事件数据',
+  payload_hash CHAR(64) NOT NULL COMMENT '数据哈希',
+  status VARCHAR(32) NOT NULL COMMENT '业务状态',
+  consume_count INT NOT NULL DEFAULT 1 COMMENT '消费次数',
+  first_received_at DATETIME(3) NOT NULL COMMENT '首次接收时间',
+  last_received_at DATETIME(3) NOT NULL COMMENT '最后接收时间',
+  processed_at DATETIME(3) COMMENT '处理时间',
+  last_error VARCHAR(512) COMMENT '错误信息',
+  ledger_entry_id VARCHAR(64) COMMENT '台账分录ID',
   UNIQUE KEY uk_payment_event_consumption (event_id, event_type),
   KEY idx_payment_consumption_status (status, last_received_at)
 );
@@ -662,69 +662,69 @@ ALTER TABLE payment_event_consumption
   ADD COLUMN failure_type VARCHAR(32) NULL AFTER last_error;
 
 CREATE TABLE IF NOT EXISTS payment_event_replay_audit (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  event_id VARCHAR(128) NOT NULL,
-  operator VARCHAR(128) NOT NULL,
-  reason VARCHAR(512) NOT NULL,
-  request_id VARCHAR(128),
-  created_at DATETIME(3) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  event_id VARCHAR(128) NOT NULL COMMENT '事件ID',
+  operator VARCHAR(128) NOT NULL COMMENT '操作人',
+  reason VARCHAR(512) NOT NULL COMMENT '原因说明',
+  request_id VARCHAR(128) COMMENT '请求ID',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
   KEY idx_payment_event_replay_audit_event (event_id, created_at)
 );
 
 -- SOURCE: consolidated fund-service V5
 CREATE TABLE IF NOT EXISTS settlement_bill (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  bill_id VARCHAR(64) NOT NULL,
-  channel_id VARCHAR(64) NOT NULL,
-  bill_date DATE NOT NULL,
-  currency VARCHAR(3) NOT NULL,
-  total_amount DECIMAL(20,2) NOT NULL,
-  total_count INT NOT NULL,
-  status VARCHAR(16) NOT NULL DEFAULT 'IMPORTED',
-  imported_at DATETIME(3) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  bill_id VARCHAR(64) NOT NULL COMMENT '账单ID',
+  channel_id VARCHAR(64) NOT NULL COMMENT '渠道ID',
+  bill_date DATE NOT NULL COMMENT '账单日期',
+  currency VARCHAR(3) NOT NULL COMMENT '币种',
+  total_amount DECIMAL(20,2) NOT NULL COMMENT '金额',
+  total_count INT NOT NULL COMMENT '总笔数',
+  status VARCHAR(16) NOT NULL DEFAULT 'IMPORTED' COMMENT '业务状态',
+  imported_at DATETIME(3) NOT NULL COMMENT '导入时间',
   UNIQUE KEY uk_settlement_bill (bill_id),
   KEY idx_settlement_date (channel_id, bill_date)
 );
 CREATE TABLE IF NOT EXISTS reconciliation_difference (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  difference_id VARCHAR(64) NOT NULL,
-  bill_id VARCHAR(64) NOT NULL,
-  difference_type VARCHAR(32) NOT NULL,
-  order_id VARCHAR(64),
-  expected_amount DECIMAL(20,2),
-  actual_amount DECIMAL(20,2),
-  status VARCHAR(16) NOT NULL DEFAULT 'OPEN',
-  reason VARCHAR(512),
-  resolved_by VARCHAR(128),
-  resolved_at DATETIME(3),
-  created_at DATETIME(3) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  difference_id VARCHAR(64) NOT NULL COMMENT '差异ID',
+  bill_id VARCHAR(64) NOT NULL COMMENT '账单ID',
+  difference_type VARCHAR(32) NOT NULL COMMENT '差异类型',
+  order_id VARCHAR(64) COMMENT '订单ID',
+  expected_amount DECIMAL(20,2) COMMENT '金额',
+  actual_amount DECIMAL(20,2) COMMENT '金额',
+  status VARCHAR(16) NOT NULL DEFAULT 'OPEN' COMMENT '业务状态',
+  reason VARCHAR(512) COMMENT '原因说明',
+  resolved_by VARCHAR(128) COMMENT '解决人',
+  resolved_at DATETIME(3) COMMENT '解决时间',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
   UNIQUE KEY uk_difference_id (difference_id),
   KEY idx_difference_bill (bill_id, status)
 );
 CREATE TABLE IF NOT EXISTS settlement_bill_line (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  bill_id VARCHAR(64) NOT NULL,
-  channel_order_id VARCHAR(128) NOT NULL,
-  merchant_id VARCHAR(64),
-  order_id VARCHAR(64),
-  transaction_type VARCHAR(16) NOT NULL,
-  status VARCHAR(32) NOT NULL,
-  amount DECIMAL(20,2) NOT NULL,
-  currency VARCHAR(3) NOT NULL,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  bill_id VARCHAR(64) NOT NULL COMMENT '账单ID',
+  channel_order_id VARCHAR(128) NOT NULL COMMENT '渠道订单号',
+  merchant_id VARCHAR(64) COMMENT '商户ID',
+  order_id VARCHAR(64) COMMENT '订单ID',
+  transaction_type VARCHAR(16) NOT NULL COMMENT '交易类型',
+  status VARCHAR(32) NOT NULL COMMENT '业务状态',
+  amount DECIMAL(20,2) NOT NULL COMMENT '金额',
+  currency VARCHAR(3) NOT NULL COMMENT '币种',
   UNIQUE KEY uk_bill_line (bill_id, channel_order_id, transaction_type)
 );
 
 -- SOURCE: consolidated fund-service V6
 CREATE TABLE IF NOT EXISTS refund_event_consumption (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  event_id VARCHAR(128) NOT NULL,
-  refund_id VARCHAR(64) NOT NULL,
-  payload_hash VARCHAR(64) NOT NULL,
-  status VARCHAR(16) NOT NULL,
-  last_error VARCHAR(512),
-  consume_count INT NOT NULL DEFAULT 1,
-  created_at DATETIME(3) NOT NULL,
-  processed_at DATETIME(3),
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  event_id VARCHAR(128) NOT NULL COMMENT '事件ID',
+  refund_id VARCHAR(64) NOT NULL COMMENT '退款ID',
+  payload_hash VARCHAR(64) NOT NULL COMMENT '数据哈希',
+  status VARCHAR(16) NOT NULL COMMENT '业务状态',
+  last_error VARCHAR(512) COMMENT '错误信息',
+  consume_count INT NOT NULL DEFAULT 1 COMMENT '消费次数',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  processed_at DATETIME(3) COMMENT '处理时间',
   UNIQUE KEY uk_refund_event (event_id)
 );
 
