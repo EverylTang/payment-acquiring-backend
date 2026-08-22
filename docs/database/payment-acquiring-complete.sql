@@ -727,3 +727,48 @@ CREATE TABLE IF NOT EXISTS refund_event_consumption (
   processed_at DATETIME(3),
   UNIQUE KEY uk_refund_event (event_id)
 );
+
+-- TABLE COMMENTS
+USE pay_platform;
+ALTER TABLE admin_user COMMENT = '平台管理员用户';
+ALTER TABLE admin_role COMMENT = '平台管理员角色';
+ALTER TABLE admin_user_role COMMENT = '管理员用户与角色关联';
+ALTER TABLE config_release COMMENT = '配置发布版本';
+ALTER TABLE merchant COMMENT = '商户主表';
+ALTER TABLE logical_product COMMENT = '逻辑产品';
+ALTER TABLE channel COMMENT = '支付渠道';
+ALTER TABLE routing_rule COMMENT = '支付路由规则';
+ALTER TABLE pricing_rule COMMENT = '费率定价规则';
+ALTER TABLE risk_policy COMMENT = '风控策略';
+ALTER TABLE operation_audit COMMENT = '平台操作审计记录';
+ALTER TABLE product_capability COMMENT = '产品支付能力';
+ALTER TABLE merchant_product COMMENT = '商户产品绑定';
+ALTER TABLE channel_capability COMMENT = '渠道支付能力';
+ALTER TABLE admin_menu COMMENT = '后台管理菜单';
+ALTER TABLE admin_permission COMMENT = '后台操作权限';
+ALTER TABLE admin_role_menu COMMENT = '角色与菜单关联';
+ALTER TABLE admin_role_permission COMMENT = '角色与权限关联';
+ALTER TABLE merchant_profile COMMENT = '商户资料';
+ALTER TABLE merchant_contact COMMENT = '商户联系人';
+ALTER TABLE merchant_callback_config COMMENT = '商户回调配置';
+ALTER TABLE merchant_credential COMMENT = '商户接入凭证';
+ALTER TABLE admin_role_data_scope COMMENT = '角色数据范围';
+ALTER TABLE admin_user_merchant_scope COMMENT = '管理员商户数据范围';
+
+USE pay_trade;
+ALTER TABLE payment_attempt COMMENT = '支付渠道尝试记录';
+ALTER TABLE payment_callback_record COMMENT = '支付渠道回调记录';
+ALTER TABLE payment_outbox_event COMMENT = '支付事件发件箱';
+ALTER TABLE payment_outbox_operation_audit COMMENT = '发件箱人工操作审计';
+ALTER TABLE payment_refund COMMENT = '退款申请与执行记录';
+ALTER TABLE refund_attempt COMMENT = '退款渠道尝试记录';
+ALTER TABLE refund_callback_record COMMENT = '退款渠道回调记录';
+
+USE pay_fund;
+ALTER TABLE ledger_entry COMMENT = '资金台账分录';
+ALTER TABLE payment_event_consumption COMMENT = '支付成功事件消费记录';
+ALTER TABLE payment_event_replay_audit COMMENT = '支付事件重放审计';
+ALTER TABLE settlement_bill COMMENT = '渠道结算账单';
+ALTER TABLE reconciliation_difference COMMENT = '对账差异记录';
+ALTER TABLE settlement_bill_line COMMENT = '渠道结算账单明细';
+ALTER TABLE refund_event_consumption COMMENT = '退款事件消费记录';
