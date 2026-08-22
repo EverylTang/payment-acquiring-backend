@@ -92,10 +92,10 @@ scrape_configs:
 宿主机未安装 MySQL 客户端时，可直接通过 Docker 执行初始化脚本：
 
 ```bash
-docker exec -i local-mysql mysql -uroot -p < docs/database/00-databases.sql
+docker exec -i local-mysql mysql -uroot -p < docs/database/payment-acquiring-complete.sql
 ```
 
-完整数据库 SQL（包括表结构、初始化数据和版本变更）位于 `docs/database/`，执行顺序见 [`docs/database/README.md`](docs/database/README.md)。数据库发布流程会创建 `pay_platform`、`pay_trade`、`pay_fund` 和 `pay_audit` 数据库，并按服务 SQL 创建完整表结构和初始化数据。交易服务使用 `pay_trade.payment_order` 真实落库，资金服务使用 `pay_fund.ledger_entry` 真实落库。
+完整数据库 SQL（包括表结构、初始化数据和版本变更）位于 [`docs/database/payment-acquiring-complete.sql`](docs/database/payment-acquiring-complete.sql)，执行说明见 [`docs/database/README.md`](docs/database/README.md)。该入口会创建 `pay_platform`、`pay_trade`、`pay_fund` 和 `pay_audit` 数据库，并按服务 SQL 创建完整表结构和初始化数据。交易服务使用 `pay_trade.payment_order` 真实落库，资金服务使用 `pay_fund.ledger_entry` 真实落库。
 
 Redis 和 MySQL 的连接密码由 Nacos 配置中心统一管理，不再通过项目根目录的环境变量文件或环境变量配置。
 

@@ -721,6 +721,7 @@ DUPLICATE
 - 外部 Docker/基础设施配置：RocketMQ Broker、MinIO、本地网络和监控规则
 - `docs/database/00-databases.sql`：数据库创建
 - `docs/database/10-mvp-schema.sql`：MVP 初始化表
+- `docs/database/payment-acquiring-complete.sql`：新环境一次性初始化入口（数据库、表结构、初始化数据和全部版本变更）
 - `docs/database/migrations/`：各服务数据库结构、数据和版本 SQL
 - `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentAttemptService.java`：Attempt 生命周期和订单协调
 - `trade-service/src/main/java/com/example/payments/trade/service/application/PaymentOutboxPublisher.java`：Outbox 发布
