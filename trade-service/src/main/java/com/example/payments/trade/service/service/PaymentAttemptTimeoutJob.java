@@ -1,5 +1,7 @@
 package com.example.payments.trade.service.service;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.trade.service.config.AttemptQueryProperties;
 import com.example.payments.trade.service.domain.PaymentAttemptStatus;
 import com.example.payments.trade.service.mapper.PaymentAttemptRepository;
@@ -8,16 +10,11 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class PaymentAttemptTimeoutJob {
   private final PaymentAttemptRepository repository;
   private final PaymentAttemptService service;
   private final AttemptQueryProperties properties;
-
-  public PaymentAttemptTimeoutJob( PaymentAttemptRepository repository, PaymentAttemptService service, AttemptQueryProperties properties) {
-    this.repository = repository;
-    this.service = service;
-    this.properties = properties;
-  }
 
   @Scheduled(fixedDelayString = "${trade.attempt.timeout-scan-ms:30000}")
   public void compensate() {

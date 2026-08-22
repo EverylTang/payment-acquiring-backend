@@ -1,15 +1,14 @@
 package com.example.payments.trade.service.service;
 
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class RefundExecutionJob {
   private final RefundService service;
-
-  public RefundExecutionJob(RefundService service) {
-    this.service = service;
-  }
 
   @Scheduled(fixedDelayString = "${trade.refund.execute-ms:5000}")
   public void executeDue() {

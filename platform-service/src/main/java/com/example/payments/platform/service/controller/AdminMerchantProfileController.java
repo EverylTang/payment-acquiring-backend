@@ -1,5 +1,7 @@
 package com.example.payments.platform.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.platform.service.service.PlatformDataService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -25,12 +27,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/admin/v1/merchants/{merchantId}")
+@RequiredArgsConstructor
 public class AdminMerchantProfileController {
   private final PlatformDataService mybatisClient;
-
-  public AdminMerchantProfileController(PlatformDataService mybatisClient) {
-    this.mybatisClient = mybatisClient;
-  }
 
   @GetMapping("/profile")
   @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY')")

@@ -1,5 +1,7 @@
 package com.example.payments.fund.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.fund.service.service.PaymentEventReplayAdminService;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,14 +15,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/admin/v1/payment-events")
+@RequiredArgsConstructor
 public class AdminPaymentEventController {
   private final PaymentEventReplayAdminService service;
   private final AdminRequestAuthorizer authorizer;
-
-  public AdminPaymentEventController( PaymentEventReplayAdminService service, AdminRequestAuthorizer authorizer) {
-    this.service = service;
-    this.authorizer = authorizer;
-  }
 
   @GetMapping("/failed")
   public Map<String, Object> failed(

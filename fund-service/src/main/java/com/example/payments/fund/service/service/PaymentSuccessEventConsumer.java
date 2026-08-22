@@ -1,5 +1,7 @@
 package com.example.payments.fund.service.service;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.fund.service.mapper.PaymentEventConsumptionMapper;
 import com.example.payments.fund.service.model.*;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -25,6 +27,7 @@ import org.springframework.stereotype.Component;
     consumeMode = ConsumeMode.CONCURRENTLY,
     messageModel = MessageModel.CLUSTERING,
     consumeTimeout = 60)
+@RequiredArgsConstructor
 public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
   private static final String EVENT_TYPE = "PAYMENT_SUCCEEDED";
   private static final long PROCESSING_LEASE_SECONDS = 60;
@@ -32,15 +35,6 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
   private final PaymentEventConsumptionMapper consumptionMapper;
   private final ObjectMapper objectMapper;
   private final String consumerId = UUID.randomUUID().toString();
-
-  public PaymentSuccessEventConsumer(
-      LedgerEntryApplicationService ledgerService,
-      PaymentEventConsumptionMapper consumptionMapper,
-      ObjectMapper objectMapper) {
-    this.ledgerService = ledgerService;
-    this.consumptionMapper = consumptionMapper;
-    this.objectMapper = objectMapper;
-  }
 
   @Override
   public void onMessage(String message) {

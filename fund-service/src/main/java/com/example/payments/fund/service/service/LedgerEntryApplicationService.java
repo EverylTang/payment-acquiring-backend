@@ -1,5 +1,7 @@
 package com.example.payments.fund.service.service;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.fund.service.mapper.LedgerEntryMapper;
 import com.example.payments.fund.service.model.*;
 import java.math.BigDecimal;
@@ -9,12 +11,9 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class LedgerEntryApplicationService {
   private final LedgerEntryMapper mapper;
-
-  public LedgerEntryApplicationService(LedgerEntryMapper mapper) {
-    this.mapper = mapper;
-  }
 
   public Result recordPaymentSuccess( String idempotencyKey, String orderId, String merchantId, BigDecimal amount, String currency) {
     var existing = mapper.findByIdempotency(idempotencyKey);

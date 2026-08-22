@@ -1,5 +1,7 @@
 package com.example.payments.trade.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.trade.service.service.PaymentOutboxAdminService;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,14 +15,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/admin/v1/outbox")
+@RequiredArgsConstructor
 public class AdminOutboxController {
   private final PaymentOutboxAdminService service;
   private final AdminRequestAuthorizer authorizer;
-
-  public AdminOutboxController( PaymentOutboxAdminService service, AdminRequestAuthorizer authorizer) {
-    this.service = service;
-    this.authorizer = authorizer;
-  }
 
   @GetMapping("/dead")
   public Map<String, Object> dead(

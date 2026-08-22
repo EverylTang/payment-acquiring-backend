@@ -1,5 +1,7 @@
 package com.example.payments.platform.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.platform.service.service.PlatformDataService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,15 +25,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/admin/v1/products")
+@RequiredArgsConstructor
 public class AdminProductController {
   private final PlatformDataService mybatisClient;
 
   private final ObjectMapper objectMapper;
-
-  public AdminProductController(PlatformDataService mybatisClient, ObjectMapper objectMapper) {
-    this.mybatisClient = mybatisClient;
-    this.objectMapper = objectMapper;
-  }
 
   @GetMapping
   @PreAuthorize("hasAuthority('product:list')")

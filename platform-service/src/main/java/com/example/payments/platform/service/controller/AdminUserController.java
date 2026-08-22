@@ -1,5 +1,7 @@
 package com.example.payments.platform.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.platform.service.service.PlatformDataService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -25,14 +27,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/v1/users")
 @PreAuthorize("hasRole('ADMIN')")
+@RequiredArgsConstructor
 public class AdminUserController {
   private final PlatformDataService mybatisClient;
   private final PasswordEncoder passwordEncoder;
-
-  public AdminUserController(PlatformDataService mybatisClient, PasswordEncoder passwordEncoder) {
-    this.mybatisClient = mybatisClient;
-    this.passwordEncoder = passwordEncoder;
-  }
 
   @GetMapping
   public AdminPageResponse<UserResponse> list( @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {

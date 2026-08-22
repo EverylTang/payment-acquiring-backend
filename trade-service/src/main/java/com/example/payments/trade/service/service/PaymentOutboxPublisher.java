@@ -1,5 +1,7 @@
 package com.example.payments.trade.service.service;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.trade.service.config.OutboxProperties;
 import com.example.payments.trade.service.mapper.PaymentOutboxEventRepository;
 import com.example.payments.trade.service.model.*;
@@ -10,16 +12,11 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class PaymentOutboxPublisher {
   private final PaymentOutboxEventRepository repository;
   private final RocketMQTemplate rocketMQTemplate;
   private final OutboxProperties properties;
-
-  public PaymentOutboxPublisher( PaymentOutboxEventRepository repository, RocketMQTemplate rocketMQTemplate, OutboxProperties properties) {
-    this.repository = repository;
-    this.rocketMQTemplate = rocketMQTemplate;
-    this.properties = properties;
-  }
 
   @Scheduled(fixedDelayString = "${trade.outbox.publish-ms:5000}")
   public void publish() {

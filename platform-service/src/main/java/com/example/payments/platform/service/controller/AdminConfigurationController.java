@@ -1,5 +1,7 @@
 package com.example.payments.platform.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.platform.service.service.PlatformDataService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,14 +29,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/admin/v1")
+@RequiredArgsConstructor
 public class AdminConfigurationController {
   private final PlatformDataService mybatisClient;
   private final ObjectMapper objectMapper;
-
-  public AdminConfigurationController( PlatformDataService mybatisClient, ObjectMapper objectMapper) {
-    this.mybatisClient = mybatisClient;
-    this.objectMapper = objectMapper;
-  }
 
   @GetMapping("/dashboard/overview")
   public Map<String, Object> overview() {

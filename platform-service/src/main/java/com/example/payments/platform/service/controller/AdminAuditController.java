@@ -1,5 +1,7 @@
 package com.example.payments.platform.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.platform.service.service.PlatformDataService;
 import java.time.Instant;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -11,12 +13,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/v1/audits")
 @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY')")
+@RequiredArgsConstructor
 public class AdminAuditController {
   private final PlatformDataService mybatisClient;
-
-  public AdminAuditController(PlatformDataService mybatisClient) {
-    this.mybatisClient = mybatisClient;
-  }
 
   @GetMapping
   public AdminPageResponse<AuditResponse> list(

@@ -1,5 +1,7 @@
 package com.example.payments.trade.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.trade.service.domain.OrderStatus;
 import com.example.payments.trade.service.service.OrderService;
 import com.example.payments.trade.service.service.PaymentAttemptService;
@@ -20,14 +22,10 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/v1/payments/orders")
+@RequiredArgsConstructor
 public class OrderController {
   private final OrderService orderService;
   private final PaymentAttemptService paymentAttemptService;
-
-  public OrderController(OrderService orderService, PaymentAttemptService paymentAttemptService) {
-    this.orderService = orderService;
-    this.paymentAttemptService = paymentAttemptService;
-  }
 
   @GetMapping("/health")
   public Map<String, Object> health() {

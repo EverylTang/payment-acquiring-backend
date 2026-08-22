@@ -1,5 +1,7 @@
 package com.example.payments.trade.service.service;
 
+import lombok.RequiredArgsConstructor;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.payments.trade.service.domain.RefundStatus;
 import com.example.payments.trade.service.mapper.PaymentAttemptMapper;
@@ -24,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class RefundService {
   private final PaymentRefundMapper mapper;
   private final OrderService orderService;
@@ -35,27 +38,6 @@ public class RefundService {
   private final PaymentAttemptMapper paymentAttemptMapper;
   private final MeterRegistry metrics;
   private final String workerId = UUID.randomUUID().toString();
-
-  public RefundService(
-      PaymentRefundMapper mapper,
-      OrderService orderService,
-      PaymentChannelAdapter channel,
-      PaymentOutboxEventRepository outbox,
-      ObjectMapper objectMapper,
-      RefundCallbackRecordMapper callbackMapper,
-      RefundAttemptMapper attemptMapper,
-      PaymentAttemptMapper paymentAttemptMapper,
-      MeterRegistry metrics) {
-    this.mapper = mapper;
-    this.orderService = orderService;
-    this.channel = channel;
-    this.outbox = outbox;
-    this.objectMapper = objectMapper;
-    this.callbackMapper = callbackMapper;
-    this.attemptMapper = attemptMapper;
-    this.paymentAttemptMapper = paymentAttemptMapper;
-    this.metrics = metrics;
-  }
 
   @Transactional
   public PaymentRefundEntity create( String orderId, String idempotencyKey, BigDecimal amount, String reason) {

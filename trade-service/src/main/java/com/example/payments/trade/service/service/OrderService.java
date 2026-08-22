@@ -1,5 +1,7 @@
 package com.example.payments.trade.service.service;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.trade.service.domain.OrderStatus;
 import com.example.payments.trade.service.domain.PaymentOrder;
 import com.example.payments.trade.service.mapper.PaymentOrderRepository;
@@ -14,12 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
+@RequiredArgsConstructor
 public class OrderService {
   private final PaymentOrderRepository repository;
-
-  public OrderService(PaymentOrderRepository repository) {
-    this.repository = repository;
-  }
 
   @Transactional
   public PaymentOrder create(CreateOrderCommand command) {

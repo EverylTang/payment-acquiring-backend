@@ -1,5 +1,7 @@
 package com.example.payments.platform.service.security;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.platform.service.mapper.MybatisPlusClient;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -15,14 +17,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
+@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
   private final JwtService jwtService;
   private final MybatisPlusClient mybatisClient;
-
-  public JwtAuthenticationFilter(JwtService jwtService, MybatisPlusClient mybatisClient) {
-    this.jwtService = jwtService;
-    this.mybatisClient = mybatisClient;
-  }
 
   @Override
   protected void doFilterInternal( HttpServletRequest request, HttpServletResponse response, FilterChain chain)

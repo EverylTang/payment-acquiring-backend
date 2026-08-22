@@ -1,5 +1,7 @@
 package com.example.payments.trade.service.mapper;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.trade.service.domain.PaymentAttempt;
 import com.example.payments.trade.service.domain.PaymentAttemptStatus;
 import com.example.payments.trade.service.model.*;
@@ -12,13 +14,10 @@ import java.util.UUID;
 import org.springframework.stereotype.Repository;
 
 @Repository
+@RequiredArgsConstructor
 public class PaymentAttemptRepository {
   private final PaymentAttemptMapper mapper;
   private final String queryWorkerId = UUID.randomUUID().toString();
-
-  public PaymentAttemptRepository(PaymentAttemptMapper mapper) {
-    this.mapper = mapper;
-  }
 
   public PaymentAttempt insert(PaymentAttempt attempt) {
     var entity = new PaymentAttemptEntity();

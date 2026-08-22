@@ -1,16 +1,15 @@
 package com.example.payments.platform.service.service;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.platform.service.mapper.MybatisPlusClient;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class AdminMerchantAccessService {
   private final MybatisPlusClient mybatisClient;
-
-  public AdminMerchantAccessService(MybatisPlusClient mybatisClient) {
-    this.mybatisClient = mybatisClient;
-  }
 
   public String predicate(Authentication authentication, String alias) {
     var username = authentication.getName();

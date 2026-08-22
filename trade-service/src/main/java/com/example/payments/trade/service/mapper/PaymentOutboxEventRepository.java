@@ -1,5 +1,7 @@
 package com.example.payments.trade.service.mapper;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.trade.service.model.*;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -10,13 +12,10 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Repository;
 
 @Repository
+@RequiredArgsConstructor
 public class PaymentOutboxEventRepository {
   private final PaymentOutboxEventMapper mapper;
   private final String workerId = UUID.randomUUID().toString();
-
-  public PaymentOutboxEventRepository(PaymentOutboxEventMapper mapper) {
-    this.mapper = mapper;
-  }
 
   public boolean insert(String eventId, String aggregateId, String eventType, String payload) {
     var now = toLocal(Instant.now());

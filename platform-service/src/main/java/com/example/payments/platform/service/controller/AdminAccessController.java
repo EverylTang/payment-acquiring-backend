@@ -1,5 +1,7 @@
 package com.example.payments.platform.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.platform.service.service.PlatformDataService;
 import java.util.List;
 import org.springframework.security.core.Authentication;
@@ -9,12 +11,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/admin/v1/access")
+@RequiredArgsConstructor
 public class AdminAccessController {
   private final PlatformDataService mybatisClient;
-
-  public AdminAccessController(PlatformDataService mybatisClient) {
-    this.mybatisClient = mybatisClient;
-  }
 
   @GetMapping
   public AccessResponse current(Authentication authentication) {

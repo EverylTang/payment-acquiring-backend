@@ -1,5 +1,7 @@
 package com.example.payments.trade.service.service;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.trade.service.mapper.PaymentOutboxEventRepository;
 import com.example.payments.trade.service.model.*;
 import java.time.Instant;
@@ -10,12 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
+@RequiredArgsConstructor
 public class PaymentOutboxAdminService {
   private final PaymentOutboxEventRepository repository;
-
-  public PaymentOutboxAdminService(PaymentOutboxEventRepository repository) {
-    this.repository = repository;
-  }
 
   public List<PaymentOutboxEventEntity> findDead(int limit) {
     if (limit < 1 || limit > 100)

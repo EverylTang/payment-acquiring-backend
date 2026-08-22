@@ -1,5 +1,7 @@
 package com.example.payments.trade.service.service;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.trade.service.domain.PaymentAttempt;
 import com.example.payments.trade.service.domain.PaymentAttemptStatus;
 import com.example.payments.trade.service.domain.PaymentOrder;
@@ -15,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
+@RequiredArgsConstructor
 public class PaymentAttemptService {
   private final PaymentAttemptRepository repository;
   private final PaymentCallbackRecordRepository callbackRepository;
@@ -23,21 +26,6 @@ public class PaymentAttemptService {
   private final com.example.payments.trade.service.mapper.PaymentOutboxEventRepository
       outboxRepository;
   private final ObjectMapper objectMapper;
-
-  public PaymentAttemptService(
-      PaymentAttemptRepository repository,
-      PaymentCallbackRecordRepository callbackRepository,
-      PaymentChannelAdapter channel,
-      OrderService orderService,
-      com.example.payments.trade.service.mapper.PaymentOutboxEventRepository outboxRepository,
-      ObjectMapper objectMapper) {
-    this.repository = repository;
-    this.callbackRepository = callbackRepository;
-    this.channel = channel;
-    this.orderService = orderService;
-    this.outboxRepository = outboxRepository;
-    this.objectMapper = objectMapper;
-  }
 
   @Transactional
   public PaymentAttempt create(PaymentOrder order, String behavior) {

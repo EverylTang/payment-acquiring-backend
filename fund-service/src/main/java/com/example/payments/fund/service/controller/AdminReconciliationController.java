@@ -1,5 +1,7 @@
 package com.example.payments.fund.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.fund.service.service.FundDataService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.math.BigDecimal;
@@ -14,16 +16,11 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/admin/v1/reconciliation")
+@RequiredArgsConstructor
 public class AdminReconciliationController {
   private final FundDataService mybatisClient;
   private final AdminRequestAuthorizer auth;
   private final MeterRegistry metrics;
-
-  public AdminReconciliationController( FundDataService mybatisClient, AdminRequestAuthorizer auth, MeterRegistry metrics) {
-    this.mybatisClient = mybatisClient;
-    this.auth = auth;
-    this.metrics = metrics;
-  }
 
   @PostMapping("/bills")
   public Map<String, Object> importBill(

@@ -1,5 +1,7 @@
 package com.example.payments.platform.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.platform.service.service.ConfigurationSnapshotService;
 import com.example.payments.platform.service.service.PlatformDataService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -25,19 +27,11 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/admin/v1/config-releases")
+@RequiredArgsConstructor
 public class ConfigReleaseController {
   private final PlatformDataService mybatisClient;
   private final ObjectMapper objectMapper;
   private final ConfigurationSnapshotService snapshotService;
-
-  public ConfigReleaseController(
-      PlatformDataService mybatisClient,
-      ObjectMapper objectMapper,
-      ConfigurationSnapshotService snapshotService) {
-    this.mybatisClient = mybatisClient;
-    this.objectMapper = objectMapper;
-    this.snapshotService = snapshotService;
-  }
 
   @GetMapping
   public AdminPageResponse<ReleaseResponse> list(

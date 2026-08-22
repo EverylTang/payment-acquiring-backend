@@ -1,5 +1,7 @@
 package com.example.payments.trade.service.mapper;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.trade.service.model.*;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -9,12 +11,9 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Repository;
 
 @Repository
+@RequiredArgsConstructor
 public class PaymentCallbackRecordRepository {
   private final PaymentCallbackRecordMapper mapper;
-
-  public PaymentCallbackRecordRepository(PaymentCallbackRecordMapper mapper) {
-    this.mapper = mapper;
-  }
 
   public Optional<PaymentCallbackRecordEntity> findByCallbackId(String callbackId) {
     return Optional.ofNullable(mapper.findByCallbackId(callbackId));

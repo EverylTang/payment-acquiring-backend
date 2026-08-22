@@ -1,5 +1,7 @@
 package com.example.payments.fund.service.service;
 
+import lombok.RequiredArgsConstructor;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.payments.fund.service.mapper.RefundEventConsumptionMapper;
 import com.example.payments.fund.service.model.*;
@@ -21,22 +23,12 @@ import org.springframework.stereotype.Component;
     topic = "${fund.refund-success.topic:REFUND_SUCCEEDED}",
     consumerGroup = "${fund.refund-success.consumer-group:fund-refund-success}",
     maxReconsumeTimes = 5)
+@RequiredArgsConstructor
 public class RefundSuccessEventConsumer implements RocketMQListener<String> {
   private final LedgerEntryApplicationService ledger;
   private final ObjectMapper mapper;
   private final RefundEventConsumptionMapper consumption;
   private final MeterRegistry metrics;
-
-  public RefundSuccessEventConsumer(
-      LedgerEntryApplicationService ledger,
-      ObjectMapper mapper,
-      RefundEventConsumptionMapper consumption,
-      MeterRegistry metrics) {
-    this.ledger = ledger;
-    this.mapper = mapper;
-    this.consumption = consumption;
-    this.metrics = metrics;
-  }
 
   @Override
   public void onMessage(String message) {

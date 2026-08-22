@@ -1,5 +1,7 @@
 package com.example.payments.platform.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.platform.service.service.ConfigurationSnapshotService;
 import com.example.payments.platform.service.service.PlatformDataService;
 import java.math.BigDecimal;
@@ -12,14 +14,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/internal/v1/configurations")
+@RequiredArgsConstructor
 public class ConfigurationController {
   private final ConfigurationSnapshotService snapshotService;
   private final PlatformDataService mybatisClient;
-
-  public ConfigurationController( ConfigurationSnapshotService snapshotService, PlatformDataService mybatisClient) {
-    this.snapshotService = snapshotService;
-    this.mybatisClient = mybatisClient;
-  }
 
   @GetMapping("/snapshot")
   public Map<String, Object> snapshot(

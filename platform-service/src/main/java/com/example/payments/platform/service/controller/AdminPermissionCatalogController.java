@@ -1,5 +1,7 @@
 package com.example.payments.platform.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.platform.service.service.PlatformDataService;
 import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -10,12 +12,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/v1/permission-catalog")
 @PreAuthorize("hasRole('ADMIN')")
+@RequiredArgsConstructor
 public class AdminPermissionCatalogController {
   private final PlatformDataService mybatisClient;
-
-  public AdminPermissionCatalogController(PlatformDataService mybatisClient) {
-    this.mybatisClient = mybatisClient;
-  }
 
   @GetMapping
   public PermissionCatalog catalog() {

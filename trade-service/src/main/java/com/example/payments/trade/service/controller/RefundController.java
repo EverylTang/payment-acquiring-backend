@@ -1,5 +1,7 @@
 package com.example.payments.trade.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.trade.service.service.RefundService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
@@ -15,12 +17,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/payments/orders/{orderId}/refunds")
+@RequiredArgsConstructor
 public class RefundController {
   private final RefundService service;
-
-  public RefundController(RefundService service) {
-    this.service = service;
-  }
 
   @PostMapping
   public RefundResponse create(

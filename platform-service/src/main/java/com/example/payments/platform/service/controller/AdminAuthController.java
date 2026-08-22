@@ -1,5 +1,7 @@
 package com.example.payments.platform.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.platform.service.security.JwtService;
 import com.example.payments.platform.service.service.PlatformDataService;
 import jakarta.validation.Valid;
@@ -17,16 +19,11 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/admin/v1/auth")
+@RequiredArgsConstructor
 public class AdminAuthController {
   private final PlatformDataService mybatisClient;
   private final PasswordEncoder passwordEncoder;
   private final JwtService jwtService;
-
-  public AdminAuthController( PlatformDataService mybatisClient, PasswordEncoder passwordEncoder, JwtService jwtService) {
-    this.mybatisClient = mybatisClient;
-    this.passwordEncoder = passwordEncoder;
-    this.jwtService = jwtService;
-  }
 
   @PostMapping("/login")
   public LoginResponse login(@Valid @RequestBody LoginRequest request) {

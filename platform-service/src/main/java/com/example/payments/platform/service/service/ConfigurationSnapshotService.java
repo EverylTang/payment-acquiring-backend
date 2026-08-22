@@ -1,5 +1,7 @@
 package com.example.payments.platform.service.service;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.platform.service.mapper.MybatisPlusClient;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
@@ -10,12 +12,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
+@RequiredArgsConstructor
 public class ConfigurationSnapshotService {
   private final MybatisPlusClient mybatisClient;
-
-  public ConfigurationSnapshotService(MybatisPlusClient mybatisClient) {
-    this.mybatisClient = mybatisClient;
-  }
 
   public Map<String, Object> snapshot(
       String merchantId,

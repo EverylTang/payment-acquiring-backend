@@ -1,5 +1,7 @@
 package com.example.payments.trade.service.mapper;
 
+import lombok.RequiredArgsConstructor;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.payments.trade.service.domain.OrderStatus;
 import com.example.payments.trade.service.domain.PaymentOrder;
@@ -13,12 +15,9 @@ import java.util.Optional;
 import org.springframework.stereotype.Repository;
 
 @Repository
+@RequiredArgsConstructor
 public class PaymentOrderRepository {
   private final PaymentOrderMapper mapper;
-
-  public PaymentOrderRepository(PaymentOrderMapper mapper) {
-    this.mapper = mapper;
-  }
 
   public PaymentOrder insert(PaymentOrder order) {
     PaymentOrderEntity entity = new PaymentOrderEntity();

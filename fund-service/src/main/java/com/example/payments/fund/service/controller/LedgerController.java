@@ -1,5 +1,7 @@
 package com.example.payments.fund.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.fund.service.service.LedgerEntryApplicationService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
@@ -14,12 +16,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/internal/v1/ledger")
+@RequiredArgsConstructor
 public class LedgerController {
   private final LedgerEntryApplicationService ledgerService;
-
-  public LedgerController(LedgerEntryApplicationService ledgerService) {
-    this.ledgerService = ledgerService;
-  }
 
   @PostMapping("/payment-success")
   public Map<String, Object> postPaymentSuccess(@Valid @RequestBody LedgerEntryRequest request) {

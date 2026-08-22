@@ -1,5 +1,7 @@
 package com.example.payments.trade.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.trade.service.service.OrderService;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -9,12 +11,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/admin/v1/orders")
+@RequiredArgsConstructor
 public class AdminOrderController {
   private final OrderService orderService;
-
-  public AdminOrderController(OrderService orderService) {
-    this.orderService = orderService;
-  }
 
   @GetMapping
   public Map<String, Object> list(

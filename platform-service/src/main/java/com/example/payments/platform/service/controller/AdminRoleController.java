@@ -1,5 +1,7 @@
 package com.example.payments.platform.service.controller;
 
+import lombok.RequiredArgsConstructor;
+
 import com.example.payments.platform.service.service.PlatformDataService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -21,12 +23,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/v1/roles")
 @PreAuthorize("hasRole('ADMIN')")
+@RequiredArgsConstructor
 public class AdminRoleController {
   private final PlatformDataService mybatisClient;
-
-  public AdminRoleController(PlatformDataService mybatisClient) {
-    this.mybatisClient = mybatisClient;
-  }
 
   @GetMapping
   public AdminPageResponse<RoleResponse> list( @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
