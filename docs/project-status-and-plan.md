@@ -52,7 +52,7 @@ Admin 初始密码不保存在仓库中，由 Nacos 或外部环境配置注入�
 - RocketMQ 5.2.0
 - MinIO
 
-仓库 `docker-compose.yml` 管理 RocketMQ Broker 和 MinIO，并复用外部 Docker 网络 `local-dev-network`。RocketMQ Broker 当前映射端口：
+本仓库不管理依赖容器。MySQL、Redis、Nacos、RocketMQ NameServer、RocketMQ Broker 和 MinIO 由本地 Docker 或基础设施平台独立维护，应用只通过配置中心和服务端口连接。RocketMQ Broker 当前映射端口：
 
 ```text
 10909
@@ -718,8 +718,7 @@ DUPLICATE
 ## 11. 相关文件
 
 - `README.md`：构建、运行和接口示例
-- `docker-compose.yml`：RocketMQ Broker、MinIO 和本地网络
-- `infra/rocketmq/broker.conf`：RocketMQ Broker 本地配置
+- 外部 Docker/基础设施配置：RocketMQ Broker、MinIO、本地网络和监控规则
 - `docs/database/00-databases.sql`：数据库创建
 - `docs/database/10-mvp-schema.sql`：MVP 初始化表
 - `docs/database/migrations/`：各服务数据库结构、数据和版本 SQL

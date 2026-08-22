@@ -23,8 +23,6 @@ payment-acquiring-backend/
 ├── trade-service/             # 8082
 ├── fund-service/              # 8083
 ├── docs/database/             # 完整数据库表结构、初始化数据和版本 SQL
-├── infra/rocketmq/            # Broker 配置
-├── docker-compose.yml         # 本地 Broker + MinIO
 └── .gitignore
 ```
 
@@ -83,16 +81,11 @@ scrape_configs:
       - targets: ["fund-service:8083"]
 ```
 
-告警规则模板位于 [`infra/observability/prometheus-alerts.yml`](infra/observability/prometheus-alerts.yml)，覆盖退款 DEAD、退款冲正失败和对账差异。该文件需要由 Prometheus/Alertmanager 部署流程加载，仓库不会自动启动监控服务。OpenTelemetry OTLP 地址通过 `OTEL_EXPORTER_OTLP_ENDPOINT` 配置，默认指向本机 `4318` 端口。
+告警规则由外部 Prometheus/Alertmanager 部署流程维护，覆盖退款 DEAD、退款冲正失败和对账差异。仓库不携带监控容器或告警规则文件。OpenTelemetry OTLP 地址通过 `OTEL_EXPORTER_OTLP_ENDPOINT` 配置，默认指向本机 `4318` 端口。
 
 ## 本地基础设施
 
-该仓库的 Compose 只负责补充 RocketMQ Broker 和 MinIO，默认复用本机已经存在的 `local-dev-network`、MySQL、Redis、Nacos 和 RocketMQ NameServer：
-
-```bash
-docker compose up -d
-docker ps --filter name=payment-
-```
+所有依赖服务由本地 Docker 或基础设施平台独立维护，应用仓库不再提供 Compose 启动文件。启动服务前请确认 MySQL、Redis、Nacos、RocketMQ NameServer、RocketMQ Broker 和 MinIO 已运行，并接入同一网络或开放对应端口。
 
 数据库初始化：
 
