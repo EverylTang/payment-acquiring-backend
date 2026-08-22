@@ -21,15 +21,36 @@ public final class OrderDtos {
       Instant expireAt) {}
 
   public record OrderResponse(
-      String orderId, String merchantId, String merchantOrderNo, String currency,
-      BigDecimal amount, BigDecimal feeAmount, BigDecimal netAmount, String status,
-      String paymentToken, String routeSnapshot, String pricingSnapshot,
-      Instant expireAt, Instant createdAt, Instant paidAt) {
+      String orderId,
+      String merchantId,
+      String merchantOrderNo,
+      String currency,
+      BigDecimal amount,
+      BigDecimal feeAmount,
+      BigDecimal netAmount,
+      String status,
+      String paymentToken,
+      String routeSnapshot,
+      String pricingSnapshot,
+      Instant expireAt,
+      Instant createdAt,
+      Instant paidAt) {
     public static OrderResponse from(PaymentOrder order) {
-      return new OrderResponse(order.orderId(), order.merchantId(), order.merchantOrderNo(),
-          order.currency(), order.amount(), order.feeAmount(), order.netAmount(),
-          order.status().name(), order.paymentToken(), order.routeSnapshot(), order.pricingSnapshot(),
-          order.expireAt(), order.createdAt(), order.paidAt());
+      return new OrderResponse(
+          order.orderId(),
+          order.merchantId(),
+          order.merchantOrderNo(),
+          order.currency(),
+          order.amount(),
+          order.feeAmount(),
+          order.netAmount(),
+          order.status().name(),
+          order.paymentToken(),
+          order.routeSnapshot(),
+          order.pricingSnapshot(),
+          order.expireAt(),
+          order.createdAt(),
+          order.paidAt());
     }
   }
 }

@@ -64,9 +64,11 @@ public final class MybatisPlusClient {
       var values = new ArrayList<Object>();
       while (matcher.find()) {
         var name = matcher.group(1);
-        if (!parameters.containsKey(name)) throw new IllegalArgumentException("Missing SQL parameter: " + name);
+        if (!parameters.containsKey(name))
+          throw new IllegalArgumentException("Missing SQL parameter: " + name);
         values.add(sqlValue(parameters.get(name)));
-        matcher.appendReplacement(rendered, Matcher.quoteReplacement("{" + (values.size() - 1) + "}"));
+        matcher.appendReplacement(
+            rendered, Matcher.quoteReplacement("{" + (values.size() - 1) + "}"));
       }
       matcher.appendTail(rendered);
       parameters.clear();
@@ -94,12 +96,29 @@ public final class MybatisPlusClient {
       this.values = values;
     }
 
-    public String getString(String name) { return value(name, String.class); }
-    public int getInt(String name) { return ((Number) value(name, Number.class)).intValue(); }
-    public long getLong(String name) { return ((Number) value(name, Number.class)).longValue(); }
-    public boolean getBoolean(String name) { return Boolean.TRUE.equals(value(name, Object.class)); }
-    public BigDecimal getBigDecimal(String name) { return value(name, BigDecimal.class); }
-    public Date getDate(String name) { return value(name, Date.class); }
+    public String getString(String name) {
+      return value(name, String.class);
+    }
+
+    public int getInt(String name) {
+      return ((Number) value(name, Number.class)).intValue();
+    }
+
+    public long getLong(String name) {
+      return ((Number) value(name, Number.class)).longValue();
+    }
+
+    public boolean getBoolean(String name) {
+      return Boolean.TRUE.equals(value(name, Object.class));
+    }
+
+    public BigDecimal getBigDecimal(String name) {
+      return value(name, BigDecimal.class);
+    }
+
+    public Date getDate(String name) {
+      return value(name, Date.class);
+    }
 
     @SuppressWarnings("unchecked")
     private <T> T value(String name, Class<T> type) {
@@ -111,14 +130,27 @@ public final class MybatisPlusClient {
 
   public static final class Query<T> {
     private final List<T> rows;
-    private Query(List<T> rows, Class<?> ignored) { this.rows = rows; }
-    public List<T> list() { return rows; }
-    public List<T> listOfRows() { return rows; }
+
+    private Query(List<T> rows, Class<?> ignored) {
+      this.rows = rows;
+    }
+
+    public List<T> list() {
+      return rows;
+    }
+
+    public List<T> listOfRows() {
+      return rows;
+    }
+
     public T single() {
       if (rows.size() != 1) throw new IllegalStateException("Expected one row, got " + rows.size());
       return rows.get(0);
     }
-    public Optional<T> optional() { return rows.stream().findFirst(); }
+
+    public Optional<T> optional() {
+      return rows.stream().findFirst();
+    }
   }
 
   @SuppressWarnings("unchecked")
@@ -126,8 +158,10 @@ public final class MybatisPlusClient {
     if (Map.class.isAssignableFrom(type)) return (T) row;
     Object first = row.values().stream().findFirst().orElse(null);
     if (type == String.class) return (T) String.valueOf(first);
-    if (type == Long.class || type == long.class) return (T) Long.valueOf(((Number) first).longValue());
-    if (type == Integer.class || type == int.class) return (T) Integer.valueOf(((Number) first).intValue());
+    if (type == Long.class || type == long.class)
+      return (T) Long.valueOf(((Number) first).longValue());
+    if (type == Integer.class || type == int.class)
+      return (T) Integer.valueOf(((Number) first).intValue());
     if (type == BigDecimal.class) return (T) first;
     try {
       if (type.isRecord()) {
@@ -153,13 +187,18 @@ public final class MybatisPlusClient {
     if (value == null) value = row.get(toSnakeCase(name));
     if (value == null) value = row.get(name.toUpperCase(Locale.ROOT));
     if (value == null || type.isInstance(value)) return value;
-    if ((type == Long.class || type == long.class) && value instanceof Number n) return n.longValue();
-    if ((type == Integer.class || type == int.class) && value instanceof Number n) return n.intValue();
-    if ((type == Boolean.class || type == boolean.class) && value instanceof Number n) return n.intValue() != 0;
-    if (type == java.time.Instant.class && value instanceof java.util.Date date) return date.toInstant();
+    if ((type == Long.class || type == long.class) && value instanceof Number n)
+      return n.longValue();
+    if ((type == Integer.class || type == int.class) && value instanceof Number n)
+      return n.intValue();
+    if ((type == Boolean.class || type == boolean.class) && value instanceof Number n)
+      return n.intValue() != 0;
+    if (type == java.time.Instant.class && value instanceof java.util.Date date)
+      return date.toInstant();
     if (type == java.time.LocalDateTime.class && value instanceof java.util.Date date)
       return date.toInstant().atZone(java.time.ZoneOffset.UTC).toLocalDateTime();
-    if (type == java.time.LocalDate.class && value instanceof java.sql.Date date) return date.toLocalDate();
+    if (type == java.time.LocalDate.class && value instanceof java.sql.Date date)
+      return date.toLocalDate();
     if (type == String.class) return String.valueOf(value);
     return value;
   }

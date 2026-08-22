@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 public class PaymentAttemptEntity {
   @TableId(value = "id", type = IdType.AUTO)
   private Long id;
+
   private String attemptId;
   private String orderId;
   private String channelId;
@@ -28,42 +29,155 @@ public class PaymentAttemptEntity {
   private LocalDateTime queryLockUntil;
   private String queryClaimToken;
 
-  public Long getId() { return id; }
-  public void setId(Long id) { this.id = id; }
-  public String getAttemptId() { return attemptId; }
-  public void setAttemptId(String value) { attemptId = value; }
-  public String getOrderId() { return orderId; }
-  public void setOrderId(String value) { orderId = value; }
-  public String getChannelId() { return channelId; }
-  public void setChannelId(String value) { channelId = value; }
-  public String getChannelRequestNo() { return channelRequestNo; }
-  public void setChannelRequestNo(String value) { channelRequestNo = value; }
-  public Integer getAttemptNo() { return attemptNo; }
-  public void setAttemptNo(Integer value) { attemptNo = value; }
-  public String getStatus() { return status; }
-  public void setStatus(String value) { status = value; }
-  public String getRequestSummary() { return requestSummary; }
-  public void setRequestSummary(String value) { requestSummary = value; }
-  public String getResponseSummary() { return responseSummary; }
-  public void setResponseSummary(String value) { responseSummary = value; }
-  public String getFailureCode() { return failureCode; }
-  public void setFailureCode(String value) { failureCode = value; }
-  public LocalDateTime getStartedAt() { return startedAt; }
-  public void setStartedAt(LocalDateTime value) { startedAt = value; }
-  public LocalDateTime getCompletedAt() { return completedAt; }
-  public void setCompletedAt(LocalDateTime value) { completedAt = value; }
-  public Long getVersion() { return version; }
-  public void setVersion(Long value) { version = value; }
-  public Integer getQueryCount() { return queryCount; }
-  public void setQueryCount(Integer value) { queryCount = value; }
-  public LocalDateTime getNextQueryAt() { return nextQueryAt; }
-  public void setNextQueryAt(LocalDateTime value) { nextQueryAt = value; }
-  public LocalDateTime getLastQueryAt() { return lastQueryAt; }
-  public void setLastQueryAt(LocalDateTime value) { lastQueryAt = value; }
-  public String getQueryLockOwner() { return queryLockOwner; }
-  public void setQueryLockOwner(String value) { queryLockOwner = value; }
-  public LocalDateTime getQueryLockUntil() { return queryLockUntil; }
-  public void setQueryLockUntil(LocalDateTime value) { queryLockUntil = value; }
-  public String getQueryClaimToken() { return queryClaimToken; }
-  public void setQueryClaimToken(String value) { queryClaimToken = value; }
+  public Long getId() {
+    return id;
+  }
+
+  public void setId(Long id) {
+    this.id = id;
+  }
+
+  public String getAttemptId() {
+    return attemptId;
+  }
+
+  public void setAttemptId(String value) {
+    attemptId = value;
+  }
+
+  public String getOrderId() {
+    return orderId;
+  }
+
+  public void setOrderId(String value) {
+    orderId = value;
+  }
+
+  public String getChannelId() {
+    return channelId;
+  }
+
+  public void setChannelId(String value) {
+    channelId = value;
+  }
+
+  public String getChannelRequestNo() {
+    return channelRequestNo;
+  }
+
+  public void setChannelRequestNo(String value) {
+    channelRequestNo = value;
+  }
+
+  public Integer getAttemptNo() {
+    return attemptNo;
+  }
+
+  public void setAttemptNo(Integer value) {
+    attemptNo = value;
+  }
+
+  public String getStatus() {
+    return status;
+  }
+
+  public void setStatus(String value) {
+    status = value;
+  }
+
+  public String getRequestSummary() {
+    return requestSummary;
+  }
+
+  public void setRequestSummary(String value) {
+    requestSummary = value;
+  }
+
+  public String getResponseSummary() {
+    return responseSummary;
+  }
+
+  public void setResponseSummary(String value) {
+    responseSummary = value;
+  }
+
+  public String getFailureCode() {
+    return failureCode;
+  }
+
+  public void setFailureCode(String value) {
+    failureCode = value;
+  }
+
+  public LocalDateTime getStartedAt() {
+    return startedAt;
+  }
+
+  public void setStartedAt(LocalDateTime value) {
+    startedAt = value;
+  }
+
+  public LocalDateTime getCompletedAt() {
+    return completedAt;
+  }
+
+  public void setCompletedAt(LocalDateTime value) {
+    completedAt = value;
+  }
+
+  public Long getVersion() {
+    return version;
+  }
+
+  public void setVersion(Long value) {
+    version = value;
+  }
+
+  public Integer getQueryCount() {
+    return queryCount;
+  }
+
+  public void setQueryCount(Integer value) {
+    queryCount = value;
+  }
+
+  public LocalDateTime getNextQueryAt() {
+    return nextQueryAt;
+  }
+
+  public void setNextQueryAt(LocalDateTime value) {
+    nextQueryAt = value;
+  }
+
+  public LocalDateTime getLastQueryAt() {
+    return lastQueryAt;
+  }
+
+  public void setLastQueryAt(LocalDateTime value) {
+    lastQueryAt = value;
+  }
+
+  public String getQueryLockOwner() {
+    return queryLockOwner;
+  }
+
+  public void setQueryLockOwner(String value) {
+    queryLockOwner = value;
+  }
+
+  public LocalDateTime getQueryLockUntil() {
+    return queryLockUntil;
+  }
+
+  public void setQueryLockUntil(LocalDateTime value) {
+    queryLockUntil = value;
+  }
+
+  public String getQueryClaimToken() {
+    return queryClaimToken;
+  }
+
+  public void setQueryClaimToken(String value) {
+    queryClaimToken = value;
+  }
 }

@@ -1,15 +1,14 @@
 package com.example.payments.platform.service.controller;
 
+import com.example.payments.platform.service.service.AdminMerchantAccessService;
+import com.example.payments.platform.service.service.PlatformDataService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.example.payments.platform.service.service.AdminMerchantAccessService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-
 import java.time.Instant;
 import java.util.UUID;
-import com.example.payments.platform.service.service.PlatformDataService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +30,9 @@ public class AdminMerchantController {
   private final ObjectMapper objectMapper;
 
   public AdminMerchantController(
-      PlatformDataService mybatisClient, AdminMerchantAccessService accessService, ObjectMapper objectMapper) {
+      PlatformDataService mybatisClient,
+      AdminMerchantAccessService accessService,
+      ObjectMapper objectMapper) {
     this.mybatisClient = mybatisClient;
     this.accessService = accessService;
     this.objectMapper = objectMapper;

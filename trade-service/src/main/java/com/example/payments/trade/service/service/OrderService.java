@@ -3,9 +3,9 @@ package com.example.payments.trade.service.service;
 import com.example.payments.trade.service.domain.OrderStatus;
 import com.example.payments.trade.service.domain.PaymentOrder;
 import com.example.payments.trade.service.mapper.PaymentOrderRepository;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
-import java.math.BigDecimal;
 import java.util.Map;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
@@ -23,42 +23,80 @@ public class OrderService {
 
   @Transactional
   public PaymentOrder create(CreateOrderCommand command) {
-    var existing = repository.findByIdempotency(command.merchantId(), command.idempotencyKey())
-        .or(() -> repository.findByMerchantOrder(command.merchantId(), command.merchantOrderNo()));
+    var existing =
+        repository
+            .findByIdempotency(command.merchantId(), command.idempotencyKey())
+            .or(
+                () ->
+                    repository.findByMerchantOrder(
+                        command.merchantId(), command.merchantOrderNo()));
     if (existing.isPresent()) {
       return existing.get();
     }
-    PaymentOrder order = PaymentOrder.create(command.merchantId(), command.merchantOrderNo(), command.productCode(),
-        command.paymentMethod(), command.country(), command.currency(), command.amount(), command.idempotencyKey(), command.expireAt());
+    PaymentOrder order =
+        PaymentOrder.create(
+            command.merchantId(),
+            command.merchantOrderNo(),
+            command.productCode(),
+            command.paymentMethod(),
+            command.country(),
+            command.currency(),
+            command.amount(),
+            command.idempotencyKey(),
+            command.expireAt());
     try {
       return repository.insert(order);
     } catch (DuplicateKeyException duplicate) {
-      return repository.findByIdempotency(command.merchantId(), command.idempotencyKey())
+      return repository
+          .findByIdempotency(command.merchantId(), command.idempotencyKey())
           .or(() -> repository.findByMerchantOrder(command.merchantId(), command.merchantOrderNo()))
           .orElseThrow(() -> duplicate);
     }
   }
 
   public PaymentOrder get(String orderId) {
-    return repository.findById(orderId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "order not found"));
+    return repository
+        .findById(orderId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "order not found"));
   }
 
-  public Map<String, Object> list(String merchantId, String status, String currency, int page, int pageSize) {
-    if (page < 1 || pageSize < 1 || pageSize > 100) throw new IllegalArgumentException("invalid pagination");
-    var items = repository.search(merchantId, status, currency, page, pageSize).stream()
-        .map(com.example.payments.trade.service.controller.OrderDtos.OrderResponse::from).toList();
-    return Map.of("items", items, "page", page, "pageSize", pageSize,
-        "total", repository.count(merchantId, status, currency));
+  public Map<String, Object> list(
+      String merchantId, String status, String currency, int page, int pageSize) {
+    if (page < 1 || pageSize < 1 || pageSize > 100)
+      throw new IllegalArgumentException("invalid pagination");
+    var items =
+        repository.search(merchantId, status, currency, page, pageSize).stream()
+            .map(com.example.payments.trade.service.controller.OrderDtos.OrderResponse::from)
+            .toList();
+    return Map.of(
+        "items",
+        items,
+        "page",
+        page,
+        "pageSize",
+        pageSize,
+        "total",
+        repository.count(merchantId, status, currency));
   }
 
   public Map<String, Object> statistics() {
     var statistics = repository.statistics();
-    BigDecimal successRate = statistics.total() == 0 ? BigDecimal.ZERO
-        : BigDecimal.valueOf(statistics.successful() * 100.0 / statistics.total())
-            .setScale(2, java.math.RoundingMode.HALF_UP);
-    return Map.of("totalOrders", statistics.total(), "successfulOrders", statistics.successful(),
-        "paymentSuccessRate", successRate, "paymentVolume", statistics.volume(),
-        "activeMerchants", statistics.merchants());
+    BigDecimal successRate =
+        statistics.total() == 0
+            ? BigDecimal.ZERO
+            : BigDecimal.valueOf(statistics.successful() * 100.0 / statistics.total())
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+    return Map.of(
+        "totalOrders",
+        statistics.total(),
+        "successfulOrders",
+        statistics.successful(),
+        "paymentSuccessRate",
+        successRate,
+        "paymentVolume",
+        statistics.volume(),
+        "activeMerchants",
+        statistics.merchants());
   }
 
   @Transactional
@@ -72,12 +110,16 @@ public class OrderService {
       transition(orderId, status);
       return get(orderId);
     }
-    if (status != OrderStatus.SUCCESS && status != OrderStatus.FAILED && status != OrderStatus.UNKNOWN && status != OrderStatus.CANCELED) {
+    if (status != OrderStatus.SUCCESS
+        && status != OrderStatus.FAILED
+        && status != OrderStatus.UNKNOWN
+        && status != OrderStatus.CANCELED) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "callback status is not allowed");
     }
     PaymentOrder current = get(orderId);
     if (current.status().canTransitionTo(status)) {
-      repository.updateStatus(orderId, current.status(), status, status == OrderStatus.SUCCESS ? Instant.now() : null);
+      repository.updateStatus(
+          orderId, current.status(), status, status == OrderStatus.SUCCESS ? Instant.now() : null);
     }
     return get(orderId);
   }
@@ -103,8 +145,16 @@ public class OrderService {
     return get(orderId);
   }
 
-  public record CreateOrderCommand(String merchantId, String merchantOrderNo, String productCode, String paymentMethod,
-      String country, String currency, java.math.BigDecimal amount, String idempotencyKey, Instant expireAt) {
+  public record CreateOrderCommand(
+      String merchantId,
+      String merchantOrderNo,
+      String productCode,
+      String paymentMethod,
+      String country,
+      String currency,
+      java.math.BigDecimal amount,
+      String idempotencyKey,
+      Instant expireAt) {
     public CreateOrderCommand {
       if (expireAt == null) expireAt = Instant.now().plus(Duration.ofMinutes(30));
     }

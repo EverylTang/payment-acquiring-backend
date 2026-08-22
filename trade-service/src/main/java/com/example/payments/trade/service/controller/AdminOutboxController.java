@@ -17,29 +17,38 @@ public class AdminOutboxController {
   private final PaymentOutboxAdminService service;
   private final AdminRequestAuthorizer authorizer;
 
-  public AdminOutboxController(PaymentOutboxAdminService service, AdminRequestAuthorizer authorizer) {
+  public AdminOutboxController(
+      PaymentOutboxAdminService service, AdminRequestAuthorizer authorizer) {
     this.service = service;
     this.authorizer = authorizer;
   }
 
   @GetMapping("/dead")
-  public Map<String, Object> dead(@RequestParam(defaultValue = "50") int limit,
-      @RequestHeader("X-Gateway-Token") String gatewayToken, @RequestHeader("X-User-Id") String operator,
+  public Map<String, Object> dead(
+      @RequestParam(defaultValue = "50") int limit,
+      @RequestHeader("X-Gateway-Token") String gatewayToken,
+      @RequestHeader("X-User-Id") String operator,
       @RequestHeader("X-Roles") String roles) {
     authorizer.authorize(gatewayToken, operator, roles);
     return Map.of("items", service.findDead(limit));
   }
 
   @GetMapping("/{eventId}")
-  public Object get(@PathVariable String eventId, @RequestHeader("X-Gateway-Token") String gatewayToken,
-      @RequestHeader("X-User-Id") String operator, @RequestHeader("X-Roles") String roles) {
+  public Object get(
+      @PathVariable String eventId,
+      @RequestHeader("X-Gateway-Token") String gatewayToken,
+      @RequestHeader("X-User-Id") String operator,
+      @RequestHeader("X-Roles") String roles) {
     authorizer.authorize(gatewayToken, operator, roles);
     return service.find(eventId);
   }
 
   @PostMapping("/{eventId}/redrive")
-  public Object redrive(@PathVariable String eventId, @RequestBody RedriveRequest request,
-      @RequestHeader("X-Gateway-Token") String gatewayToken, @RequestHeader("X-User-Id") String operator,
+  public Object redrive(
+      @PathVariable String eventId,
+      @RequestBody RedriveRequest request,
+      @RequestHeader("X-Gateway-Token") String gatewayToken,
+      @RequestHeader("X-User-Id") String operator,
       @RequestHeader("X-Roles") String roles,
       @RequestHeader(value = "X-Request-Id", required = false) String requestId) {
     authorizer.authorize(gatewayToken, operator, roles);

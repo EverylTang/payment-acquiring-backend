@@ -19,7 +19,8 @@ public enum PaymentAttemptStatus {
     return switch (next) {
       case CREATED -> this == CREATED;
       case PROCESSING -> this == CREATED || this == UNKNOWN;
-      case SUCCESS, FAILED, TIMEOUT, CANCELED -> this == CREATED || this == PROCESSING || this == UNKNOWN;
+      case SUCCESS, FAILED, TIMEOUT, CANCELED ->
+          this == CREATED || this == PROCESSING || this == UNKNOWN;
       case UNKNOWN -> this == CREATED || this == PROCESSING;
     };
   }

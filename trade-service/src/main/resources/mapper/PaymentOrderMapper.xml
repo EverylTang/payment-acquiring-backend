@@ -1,55 +1,48 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE mapper
-  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.payments.trade.service.mapper.PaymentOrderMapper">
-  <resultMap id="PaymentOrderResultMap"
-             type="com.example.payments.trade.service.model.PaymentOrderEntity">
-    <id property="id" column="id" />
-    <result property="orderId" column="order_id" />
-    <result property="merchantId" column="merchant_id" />
-    <result property="merchantOrderNo" column="merchant_order_no" />
-    <result property="productCode" column="product_code" />
-    <result property="paymentMethod" column="payment_method" />
-    <result property="country" column="country" />
-    <result property="currency" column="currency" />
-    <result property="amount" column="amount" />
-    <result property="feeAmount" column="fee_amount" />
-    <result property="netAmount" column="net_amount" />
-    <result property="status" column="status" />
-    <result property="idempotencyKey" column="idempotency_key" />
-    <result property="routeSnapshotJson" column="route_snapshot_json" />
-    <result property="pricingSnapshotJson" column="pricing_snapshot_json" />
-    <result property="expireAt" column="expire_at" />
-    <result property="createdAt" column="created_at" />
-    <result property="paidAt" column="paid_at" />
-    <result property="paymentToken" column="payment_token" />
-    <result property="version" column="version" />
+  <resultMap id="PaymentOrderResultMap" type="com.example.payments.trade.service.model.PaymentOrderEntity">
+    <id property="id" column="id"/>
+    <result property="orderId" column="order_id"/>
+    <result property="merchantId" column="merchant_id"/>
+    <result property="merchantOrderNo" column="merchant_order_no"/>
+    <result property="productCode" column="product_code"/>
+    <result property="paymentMethod" column="payment_method"/>
+    <result property="country" column="country"/>
+    <result property="currency" column="currency"/>
+    <result property="amount" column="amount"/>
+    <result property="feeAmount" column="fee_amount"/>
+    <result property="netAmount" column="net_amount"/>
+    <result property="status" column="status"/>
+    <result property="idempotencyKey" column="idempotency_key"/>
+    <result property="routeSnapshotJson" column="route_snapshot_json"/>
+    <result property="pricingSnapshotJson" column="pricing_snapshot_json"/>
+    <result property="expireAt" column="expire_at"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="paidAt" column="paid_at"/>
+    <result property="paymentToken" column="payment_token"/>
+    <result property="version" column="version"/>
   </resultMap>
-
   <sql id="allColumns">
     id, order_id, merchant_id, merchant_order_no, product_code, payment_method,
     country, currency, amount, fee_amount, net_amount, status, idempotency_key,
     route_snapshot_json, pricing_snapshot_json, expire_at, created_at, paid_at,
     payment_token, version
   </sql>
-
   <select id="findByMerchantOrder" resultMap="PaymentOrderResultMap">
-    SELECT <include refid="allColumns" />
+    SELECT <include refid="allColumns"/>
     FROM payment_order
     WHERE merchant_id = #{merchantId}
       AND merchant_order_no = #{merchantOrderNo}
     LIMIT 1
   </select>
-
   <select id="findByIdempotency" resultMap="PaymentOrderResultMap">
-    SELECT <include refid="allColumns" />
+    SELECT <include refid="allColumns"/>
     FROM payment_order
     WHERE merchant_id = #{merchantId}
       AND idempotency_key = #{key}
     LIMIT 1
   </select>
-
   <update id="updateStatus">
     UPDATE payment_order
     SET status = #{next},

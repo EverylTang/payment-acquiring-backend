@@ -71,8 +71,7 @@ public class RefundController {
       String currency,
       String status,
       String reason) {
-    static RefundResponse from(
-        com.example.payments.trade.service.model.PaymentRefundEntity value) {
+    static RefundResponse from(com.example.payments.trade.service.model.PaymentRefundEntity value) {
       return new RefundResponse(
           value.getRefundId(),
           value.getOrderId(),

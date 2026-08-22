@@ -1,8 +1,8 @@
 package com.example.payments.trade.service.controller;
 
+import com.example.payments.trade.service.domain.OrderStatus;
 import com.example.payments.trade.service.service.OrderService;
 import com.example.payments.trade.service.service.PaymentAttemptService;
-import com.example.payments.trade.service.domain.OrderStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.time.Instant;
@@ -41,9 +41,18 @@ public class OrderController {
     if (idempotencyKey == null || idempotencyKey.isBlank()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Idempotency-Key is required");
     }
-    var order = orderService.create(new OrderService.CreateOrderCommand(request.merchantId(),
-        request.merchantOrderNo(), request.productCode(), request.paymentMethod(), request.country(),
-        request.currency(), request.amount(), idempotencyKey, request.expireAt()));
+    var order =
+        orderService.create(
+            new OrderService.CreateOrderCommand(
+                request.merchantId(),
+                request.merchantOrderNo(),
+                request.productCode(),
+                request.paymentMethod(),
+                request.country(),
+                request.currency(),
+                request.amount(),
+                idempotencyKey,
+                request.expireAt()));
     return OrderDtos.OrderResponse.from(order);
   }
 
@@ -63,58 +72,101 @@ public class OrderController {
   }
 
   @PostMapping("/{orderId}/attempts")
-  public Map<String, Object> createAttempt(@PathVariable(name = "orderId") String orderId,
+  public Map<String, Object> createAttempt(
+      @PathVariable(name = "orderId") String orderId,
       @RequestParam(name = "behavior", required = false) String behavior) {
     var order = orderService.markPaying(orderId);
     var attempt = paymentAttemptService.create(order, behavior);
-    return Map.of("attemptId", attempt.attemptId(), "orderId", attempt.orderId(), "channelId", attempt.channelId(),
-        "channelOrderId", attempt.channelRequestNo(), "status", attempt.status().name(), "responseSnapshot", attempt.responseSnapshot());
+    return Map.of(
+        "attemptId",
+        attempt.attemptId(),
+        "orderId",
+        attempt.orderId(),
+        "channelId",
+        attempt.channelId(),
+        "channelOrderId",
+        attempt.channelRequestNo(),
+        "status",
+        attempt.status().name(),
+        "responseSnapshot",
+        attempt.responseSnapshot());
   }
 
   @PostMapping("/{orderId}/callback")
-  public OrderDtos.OrderResponse callback(@PathVariable(name = "orderId") String orderId, @RequestParam(name = "status") @NotBlank String status) {
+  public OrderDtos.OrderResponse callback(
+      @PathVariable(name = "orderId") String orderId,
+      @RequestParam(name = "status") @NotBlank String status) {
     try {
-      return OrderDtos.OrderResponse.from(orderService.callback(orderId, OrderStatus.valueOf(status.toUpperCase())));
+      return OrderDtos.OrderResponse.from(
+          orderService.callback(orderId, OrderStatus.valueOf(status.toUpperCase())));
     } catch (IllegalArgumentException exception) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unsupported status", exception);
     }
   }
 
   @GetMapping("/{orderId}/attempts/{attemptId}")
-  public Map<String, Object> getAttempt(@PathVariable String orderId, @PathVariable String attemptId) {
+  public Map<String, Object> getAttempt(
+      @PathVariable String orderId, @PathVariable String attemptId) {
     var attempt = paymentAttemptService.get(attemptId, orderId);
     return attemptResponse(attempt);
   }
 
   @PostMapping("/{orderId}/attempts/{attemptId}/query")
-  public Map<String, Object> queryAttempt(@PathVariable String orderId, @PathVariable String attemptId) {
-    return attemptResponse(paymentAttemptService.query(paymentAttemptService.get(attemptId, orderId).attemptId()));
+  public Map<String, Object> queryAttempt(
+      @PathVariable String orderId, @PathVariable String attemptId) {
+    return attemptResponse(
+        paymentAttemptService.query(paymentAttemptService.get(attemptId, orderId).attemptId()));
   }
 
   @PostMapping("/{orderId}/attempts/{attemptId}/cancel")
-  public Map<String, Object> cancelAttempt(@PathVariable String orderId, @PathVariable String attemptId) {
+  public Map<String, Object> cancelAttempt(
+      @PathVariable String orderId, @PathVariable String attemptId) {
     paymentAttemptService.get(attemptId, orderId);
     return attemptResponse(paymentAttemptService.cancel(attemptId));
   }
 
   @PostMapping("/{orderId}/attempts/{attemptId}/retry")
-  public Map<String, Object> retryAttempt(@PathVariable String orderId, @PathVariable String attemptId) {
+  public Map<String, Object> retryAttempt(
+      @PathVariable String orderId, @PathVariable String attemptId) {
     var order = orderService.get(orderId);
     return attemptResponse(paymentAttemptService.retry(attemptId, order));
   }
 
-  private static Map<String, Object> attemptResponse(com.example.payments.trade.service.domain.PaymentAttempt attempt) {
-    return Map.of("attemptId", attempt.attemptId(), "orderId", attempt.orderId(), "channelId", attempt.channelId(),
-        "channelOrderId", attempt.channelRequestNo(), "attemptNo", attempt.attemptNo(), "status", attempt.status().name(),
-        "responseSnapshot", attempt.responseSnapshot() == null ? "" : attempt.responseSnapshot());
+  private static Map<String, Object> attemptResponse(
+      com.example.payments.trade.service.domain.PaymentAttempt attempt) {
+    return Map.of(
+        "attemptId",
+        attempt.attemptId(),
+        "orderId",
+        attempt.orderId(),
+        "channelId",
+        attempt.channelId(),
+        "channelOrderId",
+        attempt.channelRequestNo(),
+        "attemptNo",
+        attempt.attemptNo(),
+        "status",
+        attempt.status().name(),
+        "responseSnapshot",
+        attempt.responseSnapshot() == null ? "" : attempt.responseSnapshot());
   }
 
   @PostMapping("/attempts/callback")
   public Map<String, Object> attemptCallback(@Valid @RequestBody CallbackRequest request) {
-    var attempt = paymentAttemptService.callback(request.rawPayload(), request.signature(), request.callbackId());
-    return Map.of("attemptId", attempt.attemptId(), "orderId", attempt.orderId(), "status", attempt.status().name(),
-        "responseSnapshot", attempt.responseSnapshot());
+    var attempt =
+        paymentAttemptService.callback(
+            request.rawPayload(), request.signature(), request.callbackId());
+    return Map.of(
+        "attemptId",
+        attempt.attemptId(),
+        "orderId",
+        attempt.orderId(),
+        "status",
+        attempt.status().name(),
+        "responseSnapshot",
+        attempt.responseSnapshot());
   }
 
-  public record CallbackRequest(@NotBlank String callbackId, @NotBlank String rawPayload, @NotBlank String signature) {}
+  public record CallbackRequest(
+      @NotBlank String callbackId, @NotBlank String rawPayload, @NotBlank String signature) {}
 }

@@ -17,29 +17,38 @@ public class AdminPaymentEventController {
   private final PaymentEventReplayAdminService service;
   private final AdminRequestAuthorizer authorizer;
 
-  public AdminPaymentEventController(PaymentEventReplayAdminService service, AdminRequestAuthorizer authorizer) {
+  public AdminPaymentEventController(
+      PaymentEventReplayAdminService service, AdminRequestAuthorizer authorizer) {
     this.service = service;
     this.authorizer = authorizer;
   }
 
   @GetMapping("/failed")
-  public Map<String, Object> failed(@RequestParam(defaultValue = "50") int limit,
-      @RequestHeader("X-Gateway-Token") String token, @RequestHeader("X-User-Id") String operator,
+  public Map<String, Object> failed(
+      @RequestParam(defaultValue = "50") int limit,
+      @RequestHeader("X-Gateway-Token") String token,
+      @RequestHeader("X-User-Id") String operator,
       @RequestHeader("X-Roles") String roles) {
     authorizer.authorize(token, operator, roles);
     return Map.of("items", service.findFailed(limit));
   }
 
   @GetMapping("/{id}")
-  public Object get(@PathVariable long id, @RequestHeader("X-Gateway-Token") String token,
-      @RequestHeader("X-User-Id") String operator, @RequestHeader("X-Roles") String roles) {
+  public Object get(
+      @PathVariable long id,
+      @RequestHeader("X-Gateway-Token") String token,
+      @RequestHeader("X-User-Id") String operator,
+      @RequestHeader("X-Roles") String roles) {
     authorizer.authorize(token, operator, roles);
     return service.find(id);
   }
 
   @PostMapping("/{id}/replay")
-  public Object replay(@PathVariable long id, @RequestBody ReplayRequest request,
-      @RequestHeader("X-Gateway-Token") String token, @RequestHeader("X-User-Id") String operator,
+  public Object replay(
+      @PathVariable long id,
+      @RequestBody ReplayRequest request,
+      @RequestHeader("X-Gateway-Token") String token,
+      @RequestHeader("X-User-Id") String operator,
       @RequestHeader("X-Roles") String roles,
       @RequestHeader(value = "X-Request-Id", required = false) String requestId) {
     authorizer.authorize(token, operator, roles);

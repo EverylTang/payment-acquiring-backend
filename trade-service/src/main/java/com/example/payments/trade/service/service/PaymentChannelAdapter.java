@@ -1,6 +1,5 @@
 package com.example.payments.trade.service.service;
 
-
 public interface PaymentChannelAdapter {
   PaymentChannelResult createPayment(PaymentChannelRequest request);
 

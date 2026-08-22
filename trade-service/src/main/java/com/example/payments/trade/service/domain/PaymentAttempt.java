@@ -14,5 +14,4 @@ public record PaymentAttempt(
     String failureCode,
     Instant startedAt,
     Instant completedAt,
-    long version) {
-}
+    long version) {}

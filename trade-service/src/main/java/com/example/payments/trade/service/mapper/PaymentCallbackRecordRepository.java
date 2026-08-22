@@ -1,6 +1,6 @@
 package com.example.payments.trade.service.mapper;
-import com.example.payments.trade.service.model.*;
 
+import com.example.payments.trade.service.model.*;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -12,7 +12,9 @@ import org.springframework.stereotype.Repository;
 public class PaymentCallbackRecordRepository {
   private final PaymentCallbackRecordMapper mapper;
 
-  public PaymentCallbackRecordRepository(PaymentCallbackRecordMapper mapper) { this.mapper = mapper; }
+  public PaymentCallbackRecordRepository(PaymentCallbackRecordMapper mapper) {
+    this.mapper = mapper;
+  }
 
   public Optional<PaymentCallbackRecordEntity> findByCallbackId(String callbackId) {
     return Optional.ofNullable(mapper.findByCallbackId(callbackId));
@@ -33,7 +35,12 @@ public class PaymentCallbackRecordRepository {
     }
   }
 
-  public void markProcessed(String callbackId, String attemptId, String channelOrderId, String status, Instant processedAt) {
+  public void markProcessed(
+      String callbackId,
+      String attemptId,
+      String channelOrderId,
+      String status,
+      Instant processedAt) {
     var entity = mapper.findByCallbackId(callbackId);
     entity.setAttemptId(attemptId);
     entity.setChannelOrderId(channelOrderId);
@@ -42,5 +49,7 @@ public class PaymentCallbackRecordRepository {
     mapper.updateById(entity);
   }
 
-  private static LocalDateTime toLocal(Instant value) { return LocalDateTime.ofInstant(value, ZoneOffset.UTC); }
+  private static LocalDateTime toLocal(Instant value) {
+    return LocalDateTime.ofInstant(value, ZoneOffset.UTC);
+  }
 }

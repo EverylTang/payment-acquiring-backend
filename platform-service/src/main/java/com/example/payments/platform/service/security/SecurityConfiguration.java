@@ -21,19 +21,30 @@ public class SecurityConfiguration {
   }
 
   @Bean
-  SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter) throws Exception {
-    return http
-        .csrf(csrf -> csrf.disable())
-        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .authorizeHttpRequests(authorize -> authorize
-            .requestMatchers("/api/admin/v1/auth/login", "/actuator/health").permitAll()
-            .requestMatchers("/api/admin/v1/**").authenticated()
-            .anyRequest().permitAll())
-        .exceptionHandling(errors -> errors.authenticationEntryPoint((request, response, exception) -> {
-          response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-          response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-          response.getWriter().write("{\"code\":\"UNAUTHORIZED\",\"message\":\"请先登录\"}");
-        }))
+  SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter)
+      throws Exception {
+    return http.csrf(csrf -> csrf.disable())
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(
+            authorize ->
+                authorize
+                    .requestMatchers("/api/admin/v1/auth/login", "/actuator/health")
+                    .permitAll()
+                    .requestMatchers("/api/admin/v1/**")
+                    .authenticated()
+                    .anyRequest()
+                    .permitAll())
+        .exceptionHandling(
+            errors ->
+                errors.authenticationEntryPoint(
+                    (request, response, exception) -> {
+                      response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                      response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                      response
+                          .getWriter()
+                          .write("{\"code\":\"UNAUTHORIZED\",\"message\":\"请先登录\"}");
+                    }))
         .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
         .build();
   }

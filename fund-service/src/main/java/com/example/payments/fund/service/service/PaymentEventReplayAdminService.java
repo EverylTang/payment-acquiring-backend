@@ -1,7 +1,7 @@
 package com.example.payments.fund.service.service;
 
-import com.example.payments.fund.service.model.*;
 import com.example.payments.fund.service.mapper.PaymentEventConsumptionMapper;
+import com.example.payments.fund.service.model.*;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -17,7 +17,9 @@ public class PaymentEventReplayAdminService {
   private final RocketMQTemplate rocketMQTemplate;
   private final String topic;
 
-  public PaymentEventReplayAdminService(PaymentEventConsumptionMapper mapper, RocketMQTemplate rocketMQTemplate,
+  public PaymentEventReplayAdminService(
+      PaymentEventConsumptionMapper mapper,
+      RocketMQTemplate rocketMQTemplate,
       @Value("${fund.payment-success.topic:PAYMENT_SUCCEEDED}") String topic) {
     this.mapper = mapper;
     this.rocketMQTemplate = rocketMQTemplate;
@@ -25,27 +27,34 @@ public class PaymentEventReplayAdminService {
   }
 
   public List<PaymentEventConsumptionEntity> findFailed(int limit) {
-    if (limit < 1 || limit > 200) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "limit must be between 1 and 200");
+    if (limit < 1 || limit > 200)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "limit must be between 1 and 200");
     return mapper.findFailed(limit);
   }
 
   public PaymentEventConsumptionEntity find(long id) {
     var record = mapper.selectById(id);
-    if (record == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "payment event consumption not found");
+    if (record == null)
+      throw new ResponseStatusException(
+          HttpStatus.NOT_FOUND, "payment event consumption not found");
     return record;
   }
 
-  public PaymentEventConsumptionEntity replay(long id, String operator, String reason, String requestId) {
+  public PaymentEventConsumptionEntity replay(
+      long id, String operator, String reason, String requestId) {
     if (reason == null || reason.isBlank() || reason.length() > 512) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "reason must contain 1 to 512 characters");
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "reason must contain 1 to 512 characters");
     }
     var record = find(id);
     if ("CONFLICT".equals(record.getFailureType())) {
-      throw new ResponseStatusException(HttpStatus.CONFLICT, "conflicting payment events cannot be replayed");
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "conflicting payment events cannot be replayed");
     }
     var now = LocalDateTime.now(ZoneOffset.UTC);
     if (mapper.requestReplay(id, now) != 1) {
-      throw new ResponseStatusException(HttpStatus.CONFLICT, "only failed payment events can be replayed");
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "only failed payment events can be replayed");
     }
     mapper.insertReplayAudit(record.getEventId(), operator, reason.trim(), requestId, now);
     try {

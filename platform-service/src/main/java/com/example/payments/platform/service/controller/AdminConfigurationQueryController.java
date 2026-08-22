@@ -15,7 +15,9 @@ public class AdminConfigurationQueryController {
   private final ConfigurationSnapshotService snapshotService;
   private final ConfigurationController configurationController;
 
-  public AdminConfigurationQueryController(ConfigurationSnapshotService snapshotService, ConfigurationController configurationController) {
+  public AdminConfigurationQueryController(
+      ConfigurationSnapshotService snapshotService,
+      ConfigurationController configurationController) {
     this.snapshotService = snapshotService;
     this.configurationController = configurationController;
   }
@@ -28,7 +30,8 @@ public class AdminConfigurationQueryController {
       @RequestParam(defaultValue = "US") String country,
       @RequestParam String currency,
       @RequestParam(defaultValue = "1.00") BigDecimal amount) {
-    return snapshotService.snapshot(merchantId, productCode, paymentMethod, country, currency, amount);
+    return snapshotService.snapshot(
+        merchantId, productCode, paymentMethod, country, currency, amount);
   }
 
   @GetMapping("/channels/{channelId}/health")

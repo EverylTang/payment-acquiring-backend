@@ -3,8 +3,8 @@ package com.example.payments.trade.service.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "trade.attempt.query")
-public record AttemptQueryProperties(int batchSize, int maxCount, long lockSeconds, long retryBaseSeconds,
-    long retryMaxSeconds) {
+public record AttemptQueryProperties(
+    int batchSize, int maxCount, long lockSeconds, long retryBaseSeconds, long retryMaxSeconds) {
   public AttemptQueryProperties {
     if (batchSize <= 0) batchSize = 50;
     if (maxCount <= 0) maxCount = 8;

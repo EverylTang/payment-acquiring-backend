@@ -23,16 +23,32 @@ public class LedgerController {
 
   @PostMapping("/payment-success")
   public Map<String, Object> postPaymentSuccess(@Valid @RequestBody LedgerEntryRequest request) {
-    var result = ledgerService.recordPaymentSuccess(request.idempotencyKey(), request.orderId(), request.merchantId(),
-        request.amount(), request.currency());
+    var result =
+        ledgerService.recordPaymentSuccess(
+            request.idempotencyKey(),
+            request.orderId(),
+            request.merchantId(),
+            request.amount(),
+            request.currency());
     return response(request, result.duplicate());
   }
 
   private Map<String, Object> response(LedgerEntryRequest request, boolean duplicate) {
-    return Map.of("accepted", true, "duplicate", duplicate, "idempotencyKey", request.idempotencyKey(), "entryType", "PAYMENT_SUCCESS");
+    return Map.of(
+        "accepted",
+        true,
+        "duplicate",
+        duplicate,
+        "idempotencyKey",
+        request.idempotencyKey(),
+        "entryType",
+        "PAYMENT_SUCCESS");
   }
 
-  public record LedgerEntryRequest(@NotBlank String idempotencyKey, @NotBlank String orderId,
-      @NotBlank String merchantId, @NotBlank String currency,
+  public record LedgerEntryRequest(
+      @NotBlank String idempotencyKey,
+      @NotBlank String orderId,
+      @NotBlank String merchantId,
+      @NotBlank String currency,
       @NotNull @DecimalMin("0.01") BigDecimal amount) {}
 }

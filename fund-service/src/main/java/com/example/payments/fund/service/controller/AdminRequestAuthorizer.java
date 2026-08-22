@@ -19,10 +19,15 @@ public class AdminRequestAuthorizer {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "invalid gateway credential");
     }
     if (userId == null || userId.isBlank()) {
-      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "administrator identity is required");
+      throw new ResponseStatusException(
+          HttpStatus.UNAUTHORIZED, "administrator identity is required");
     }
-    boolean allowed = roles != null && Arrays.stream(roles.split(","))
-        .map(String::trim).anyMatch(role -> role.equals("ADMIN") || role.equals("OPS"));
-    if (!allowed) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "administrator role is required");
+    boolean allowed =
+        roles != null
+            && Arrays.stream(roles.split(","))
+                .map(String::trim)
+                .anyMatch(role -> role.equals("ADMIN") || role.equals("OPS"));
+    if (!allowed)
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "administrator role is required");
   }
 }

@@ -35,12 +35,22 @@ public class AdminAuthenticationFilter implements GlobalFilter, Ordered {
       return unauthorized(exchange);
     }
     try {
-      var claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(authorization.substring(7)).getPayload();
+      var claims =
+          Jwts.parser()
+              .verifyWith(key)
+              .build()
+              .parseSignedClaims(authorization.substring(7))
+              .getPayload();
       var roles = claims.get("roles", List.class).stream().map(String::valueOf).toList();
-      var authenticated = request.mutate().headers(headers -> {
-        headers.set("X-User-Id", claims.getSubject());
-        headers.set("X-Roles", String.join(",", roles));
-      }).build();
+      var authenticated =
+          request
+              .mutate()
+              .headers(
+                  headers -> {
+                    headers.set("X-User-Id", claims.getSubject());
+                    headers.set("X-Roles", String.join(",", roles));
+                  })
+              .build();
       return chain.filter(exchange.mutate().request(authenticated).build());
     } catch (RuntimeException exception) {
       return unauthorized(exchange);

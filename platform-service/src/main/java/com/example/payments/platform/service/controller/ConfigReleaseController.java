@@ -1,17 +1,16 @@
 package com.example.payments.platform.service.controller;
 
 import com.example.payments.platform.service.service.ConfigurationSnapshotService;
+import com.example.payments.platform.service.service.PlatformDataService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
-import com.example.payments.platform.service.service.PlatformDataService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -223,9 +222,9 @@ public class ConfigReleaseController {
     var sql =
         approver == null
             ? "UPDATE config_release SET status = :to WHERE release_id = :releaseId AND status ="
-                  + " :from"
+                + " :from"
             : "UPDATE config_release SET status = :to, approved_by = :approver WHERE release_id ="
-                  + " :releaseId AND status = :from";
+                + " :releaseId AND status = :from";
     var statement =
         mybatisClient.sql(sql).param("to", to).param("releaseId", releaseId).param("from", from);
     if (approver != null) statement = statement.param("approver", approver);

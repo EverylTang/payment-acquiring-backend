@@ -4,14 +4,13 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.payments.trade.service.domain.RefundStatus;
 import com.example.payments.trade.service.mapper.PaymentAttemptMapper;
 import com.example.payments.trade.service.mapper.PaymentOutboxEventRepository;
-import com.example.payments.trade.service.model.*;
 import com.example.payments.trade.service.mapper.PaymentRefundMapper;
-import com.example.payments.trade.service.model.*;
 import com.example.payments.trade.service.mapper.RefundAttemptMapper;
-import com.example.payments.trade.service.model.*;
 import com.example.payments.trade.service.mapper.RefundCallbackRecordMapper;
+import com.example.payments.trade.service.model.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -23,7 +22,6 @@ import java.util.UUID;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import io.micrometer.core.instrument.MeterRegistry;
 
 @Service
 public class RefundService {
@@ -126,7 +124,8 @@ public class RefundService {
     if (RefundStatus.SUCCESS.name().equals(refund.getStatus())
         || RefundStatus.CANCELED.name().equals(refund.getStatus())) return refund;
     var now = LocalDateTime.now(ZoneOffset.UTC);
-    if (mapper.claimForExecution(refundId, workerId, now, now.plusMinutes(2)) != 1) return get(refundId);
+    if (mapper.claimForExecution(refundId, workerId, now, now.plusMinutes(2)) != 1)
+      return get(refundId);
     refund = get(refundId);
     try {
       var attemptNo =
@@ -205,8 +204,23 @@ public class RefundService {
   public List<PaymentRefundEntity> due(int limit) {
     return mapper.selectList(
         new LambdaQueryWrapper<PaymentRefundEntity>()
-            .and(w -> w.and(x -> x.in(PaymentRefundEntity::getStatus, RefundStatus.CREATED.name(), RefundStatus.FAILED.name()).le(PaymentRefundEntity::getNextAttemptAt, LocalDateTime.now(ZoneOffset.UTC)))
-                .or(x -> x.eq(PaymentRefundEntity::getStatus, RefundStatus.PROCESSING.name()).lt(PaymentRefundEntity::getProcessingUntil, LocalDateTime.now(ZoneOffset.UTC))))
+            .and(
+                w ->
+                    w.and(
+                            x ->
+                                x.in(
+                                        PaymentRefundEntity::getStatus,
+                                        RefundStatus.CREATED.name(),
+                                        RefundStatus.FAILED.name())
+                                    .le(
+                                        PaymentRefundEntity::getNextAttemptAt,
+                                        LocalDateTime.now(ZoneOffset.UTC)))
+                        .or(
+                            x ->
+                                x.eq(PaymentRefundEntity::getStatus, RefundStatus.PROCESSING.name())
+                                    .lt(
+                                        PaymentRefundEntity::getProcessingUntil,
+                                        LocalDateTime.now(ZoneOffset.UTC))))
             .last("LIMIT " + Math.min(limit, 100)));
   }
 

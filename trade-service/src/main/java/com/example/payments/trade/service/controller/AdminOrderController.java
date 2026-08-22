@@ -12,7 +12,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminOrderController {
   private final OrderService orderService;
 
-  public AdminOrderController(OrderService orderService) { this.orderService = orderService; }
+  public AdminOrderController(OrderService orderService) {
+    this.orderService = orderService;
+  }
 
   @GetMapping
   public Map<String, Object> list(

@@ -1,14 +1,13 @@
 package com.example.payments.platform.service.controller;
 
+import com.example.payments.platform.service.service.PlatformDataService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-
 import java.time.Instant;
 import java.util.UUID;
-import com.example.payments.platform.service.service.PlatformDataService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,7 +40,8 @@ public class AdminProductController {
     var currentPage = Math.max(page, 1);
     var size = Math.min(Math.max(pageSize, 1), 100);
     var offset = (currentPage - 1) * size;
-    var total = mybatisClient.sql("SELECT COUNT(*) FROM logical_product").query(Long.class).single();
+    var total =
+        mybatisClient.sql("SELECT COUNT(*) FROM logical_product").query(Long.class).single();
     var items =
         mybatisClient
             .sql(

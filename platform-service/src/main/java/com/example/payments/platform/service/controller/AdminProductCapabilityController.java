@@ -1,5 +1,6 @@
 package com.example.payments.platform.service.controller;
 
+import com.example.payments.platform.service.service.PlatformDataService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
@@ -7,10 +8,8 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import java.math.BigDecimal;
-
 import java.time.Instant;
 import java.util.UUID;
-import com.example.payments.platform.service.service.PlatformDataService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,7 +29,8 @@ public class AdminProductCapabilityController {
   private final PlatformDataService mybatisClient;
   private final ObjectMapper objectMapper;
 
-  public AdminProductCapabilityController(PlatformDataService mybatisClient, ObjectMapper objectMapper) {
+  public AdminProductCapabilityController(
+      PlatformDataService mybatisClient, ObjectMapper objectMapper) {
     this.mybatisClient = mybatisClient;
     this.objectMapper = objectMapper;
   }

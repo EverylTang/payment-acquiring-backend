@@ -1,5 +1,6 @@
 package com.example.payments.platform.service.service;
 
+import com.example.payments.platform.service.mapper.MybatisPlusClient;
 import java.time.Instant;
 import java.util.Objects;
 import org.slf4j.Logger;
@@ -7,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import com.example.payments.platform.service.mapper.MybatisPlusClient;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,22 +53,30 @@ public class AdminBootstrapRunner implements ApplicationRunner {
 
     var now = Instant.now();
     var passwordHash = passwordEncoder.encode(password);
-    mybatisClient.sql("INSERT INTO admin_user (username, password_hash, display_name, status, created_at, updated_at) "
-        + "VALUES (:username, :passwordHash, :displayName, 'ACTIVE', :now, :now)")
+    mybatisClient
+        .sql(
+            "INSERT INTO admin_user (username, password_hash, display_name, status, created_at,"
+                + " updated_at) VALUES (:username, :passwordHash, :displayName, 'ACTIVE', :now,"
+                + " :now)")
         .param("username", username)
         .param("passwordHash", passwordHash)
         .param("displayName", displayName)
         .param("now", now)
         .update();
-    var userId = mybatisClient.sql("SELECT id FROM admin_user WHERE username = :username")
-        .param("username", username)
-        .query(Long.class)
-        .single();
-    var roleId = mybatisClient.sql("SELECT id FROM admin_role WHERE role_code = 'ADMIN'")
-        .query(Long.class)
-        .optional()
-        .orElseThrow(() -> new IllegalStateException("ADMIN 角色不存在"));
-    mybatisClient.sql("INSERT INTO admin_user_role (user_id, role_id) VALUES (:userId, :roleId)")
+    var userId =
+        mybatisClient
+            .sql("SELECT id FROM admin_user WHERE username = :username")
+            .param("username", username)
+            .query(Long.class)
+            .single();
+    var roleId =
+        mybatisClient
+            .sql("SELECT id FROM admin_role WHERE role_code = 'ADMIN'")
+            .query(Long.class)
+            .optional()
+            .orElseThrow(() -> new IllegalStateException("ADMIN 角色不存在"));
+    mybatisClient
+        .sql("INSERT INTO admin_user_role (user_id, role_id) VALUES (:userId, :roleId)")
         .param("userId", userId)
         .param("roleId", roleId)
         .update();
@@ -76,9 +84,7 @@ public class AdminBootstrapRunner implements ApplicationRunner {
   }
 
   private boolean hasAdminUser() {
-    return mybatisClient.sql("SELECT COUNT(*) FROM admin_user")
-        .query(Long.class)
-        .single() > 0;
+    return mybatisClient.sql("SELECT COUNT(*) FROM admin_user").query(Long.class).single() > 0;
   }
 
   private void validateConfiguration() {

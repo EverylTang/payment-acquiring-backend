@@ -13,7 +13,9 @@ public class PaymentAttemptTimeoutJob {
   private final PaymentAttemptService service;
   private final AttemptQueryProperties properties;
 
-  public PaymentAttemptTimeoutJob(PaymentAttemptRepository repository, PaymentAttemptService service,
+  public PaymentAttemptTimeoutJob(
+      PaymentAttemptRepository repository,
+      PaymentAttemptService service,
       AttemptQueryProperties properties) {
     this.repository = repository;
     this.service = service;
@@ -23,7 +25,9 @@ public class PaymentAttemptTimeoutJob {
   @Scheduled(fixedDelayString = "${trade.attempt.timeout-scan-ms:30000}")
   public void compensate() {
     Instant now = Instant.now();
-    repository.claimQueryable(now, properties.maxCount(), properties.batchSize(), properties.lockSeconds())
+    repository
+        .claimQueryable(
+            now, properties.maxCount(), properties.batchSize(), properties.lockSeconds())
         .forEach(claim -> compensate(claim, now));
   }
 
@@ -35,18 +39,25 @@ public class PaymentAttemptTimeoutJob {
         if (nextCount >= properties.maxCount()) {
           service.timeout(claim.attempt().attemptId());
         } else {
-          repository.completeQuery(claim.attempt().attemptId(), claim.claimToken(), now,
+          repository.completeQuery(
+              claim.attempt().attemptId(),
+              claim.claimToken(),
+              now,
               now.plusSeconds(delaySeconds(nextCount)));
         }
       }
     } catch (RuntimeException exception) {
-      repository.releaseQueryClaim(claim.attempt().attemptId(), claim.claimToken(), now,
+      repository.releaseQueryClaim(
+          claim.attempt().attemptId(),
+          claim.claimToken(),
+          now,
           now.plusSeconds(delaySeconds(nextCount)));
     }
   }
 
   private long delaySeconds(int queryCount) {
-    return Math.min(properties.retryMaxSeconds(),
+    return Math.min(
+        properties.retryMaxSeconds(),
         properties.retryBaseSeconds() * (1L << Math.min(Math.max(queryCount - 1, 0), 30)));
   }
 }
