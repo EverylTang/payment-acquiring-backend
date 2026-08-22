@@ -28,4 +28,10 @@
     WHERE idempotency_key = #{key}
     LIMIT 1
   </select>
+  <select id="sumRefundReversals" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM ledger_entry WHERE order_id = #{orderId} AND entry_type = 'REFUND_REVERSAL' AND debit_credit = 'DEBIT'
+  </select>
+  <select id="originalPaymentAmount" resultType="java.math.BigDecimal">
+    SELECT amount FROM ledger_entry WHERE order_id = #{orderId} AND entry_type = 'PAYMENT_SUCCESS' AND debit_credit = 'CREDIT' ORDER BY id LIMIT 1
+  </select>
 </mapper>

@@ -107,9 +107,9 @@ git push -u origin main
 - Fund 支付成功幂等入账和 MySQL 落库。
 - 所有服务业务配置迁移到 Nacos，代码中的 `application.yml` 只保留启动引导。
 
-当前仍缺少：真实或统一模拟渠道适配器、完整 `payment_attempt` 生命周期、回调签名和重放防护、Trade 到 Fund 的 Outbox/RocketMQ 可靠事件链路、退款、对账和完整运营后台。
+当前已补充：Payment Attempt 查询与回调安全基础、Trade 到 Fund 的 Outbox/RocketMQ 可靠事件链路、退款执行/重试/回调幂等、Fund 退款冲正、账单导入和差异处置基础接口、运营后台 DLQ/对账页面。
 
-下一阶段优先完成 Payment Attempt、模拟渠道、回调安全和 Outbox 入账闭环。
+仍需在目标环境完成真实渠道协议适配、Testcontainers/真实 MySQL 与 RocketMQ 集成验收、Broker/DLQ/服务重启恢复验证，以及完整账单逐笔匹配和生产可观测性接入。
 
 创建订单示例：
 

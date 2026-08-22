@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 import org.springframework.http.HttpHeaders;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -16,24 +17,43 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
   private final JwtService jwtService;
+  private final JdbcClient jdbcClient;
 
-  public JwtAuthenticationFilter(JwtService jwtService) {
+  public JwtAuthenticationFilter(JwtService jwtService, JdbcClient jdbcClient) {
     this.jwtService = jwtService;
+    this.jdbcClient = jdbcClient;
   }
 
   @Override
-  protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+  protected void doFilterInternal(
+      HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
     var authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
     if (authorization != null && authorization.startsWith("Bearer ")) {
       try {
         var claims = jwtService.parse(authorization.substring(7));
-        var roles = claims.get("roles", List.class).stream()
-            .map(String::valueOf)
-            .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
-            .toList();
-        SecurityContextHolder.getContext().setAuthentication(
-            new UsernamePasswordAuthenticationToken(claims.getSubject(), null, roles));
+        List<SimpleGrantedAuthority> roles =
+            ((List<?>) claims.get("roles", List.class))
+                .stream()
+                    .map(String::valueOf)
+                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                    .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+        jdbcClient
+            .sql(
+                "SELECT DISTINCT p.permission_code FROM admin_permission p JOIN"
+                    + " admin_role_permission rp ON rp.permission_id = p.id JOIN admin_role r ON"
+                    + " r.id = rp.role_id JOIN admin_user_role ur ON ur.role_id = r.id JOIN"
+                    + " admin_user u ON u.id = ur.user_id WHERE u.username = :username AND u.status"
+                    + " = 'ACTIVE' AND p.status = 'ACTIVE'")
+            .param("username", claims.getSubject())
+            .query(String.class)
+            .list()
+            .stream()
+            .map(SimpleGrantedAuthority::new)
+            .forEach(roles::add);
+        SecurityContextHolder.getContext()
+            .setAuthentication(
+                new UsernamePasswordAuthenticationToken(claims.getSubject(), null, roles));
       } catch (RuntimeException ignored) {
         SecurityContextHolder.clearContext();
       }

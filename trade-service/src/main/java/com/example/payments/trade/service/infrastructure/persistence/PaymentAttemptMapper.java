@@ -6,25 +6,46 @@ import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface PaymentAttemptMapper extends BaseMapper<PaymentAttemptEntity> {
+  @org.apache.ibatis.annotations.Select(
+      "SELECT channel_request_no FROM payment_attempt WHERE order_id = #{orderId} AND status ="
+          + " 'SUCCESS' ORDER BY attempt_no DESC LIMIT 1")
+  String findSuccessfulChannelOrder(@Param("orderId") String orderId);
+
   int countByOrderId(@Param("orderId") String orderId);
 
-  java.util.List<PaymentAttemptEntity> findQueryable(@Param("now") java.time.LocalDateTime now,
-      @Param("maxQueryCount") int maxQueryCount, @Param("limit") int limit);
+  java.util.List<PaymentAttemptEntity> findQueryable(
+      @Param("now") java.time.LocalDateTime now,
+      @Param("maxQueryCount") int maxQueryCount,
+      @Param("limit") int limit);
 
-  int claimForQuery(@Param("attemptId") String attemptId, @Param("owner") String owner,
-      @Param("claimToken") String claimToken, @Param("now") java.time.LocalDateTime now,
-      @Param("lockUntil") java.time.LocalDateTime lockUntil, @Param("maxQueryCount") int maxQueryCount);
+  int claimForQuery(
+      @Param("attemptId") String attemptId,
+      @Param("owner") String owner,
+      @Param("claimToken") String claimToken,
+      @Param("now") java.time.LocalDateTime now,
+      @Param("lockUntil") java.time.LocalDateTime lockUntil,
+      @Param("maxQueryCount") int maxQueryCount);
 
-  int completeQuery(@Param("attemptId") String attemptId, @Param("claimToken") String claimToken,
-      @Param("now") java.time.LocalDateTime now, @Param("nextQueryAt") java.time.LocalDateTime nextQueryAt);
+  int completeQuery(
+      @Param("attemptId") String attemptId,
+      @Param("claimToken") String claimToken,
+      @Param("now") java.time.LocalDateTime now,
+      @Param("nextQueryAt") java.time.LocalDateTime nextQueryAt);
 
-  int releaseQueryClaim(@Param("attemptId") String attemptId, @Param("claimToken") String claimToken,
-      @Param("now") java.time.LocalDateTime now, @Param("nextQueryAt") java.time.LocalDateTime nextQueryAt);
+  int releaseQueryClaim(
+      @Param("attemptId") String attemptId,
+      @Param("claimToken") String claimToken,
+      @Param("now") java.time.LocalDateTime now,
+      @Param("nextQueryAt") java.time.LocalDateTime nextQueryAt);
 
   PaymentAttemptEntity findByChannelOrderId(@Param("channelOrderId") String channelOrderId);
 
-  int updateAttempt(@Param("attemptId") String attemptId, @Param("expected") String expected,
-      @Param("expectedVersion") Long expectedVersion, @Param("next") String next,
-      @Param("responseSummary") String responseSummary, @Param("failureCode") String failureCode,
+  int updateAttempt(
+      @Param("attemptId") String attemptId,
+      @Param("expected") String expected,
+      @Param("expectedVersion") Long expectedVersion,
+      @Param("next") String next,
+      @Param("responseSummary") String responseSummary,
+      @Param("failureCode") String failureCode,
       @Param("completedAt") java.time.LocalDateTime completedAt);
 }
