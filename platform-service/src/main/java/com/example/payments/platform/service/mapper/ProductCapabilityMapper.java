@@ -9,13 +9,36 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface ProductCapabilityMapper {
   long countByProduct(@Param("productCode") String productCode);
-  List<ProductCapabilityModel> selectPageByProduct(@Param("productCode") String productCode, @Param("limit") int limit, @Param("offset") int offset);
+
+  List<ProductCapabilityModel> selectPageByProduct(
+      @Param("productCode") String productCode,
+      @Param("limit") int limit,
+      @Param("offset") int offset);
+
   ProductCapabilityModel selectById(@Param("capabilityId") String capabilityId);
-  int insertCapability(@Param("id") String id, @Param("productCode") String productCode, @Param("country") String country,
-      @Param("currency") String currency, @Param("paymentMethod") String paymentMethod, @Param("minAmount") BigDecimal minAmount,
-      @Param("maxAmount") BigDecimal maxAmount, @Param("supportsRefund") boolean supportsRefund);
-  int updateCapability(@Param("id") String id, @Param("productCode") String productCode, @Param("country") String country,
-      @Param("currency") String currency, @Param("paymentMethod") String paymentMethod, @Param("minAmount") BigDecimal minAmount,
-      @Param("maxAmount") BigDecimal maxAmount, @Param("supportsRefund") boolean supportsRefund);
-  int updateStatus(@Param("id") String id, @Param("productCode") String productCode, @Param("status") String status);
+
+  int insertCapability(
+      @Param("id") String id,
+      @Param("productCode") String productCode,
+      @Param("country") String country,
+      @Param("currency") String currency,
+      @Param("paymentMethod") String paymentMethod,
+      @Param("minAmount") BigDecimal minAmount,
+      @Param("maxAmount") BigDecimal maxAmount,
+      @Param("supportsRefund") boolean supportsRefund);
+
+  int updateCapability(
+      @Param("id") String id,
+      @Param("productCode") String productCode,
+      @Param("country") String country,
+      @Param("currency") String currency,
+      @Param("paymentMethod") String paymentMethod,
+      @Param("minAmount") BigDecimal minAmount,
+      @Param("maxAmount") BigDecimal maxAmount,
+      @Param("supportsRefund") boolean supportsRefund);
+
+  int updateStatus(
+      @Param("id") String id,
+      @Param("productCode") String productCode,
+      @Param("status") String status);
 }

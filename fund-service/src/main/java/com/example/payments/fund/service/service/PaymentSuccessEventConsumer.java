@@ -1,7 +1,5 @@
 package com.example.payments.fund.service.service;
 
-import lombok.RequiredArgsConstructor;
-
 import com.example.payments.fund.service.mapper.PaymentEventConsumptionMapper;
 import com.example.payments.fund.service.model.*;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -12,6 +10,7 @@ import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.apache.rocketmq.spring.annotation.ConsumeMode;
 import org.apache.rocketmq.spring.annotation.MessageModel;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
@@ -160,7 +159,8 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
         || !merchantId.equals(record.getMerchantId())
         || !currency.equals(record.getCurrency())
         || amount.compareTo(record.getAmount()) != 0) {
-      throw new LedgerEntryApplicationService.LedgerConflictException( "event consumption conflicts");
+      throw new LedgerEntryApplicationService.LedgerConflictException(
+          "event consumption conflicts");
     }
   }
 

@@ -1,7 +1,5 @@
 package com.example.payments.trade.service.service;
 
-import lombok.RequiredArgsConstructor;
-
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.payments.trade.service.domain.RefundStatus;
 import com.example.payments.trade.service.mapper.PaymentAttemptMapper;
@@ -21,6 +19,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +39,8 @@ public class RefundService {
   private final String workerId = UUID.randomUUID().toString();
 
   @Transactional
-  public PaymentRefundEntity create( String orderId, String idempotencyKey, BigDecimal amount, String reason) {
+  public PaymentRefundEntity create(
+      String orderId, String idempotencyKey, BigDecimal amount, String reason) {
     var order = orderService.get(orderId);
     if (!"SUCCESS".equals(order.status().name())) throw new IllegalStateException("只有支付成功订单允许退款");
     if (amount.signum() <= 0) throw new IllegalArgumentException("退款金额必须大于 0");

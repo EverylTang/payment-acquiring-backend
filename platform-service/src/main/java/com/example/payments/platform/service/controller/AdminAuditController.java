@@ -1,10 +1,9 @@
 package com.example.payments.platform.service.controller;
 
-import lombok.RequiredArgsConstructor;
-
-import com.example.payments.platform.service.service.OperationAuditQueryService;
 import com.example.payments.platform.service.model.OperationAuditModel;
+import com.example.payments.platform.service.service.OperationAuditQueryService;
 import java.time.Instant;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,8 +28,14 @@ public class AdminAuditController {
     var where =
         "WHERE (:resourceType IS NULL OR resource_type = :resourceType) AND (:operatorId IS NULL OR"
             + " operator_id = :operatorId)";
-    var result = auditService.list(blankToNull(resourceType), blankToNull(operatorId), size, (currentPage - 1) * size);
-    return new AdminPageResponse<>(result.items().stream().map(AdminAuditController::response).toList(), currentPage, size, result.total());
+    var result =
+        auditService.list(
+            blankToNull(resourceType), blankToNull(operatorId), size, (currentPage - 1) * size);
+    return new AdminPageResponse<>(
+        result.items().stream().map(AdminAuditController::response).toList(),
+        currentPage,
+        size,
+        result.total());
   }
 
   private String blankToNull(String value) {
@@ -38,7 +43,17 @@ public class AdminAuditController {
   }
 
   private static AuditResponse response(OperationAuditModel value) {
-    return new AuditResponse(value.auditId(), value.operatorId(), value.action(), value.resourceType(), value.resourceId(), value.requestId(), value.reason(), value.beforeSummary(), value.afterSummary(), value.createdAt());
+    return new AuditResponse(
+        value.auditId(),
+        value.operatorId(),
+        value.action(),
+        value.resourceType(),
+        value.resourceId(),
+        value.requestId(),
+        value.reason(),
+        value.beforeSummary(),
+        value.afterSummary(),
+        value.createdAt());
   }
 
   public record AuditResponse(

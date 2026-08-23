@@ -24,7 +24,12 @@ public class AdminAuthController {
   public LoginResponse login(@Valid @RequestBody LoginRequest request) {
     try {
       var result = authService.login(request.username(), request.password());
-      return new LoginResponse(result.token(), "Bearer", result.expiresIn(), new CurrentUser(result.user().username(), result.user().displayName(), result.user().roles()));
+      return new LoginResponse(
+          result.token(),
+          "Bearer",
+          result.expiresIn(),
+          new CurrentUser(
+              result.user().username(), result.user().displayName(), result.user().roles()));
     } catch (AdminAuthService.UnauthorizedException e) {
       throw unauthorized();
     }
@@ -40,8 +45,14 @@ public class AdminAuthController {
     }
   }
 
-  private ResponseStatusException unauthorized() { return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "用户名或密码错误"); }
+  private ResponseStatusException unauthorized() {
+    return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "用户名或密码错误");
+  }
+
   public record LoginRequest(@NotBlank String username, @NotBlank String password) {}
-  public record LoginResponse(String accessToken, String tokenType, long expiresIn, CurrentUser user) {}
+
+  public record LoginResponse(
+      String accessToken, String tokenType, long expiresIn, CurrentUser user) {}
+
   public record CurrentUser(String username, String displayName, List<String> roles) {}
 }

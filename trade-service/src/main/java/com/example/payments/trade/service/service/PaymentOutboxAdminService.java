@@ -1,11 +1,10 @@
 package com.example.payments.trade.service.service;
 
-import lombok.RequiredArgsConstructor;
-
 import com.example.payments.trade.service.mapper.PaymentOutboxEventRepository;
 import com.example.payments.trade.service.model.*;
 import java.time.Instant;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,7 +29,8 @@ public class PaymentOutboxAdminService {
   }
 
   @Transactional
-  public PaymentOutboxEventEntity redrive( String eventId, String operator, String reason, String requestId) {
+  public PaymentOutboxEventEntity redrive(
+      String eventId, String operator, String reason, String requestId) {
     if (reason == null || reason.isBlank() || reason.length() > 512) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "redrive reason is required");
     }

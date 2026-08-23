@@ -1,8 +1,7 @@
 package com.example.payments.platform.service.service;
 
-import lombok.RequiredArgsConstructor;
-
 import com.example.payments.platform.service.mapper.MybatisPlusClient;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /** Service boundary for platform persistence; controllers must not access mappers directly. */

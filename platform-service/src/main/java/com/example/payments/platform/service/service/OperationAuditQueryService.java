@@ -14,7 +14,9 @@ public class OperationAuditQueryService {
   public Page list(String resourceType, String operatorId, int limit, int offset) {
     int safeLimit = Math.min(Math.max(limit, 1), 100);
     int safeOffset = Math.max(offset, 0);
-    return new Page(mapper.select(resourceType, operatorId, safeLimit, safeOffset), mapper.count(resourceType, operatorId));
+    return new Page(
+        mapper.select(resourceType, operatorId, safeLimit, safeOffset),
+        mapper.count(resourceType, operatorId));
   }
 
   public record Page(List<OperationAuditModel> items, long total) {}

@@ -1,8 +1,7 @@
 package com.example.payments.fund.service.service;
 
-import lombok.RequiredArgsConstructor;
-
 import com.example.payments.fund.service.mapper.MybatisPlusClient;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /** Service boundary for reconciliation persistence. */

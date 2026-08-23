@@ -1,12 +1,11 @@
 package com.example.payments.trade.service.mapper;
 
-import lombok.RequiredArgsConstructor;
-
 import com.example.payments.trade.service.model.*;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Repository;
 
@@ -34,7 +33,12 @@ public class PaymentCallbackRecordRepository {
     }
   }
 
-  public void markProcessed( String callbackId, String attemptId, String channelOrderId, String status, Instant processedAt) {
+  public void markProcessed(
+      String callbackId,
+      String attemptId,
+      String channelOrderId,
+      String status,
+      Instant processedAt) {
     var entity = mapper.findByCallbackId(callbackId);
     entity.setAttemptId(attemptId);
     entity.setChannelOrderId(channelOrderId);

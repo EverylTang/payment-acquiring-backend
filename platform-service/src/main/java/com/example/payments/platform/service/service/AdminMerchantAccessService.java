@@ -9,10 +9,23 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AdminMerchantAccessService {
   private final AdminDataScopeService dataScopeService;
-  public boolean hasAllScope(String username) { return dataScopeService.hasAllScope(username); }
-  public String predicate(Authentication authentication, String alias) {
-    return dataScopeService.hasAllScope(authentication.getName()) ? "1=1" : dataScopeService.predicate(alias);
+
+  public boolean hasAllScope(String username) {
+    return dataScopeService.hasAllScope(username);
   }
-  public void assertAllowed(Authentication authentication, String merchantId) { dataScopeService.assertAllowed(authentication.getName(), merchantId); }
-  public MybatisPlusClient.StatementSpec bindScope(MybatisPlusClient.StatementSpec statement, Authentication authentication) { return statement.param("scopeUsername", authentication.getName()); }
+
+  public String predicate(Authentication authentication, String alias) {
+    return dataScopeService.hasAllScope(authentication.getName())
+        ? "1=1"
+        : dataScopeService.predicate(alias);
+  }
+
+  public void assertAllowed(Authentication authentication, String merchantId) {
+    dataScopeService.assertAllowed(authentication.getName(), merchantId);
+  }
+
+  public MybatisPlusClient.StatementSpec bindScope(
+      MybatisPlusClient.StatementSpec statement, Authentication authentication) {
+    return statement.param("scopeUsername", authentication.getName());
+  }
 }

@@ -8,6 +8,10 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface OperationAuditQueryMapper {
   long count(@Param("resourceType") String resourceType, @Param("operatorId") String operatorId);
-  List<OperationAuditModel> select(@Param("resourceType") String resourceType, @Param("operatorId") String operatorId,
-                                   @Param("limit") int limit, @Param("offset") int offset);
+
+  List<OperationAuditModel> select(
+      @Param("resourceType") String resourceType,
+      @Param("operatorId") String operatorId,
+      @Param("limit") int limit,
+      @Param("offset") int offset);
 }

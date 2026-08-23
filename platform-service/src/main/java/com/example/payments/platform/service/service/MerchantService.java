@@ -16,22 +16,41 @@ public class MerchantService {
 
   public Page list(int page, int pageSize, Authentication auth) {
     int safePage = Math.max(page, 1), safeSize = Math.min(Math.max(pageSize, 1), 100);
-    String username = auth.getName(); boolean all = access.hasAllScope(username);
-    return new Page(mapper.selectVisible(username, all, safeSize, (safePage - 1) * safeSize), safePage, safeSize, mapper.countVisible(username, all));
+    String username = auth.getName();
+    boolean all = access.hasAllScope(username);
+    return new Page(
+        mapper.selectVisible(username, all, safeSize, (safePage - 1) * safeSize),
+        safePage,
+        safeSize,
+        mapper.countVisible(username, all));
   }
+
   public MerchantModel detail(String id, Authentication auth) {
-    String username = auth.getName(); MerchantModel value = mapper.selectVisibleById(id, username, access.hasAllScope(username));
+    String username = auth.getName();
+    MerchantModel value = mapper.selectVisibleById(id, username, access.hasAllScope(username));
     if (value == null) throw new IllegalArgumentException("商户不存在或无权访问");
     return value;
   }
-  @Transactional public MerchantModel create(String id, String name, String currency, Authentication auth) {
-    mapper.insertMerchant(id, name, currency, Instant.now()); return detail(id, auth);
+
+  @Transactional
+  public MerchantModel create(String id, String name, String currency, Authentication auth) {
+    mapper.insertMerchant(id, name, currency, Instant.now());
+    return detail(id, auth);
   }
-  @Transactional public MerchantModel update(String id, String name, String currency, Authentication auth) {
-    access.assertAllowed(auth, id); mapper.updateMerchant(id, name, currency, Instant.now()); return detail(id, auth);
+
+  @Transactional
+  public MerchantModel update(String id, String name, String currency, Authentication auth) {
+    access.assertAllowed(auth, id);
+    mapper.updateMerchant(id, name, currency, Instant.now());
+    return detail(id, auth);
   }
-  @Transactional public MerchantModel changeStatus(String id, String status, Authentication auth) {
-    access.assertAllowed(auth, id); mapper.updateStatus(id, status, Instant.now()); return detail(id, auth);
+
+  @Transactional
+  public MerchantModel changeStatus(String id, String status, Authentication auth) {
+    access.assertAllowed(auth, id);
+    mapper.updateStatus(id, status, Instant.now());
+    return detail(id, auth);
   }
+
   public record Page(java.util.List<MerchantModel> items, int page, int pageSize, long total) {}
 }

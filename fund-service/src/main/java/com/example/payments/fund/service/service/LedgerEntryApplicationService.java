@@ -1,12 +1,11 @@
 package com.example.payments.fund.service.service;
 
-import lombok.RequiredArgsConstructor;
-
 import com.example.payments.fund.service.mapper.LedgerEntryMapper;
 import com.example.payments.fund.service.model.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
@@ -15,7 +14,12 @@ import org.springframework.stereotype.Service;
 public class LedgerEntryApplicationService {
   private final LedgerEntryMapper mapper;
 
-  public Result recordPaymentSuccess( String idempotencyKey, String orderId, String merchantId, BigDecimal amount, String currency) {
+  public Result recordPaymentSuccess(
+      String idempotencyKey,
+      String orderId,
+      String merchantId,
+      BigDecimal amount,
+      String currency) {
     var existing = mapper.findByIdempotency(idempotencyKey);
     if (existing != null) return verify(existing, orderId, merchantId, amount, currency, true);
     var entry = new LedgerEntryEntity();
@@ -39,7 +43,8 @@ public class LedgerEntryApplicationService {
     }
   }
 
-  public Result recordRefundReversal( String refundId, String orderId, String merchantId, BigDecimal amount, String currency) {
+  public Result recordRefundReversal(
+      String refundId, String orderId, String merchantId, BigDecimal amount, String currency) {
     var key = "refund-reversal:" + refundId;
     var existing = mapper.findByIdempotency(key);
     if (existing != null)

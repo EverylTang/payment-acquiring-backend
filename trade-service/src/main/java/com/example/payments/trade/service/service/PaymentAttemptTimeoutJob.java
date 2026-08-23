@@ -1,11 +1,10 @@
 package com.example.payments.trade.service.service;
 
-import lombok.RequiredArgsConstructor;
-
 import com.example.payments.trade.service.config.AttemptQueryProperties;
 import com.example.payments.trade.service.domain.PaymentAttemptStatus;
 import com.example.payments.trade.service.mapper.PaymentAttemptRepository;
 import java.time.Instant;
+import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 

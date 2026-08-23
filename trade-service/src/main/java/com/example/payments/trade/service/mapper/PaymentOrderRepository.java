@@ -1,7 +1,5 @@
 package com.example.payments.trade.service.mapper;
 
-import lombok.RequiredArgsConstructor;
-
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.payments.trade.service.domain.OrderStatus;
 import com.example.payments.trade.service.domain.PaymentOrder;
@@ -12,6 +10,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -61,12 +60,14 @@ public class PaymentOrderRepository {
     return Optional.ofNullable(mapper.findByIdempotency(merchantId, key)).map(this::toDomain);
   }
 
-  public boolean updateStatus( String orderId, OrderStatus expected, OrderStatus next, Instant paidAt) {
+  public boolean updateStatus(
+      String orderId, OrderStatus expected, OrderStatus next, Instant paidAt) {
     return mapper.updateStatus(orderId, expected, next, paidAt == null ? null : toLocal(paidAt))
         == 1;
   }
 
-  public List<PaymentOrder> search( String merchantId, String status, String currency, int page, int pageSize) {
+  public List<PaymentOrder> search(
+      String merchantId, String status, String currency, int page, int pageSize) {
     var wrapper =
         new LambdaQueryWrapper<PaymentOrderEntity>()
             .eq(

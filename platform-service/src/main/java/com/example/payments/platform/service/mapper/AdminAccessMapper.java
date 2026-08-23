@@ -8,6 +8,8 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface AdminAccessMapper {
   List<String> selectRoles(@Param("username") String username);
+
   List<MenuModel> selectMenus(@Param("username") String username);
+
   List<String> selectPermissions(@Param("username") String username);
 }

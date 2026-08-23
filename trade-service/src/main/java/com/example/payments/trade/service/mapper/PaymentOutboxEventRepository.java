@@ -1,13 +1,12 @@
 package com.example.payments.trade.service.mapper;
 
-import lombok.RequiredArgsConstructor;
-
 import com.example.payments.trade.service.model.*;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Repository;
 
@@ -65,7 +64,13 @@ public class PaymentOutboxEventRepository {
     return mapper.markPublished(eventId, claimToken, toLocal(now), toLocal(now)) == 1;
   }
 
-  public boolean markFailed( String eventId, String claimToken, Instant nextRetryAt, String error, String failureType, int maxAttempts) {
+  public boolean markFailed(
+      String eventId,
+      String claimToken,
+      Instant nextRetryAt,
+      String error,
+      String failureType,
+      int maxAttempts) {
     Instant now = Instant.now();
     return mapper.markFailed(
             eventId,
@@ -91,7 +96,14 @@ public class PaymentOutboxEventRepository {
     return mapper.redrive(eventId, toLocal(now)) == 1;
   }
 
-  public int insertAudit( String eventId, String operator, String reason, String fromStatus, String toStatus, String requestId, Instant now) {
+  public int insertAudit(
+      String eventId,
+      String operator,
+      String reason,
+      String fromStatus,
+      String toStatus,
+      String requestId,
+      Instant now) {
     return mapper.insertAudit(
         eventId, operator, reason, fromStatus, toStatus, requestId, toLocal(now));
   }

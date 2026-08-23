@@ -17,12 +17,39 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class AdminDataScopeController {
   private final AdminDataScopeService service;
-  @GetMapping("/roles/{roleCode}") public RoleScopeResponse role(@PathVariable String roleCode){return new RoleScopeResponse(roleCode,service.role(roleCode));}
-  @PutMapping("/roles/{roleCode}") public RoleScopeResponse updateRole(@PathVariable String roleCode,@Valid @RequestBody RoleScopeRequest request,Authentication a){return new RoleScopeResponse(roleCode,service.updateRole(roleCode,request.scopeTypes(),a.getName(),request));}
-  @GetMapping("/users/{userId}") public UserScopeResponse user(@PathVariable long userId){return new UserScopeResponse(userId,service.user(userId));}
-  @PutMapping("/users/{userId}") public UserScopeResponse updateUser(@PathVariable long userId,@Valid @RequestBody UserScopeRequest request,Authentication a){return new UserScopeResponse(userId,service.updateUser(userId,request.merchantIds(),a.getName(),request));}
-  public record RoleScopeResponse(String roleCode,List<String> scopeTypes){}
-  public record UserScopeResponse(long userId,List<String> merchantIds){}
-  public record RoleScopeRequest(@NotEmpty List<@Pattern(regexp="ALL|ASSIGNED|SELF") String> scopeTypes){}
-  public record UserScopeRequest(@NotNull List<String> merchantIds){}
+
+  @GetMapping("/roles/{roleCode}")
+  public RoleScopeResponse role(@PathVariable String roleCode) {
+    return new RoleScopeResponse(roleCode, service.role(roleCode));
+  }
+
+  @PutMapping("/roles/{roleCode}")
+  public RoleScopeResponse updateRole(
+      @PathVariable String roleCode,
+      @Valid @RequestBody RoleScopeRequest request,
+      Authentication a) {
+    return new RoleScopeResponse(
+        roleCode, service.updateRole(roleCode, request.scopeTypes(), a.getName(), request));
+  }
+
+  @GetMapping("/users/{userId}")
+  public UserScopeResponse user(@PathVariable long userId) {
+    return new UserScopeResponse(userId, service.user(userId));
+  }
+
+  @PutMapping("/users/{userId}")
+  public UserScopeResponse updateUser(
+      @PathVariable long userId, @Valid @RequestBody UserScopeRequest request, Authentication a) {
+    return new UserScopeResponse(
+        userId, service.updateUser(userId, request.merchantIds(), a.getName(), request));
+  }
+
+  public record RoleScopeResponse(String roleCode, List<String> scopeTypes) {}
+
+  public record UserScopeResponse(long userId, List<String> merchantIds) {}
+
+  public record RoleScopeRequest(
+      @NotEmpty List<@Pattern(regexp = "ALL|ASSIGNED|SELF") String> scopeTypes) {}
+
+  public record UserScopeRequest(@NotNull List<String> merchantIds) {}
 }
