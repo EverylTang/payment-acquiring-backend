@@ -1,6 +1,6 @@
 package com.example.payments.platform.service.controller;
 
-import com.example.payments.platform.service.service.admin.ConfigurationAdminService;
+import com.example.payments.platform.service.service.ConfigurationAdminService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;

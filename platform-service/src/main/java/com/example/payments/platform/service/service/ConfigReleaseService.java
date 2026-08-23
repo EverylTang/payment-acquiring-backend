@@ -1,4 +1,4 @@
-package com.example.payments.platform.service.service.admin;
+package com.example.payments.platform.service.service;
 
 import com.example.payments.platform.service.controller.AdminPageResponse;
 import com.example.payments.platform.service.service.ConfigurationSnapshotService;

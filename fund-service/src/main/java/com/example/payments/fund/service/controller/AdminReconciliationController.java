@@ -1,6 +1,6 @@
 package com.example.payments.fund.service.controller;
 
-import com.example.payments.fund.service.service.admin.ReconciliationService;
+import com.example.payments.fund.service.service.ReconciliationService;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
