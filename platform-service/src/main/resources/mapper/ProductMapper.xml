@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.payments.platform.service.mapper.ProductMapper">
+  <resultMap id="ProductMap" type="com.example.payments.platform.service.model.ProductModel">
+    <id property="productCode" column="product_code"/><result property="name" column="name"/><result property="status" column="status"/>
+    <result property="createdAt" column="created_at"/><result property="updatedAt" column="updated_at"/>
+  </resultMap>
+  <sql id="columns">product_code,name,status,created_at,updated_at</sql>
+  <select id="countAll" resultType="long">SELECT COUNT(*) FROM logical_product</select>
+  <select id="selectPage" resultMap="ProductMap">SELECT <include refid="columns"/> FROM logical_product ORDER BY created_at DESC LIMIT #{limit} OFFSET #{offset}</select>
+  <select id="selectByCode" resultMap="ProductMap">SELECT <include refid="columns"/> FROM logical_product WHERE product_code=#{productCode}</select>
+  <select id="existsByCode" resultType="boolean">SELECT EXISTS(SELECT 1 FROM logical_product WHERE product_code=#{productCode})</select>
+  <insert id="insertProduct">INSERT INTO logical_product(product_code,name,status,created_at,updated_at) VALUES(#{productCode},#{name},'ACTIVE',#{now},#{now})</insert>
+  <update id="updateProduct">UPDATE logical_product SET name=#{name},updated_at=#{now} WHERE product_code=#{productCode}</update>
+  <update id="updateStatus">UPDATE logical_product SET status=#{status},updated_at=#{now} WHERE product_code=#{productCode}</update>
+</mapper>

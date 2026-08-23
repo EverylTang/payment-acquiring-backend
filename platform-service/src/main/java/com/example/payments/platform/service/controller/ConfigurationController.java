@@ -3,7 +3,7 @@ package com.example.payments.platform.service.controller;
 import lombok.RequiredArgsConstructor;
 
 import com.example.payments.platform.service.service.ConfigurationSnapshotService;
-import com.example.payments.platform.service.service.PlatformDataService;
+import com.example.payments.platform.service.service.ConfigurationHealthService;
 import java.math.BigDecimal;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class ConfigurationController {
   private final ConfigurationSnapshotService snapshotService;
-  private final PlatformDataService mybatisClient;
+  private final ConfigurationHealthService healthService;
 
   @GetMapping("/snapshot")
   public Map<String, Object> snapshot(
@@ -33,19 +33,6 @@ public class ConfigurationController {
 
   @GetMapping("/channels/{channelId}/health")
   public Map<String, Object> channelHealth(@PathVariable String channelId) {
-    var status =
-        mybatisClient
-            .sql("SELECT status FROM channel WHERE channel_id = :id")
-            .param("id", channelId)
-            .query(String.class)
-            .optional()
-            .orElse("NOT_FOUND");
-    return Map.of(
-        "channelId",
-        channelId,
-        "status",
-        status.equals("ACTIVE") ? "UP" : "DOWN",
-        "checkedAt",
-        System.currentTimeMillis());
+    return healthService.health(channelId);
   }
 }

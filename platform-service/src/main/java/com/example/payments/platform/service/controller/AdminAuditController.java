@@ -2,7 +2,8 @@ package com.example.payments.platform.service.controller;
 
 import lombok.RequiredArgsConstructor;
 
-import com.example.payments.platform.service.service.PlatformDataService;
+import com.example.payments.platform.service.service.OperationAuditQueryService;
+import com.example.payments.platform.service.model.OperationAuditModel;
 import java.time.Instant;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY')")
 @RequiredArgsConstructor
 public class AdminAuditController {
-  private final PlatformDataService mybatisClient;
+  private final OperationAuditQueryService auditService;
 
   @GetMapping
   public AdminPageResponse<AuditResponse> list(
@@ -28,31 +29,16 @@ public class AdminAuditController {
     var where =
         "WHERE (:resourceType IS NULL OR resource_type = :resourceType) AND (:operatorId IS NULL OR"
             + " operator_id = :operatorId)";
-    var total =
-        mybatisClient
-            .sql("SELECT COUNT(*) FROM operation_audit " + where)
-            .param("resourceType", blankToNull(resourceType))
-            .param("operatorId", blankToNull(operatorId))
-            .query(Long.class)
-            .single();
-    var items =
-        mybatisClient
-            .sql(
-                "SELECT audit_id, operator_id, action, resource_type, resource_id, request_id,"
-                    + " reason, before_summary, after_summary, created_at FROM operation_audit "
-                    + where
-                    + " ORDER BY created_at DESC LIMIT :limit OFFSET :offset")
-            .param("resourceType", blankToNull(resourceType))
-            .param("operatorId", blankToNull(operatorId))
-            .param("limit", size)
-            .param("offset", (currentPage - 1) * size)
-            .query(AuditResponse.class)
-            .list();
-    return new AdminPageResponse<>(items, currentPage, size, total);
+    var result = auditService.list(blankToNull(resourceType), blankToNull(operatorId), size, (currentPage - 1) * size);
+    return new AdminPageResponse<>(result.items().stream().map(AdminAuditController::response).toList(), currentPage, size, result.total());
   }
 
   private String blankToNull(String value) {
     return value == null || value.isBlank() ? null : value;
+  }
+
+  private static AuditResponse response(OperationAuditModel value) {
+    return new AuditResponse(value.auditId(), value.operatorId(), value.action(), value.resourceType(), value.resourceId(), value.requestId(), value.reason(), value.beforeSummary(), value.afterSummary(), value.createdAt());
   }
 
   public record AuditResponse(
