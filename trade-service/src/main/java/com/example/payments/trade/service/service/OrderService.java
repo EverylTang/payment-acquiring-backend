@@ -1,7 +1,5 @@
 package com.example.payments.trade.service.service;
 
-import lombok.RequiredArgsConstructor;
-
 import com.example.payments.trade.service.domain.OrderStatus;
 import com.example.payments.trade.service.domain.PaymentOrder;
 import com.example.payments.trade.service.mapper.PaymentOrderRepository;
@@ -9,6 +7,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -59,7 +58,8 @@ public class OrderService {
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "order not found"));
   }
 
-  public Map<String, Object> list( String merchantId, String status, String currency, int page, int pageSize) {
+  public Map<String, Object> list(
+      String merchantId, String status, String currency, int page, int pageSize) {
     if (page < 1 || pageSize < 1 || pageSize > 100)
       throw new IllegalArgumentException("invalid pagination");
     var items =

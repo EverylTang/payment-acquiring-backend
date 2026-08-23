@@ -27,8 +27,8 @@ public class GatewayRequestFilter implements GlobalFilter, Ordered {
 
   private final String internalToken;
 
-  public GatewayRequestFilter(@Value("${gateway.security.internal-token:}") String internalToken) {
-    this.internalToken = internalToken;
+  public GatewayRequestFilter(@Value("${gateway.security.internal-token:}") String token) {
+    this.internalToken = token;
   }
 
   @Override
@@ -57,8 +57,9 @@ public class GatewayRequestFilter implements GlobalFilter, Ordered {
                   headers.remove("X-Merchant-Id");
                   headers.remove("X-Roles");
                   headers.remove("X-Gateway-Token");
-                  if (path.startsWith("/api/admin/") && !internalToken.isBlank())
+                  if (path.startsWith("/api/admin/") && !internalToken.isBlank()) {
                     headers.set("X-Gateway-Token", internalToken);
+                  }
                   headers.set("X-Request-Id", finalRequestId);
                 })
             .build();

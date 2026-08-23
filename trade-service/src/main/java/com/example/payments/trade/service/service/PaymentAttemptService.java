@@ -1,7 +1,5 @@
 package com.example.payments.trade.service.service;
 
-import lombok.RequiredArgsConstructor;
-
 import com.example.payments.trade.service.domain.PaymentAttempt;
 import com.example.payments.trade.service.domain.PaymentAttemptStatus;
 import com.example.payments.trade.service.domain.PaymentOrder;
@@ -11,6 +9,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -248,7 +247,8 @@ public class PaymentAttemptService {
             null));
   }
 
-  private PaymentAttempt applyResult( PaymentAttempt attempt, PaymentChannelAdapter.PaymentChannelResult result) {
+  private PaymentAttempt applyResult(
+      PaymentAttempt attempt, PaymentChannelAdapter.PaymentChannelResult result) {
     var status = statusOf(result.status());
     var next =
         new PaymentAttempt(

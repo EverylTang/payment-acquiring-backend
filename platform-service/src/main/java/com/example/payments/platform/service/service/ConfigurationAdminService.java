@@ -1,15 +1,8 @@
 package com.example.payments.platform.service.service;
 
 import com.example.payments.platform.service.controller.AdminPageResponse;
-import org.springframework.stereotype.Service;
-import lombok.RequiredArgsConstructor;
-
-
-
-import com.example.payments.platform.service.service.PlatformDataService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -19,17 +12,10 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-
-
-
-
-
-
-
 
 @Service
 @RequiredArgsConstructor
@@ -65,8 +51,7 @@ public class ConfigurationAdminService {
             .toList());
   }
 
-  public AdminPageResponse<ChannelResponse> channels(
-int page, int pageSize) {
+  public AdminPageResponse<ChannelResponse> channels(int page, int pageSize) {
     var q = pageQuery(page, pageSize);
     var total = count("channel", "1=1");
     var items =
@@ -89,9 +74,8 @@ int page, int pageSize) {
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
 
-
   @Transactional
-  public void createChannel( ChannelRequest request, Authentication authentication) {
+  public void createChannel(ChannelRequest request, Authentication authentication) {
     var now = Instant.now();
     mybatisClient
         .sql(
@@ -121,15 +105,14 @@ int page, int pageSize) {
     audit(authentication.getName(), "CREATE", "CHANNEL", request.channelId(), request);
   }
 
-
   @Transactional
-  public void updateChannelStatus( String channelId, StatusRequest request, Authentication authentication) {
+  public void updateChannelStatus(
+      String channelId, StatusRequest request, Authentication authentication) {
     updateStatus("channel", "channel_id", channelId, request.status());
     audit(authentication.getName(), "CHANGE_STATUS", "CHANNEL", channelId, request);
   }
 
-  public AdminPageResponse<RoutingRuleResponse> routingRules(
-int page, int pageSize) {
+  public AdminPageResponse<RoutingRuleResponse> routingRules(int page, int pageSize) {
     var q = pageQuery(page, pageSize);
     var total = count("routing_rule", "1=1");
     var items =
@@ -145,9 +128,8 @@ int page, int pageSize) {
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
 
-
   @Transactional
-  public void createRoutingRule( RoutingRuleRequest request, Authentication authentication) {
+  public void createRoutingRule(RoutingRuleRequest request, Authentication authentication) {
     var version = draftVersion(request.releaseId());
     mybatisClient
         .sql(
@@ -169,8 +151,7 @@ int page, int pageSize) {
     audit(authentication.getName(), "CREATE", "ROUTING_RULE", request.ruleId(), request);
   }
 
-  public AdminPageResponse<PricingRuleResponse> pricingRules(
-int page, int pageSize) {
+  public AdminPageResponse<PricingRuleResponse> pricingRules(int page, int pageSize) {
     var q = pageQuery(page, pageSize);
     var total = count("pricing_rule", "1=1");
     var items =
@@ -186,9 +167,8 @@ int page, int pageSize) {
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
 
-
   @Transactional
-  public void createPricingRule( PricingRuleRequest request, Authentication authentication) {
+  public void createPricingRule(PricingRuleRequest request, Authentication authentication) {
     var version = draftVersion(request.releaseId());
     mybatisClient
         .sql(
@@ -210,8 +190,7 @@ int page, int pageSize) {
     audit(authentication.getName(), "CREATE", "PRICING_RULE", request.ruleId(), request);
   }
 
-  public AdminPageResponse<RiskPolicyResponse> riskPolicies(
-int page, int pageSize) {
+  public AdminPageResponse<RiskPolicyResponse> riskPolicies(int page, int pageSize) {
     var q = pageQuery(page, pageSize);
     var total = count("risk_policy", "1=1");
     var items =
@@ -236,9 +215,8 @@ int page, int pageSize) {
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
 
-
   @Transactional
-  public void createRiskPolicy( RiskPolicyRequest request, Authentication authentication) {
+  public void createRiskPolicy(RiskPolicyRequest request, Authentication authentication) {
     var version = draftVersion(request.releaseId());
     mybatisClient
         .sql(

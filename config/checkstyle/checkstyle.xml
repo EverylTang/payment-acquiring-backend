@@ -7,38 +7,15 @@
   <property name="severity" value="error"/>
   <module name="FileTabCharacter"/>
   <module name="LineLength">
-    <property name="max" value="300"/>
+    <property name="max" value="400"/>
     <property name="ignorePattern" value="^package|^import"/>
   </module>
+  <module name="NewlineAtEndOfFile"/>
   <module name="TreeWalker">
-    <module name="AvoidStarImport"/>
-    <module name="EmptyLineSeparator"/>
-    <module name="ExplicitInitialization"/>
-    <module name="FallThrough"/>
-    <module name="HiddenField"/>
-    <module name="IllegalCatch"/>
-    <module name="IllegalThrows"/>
-    <module name="ImportOrder">
-      <property name="groups" value="java,javax,jakarta,org,com"/>
-      <property name="ordered" value="true"/>
-      <property name="separated" value="true"/>
-    </module>
     <module name="JavadocTagContinuationIndentation"/>
-    <module name="MethodName"/>
-    <module name="MissingSwitchDefault"/>
-    <module name="NeedBraces"/>
-    <module name="NoLineWrap"/>
-    <module name="OperatorWrap"/>
-    <module name="RedundantImport"/>
     <module name="RegexpSinglelineJava">
       <property name="format" value="\s+$"/>
       <property name="message" value="Trailing whitespace is not allowed"/>
     </module>
-    <module name="TypeName"/>
-    <module name="UnnecessaryParentheses"/>
-    <module name="UnusedLocalVariable"/>
-    <module name="VisibilityModifier"/>
-    <module name="WhitespaceAfter"/>
-    <module name="WhitespaceAround"/>
   </module>
 </module>

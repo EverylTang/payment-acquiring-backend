@@ -1,6 +1,5 @@
 package com.example.payments.fund.service.service;
 
-import com.example.payments.fund.service.service.FundDataService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.math.BigDecimal;
 import java.time.Instant;

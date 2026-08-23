@@ -1,12 +1,11 @@
 package com.example.payments.trade.service.controller;
 
-import lombok.RequiredArgsConstructor;
-
 import com.example.payments.trade.service.service.RefundService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import java.math.BigDecimal;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -63,7 +62,13 @@ public class RefundController {
 
   public record CallbackRequest(@NotBlank String status, @NotBlank String payload) {}
 
-  public record RefundResponse( String refundId, String orderId, BigDecimal amount, String currency, String status, String reason) {
+  public record RefundResponse(
+      String refundId,
+      String orderId,
+      BigDecimal amount,
+      String currency,
+      String status,
+      String reason) {
     static RefundResponse from(com.example.payments.trade.service.model.PaymentRefundEntity value) {
       return new RefundResponse(
           value.getRefundId(),

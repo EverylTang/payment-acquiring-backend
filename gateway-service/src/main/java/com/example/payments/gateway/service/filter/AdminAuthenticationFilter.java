@@ -41,7 +41,9 @@ public class AdminAuthenticationFilter implements GlobalFilter, Ordered {
               .build()
               .parseSignedClaims(authorization.substring(7))
               .getPayload();
-      var roles = claims.get("roles", List.class).stream().map(String::valueOf).toList();
+      Object rolesClaim = claims.get("roles");
+      List<?> roleValues = rolesClaim instanceof List<?> values ? values : List.of();
+      var roles = roleValues.stream().map(String::valueOf).toList();
       var authenticated =
           request
               .mutate()
@@ -52,7 +54,7 @@ public class AdminAuthenticationFilter implements GlobalFilter, Ordered {
                   })
               .build();
       return chain.filter(exchange.mutate().request(authenticated).build());
-    } catch (RuntimeException exception) {
+    } catch (io.jsonwebtoken.JwtException | IllegalArgumentException exception) {
       return unauthorized(exchange);
     }
   }

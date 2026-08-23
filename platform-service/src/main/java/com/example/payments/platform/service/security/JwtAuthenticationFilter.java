@@ -42,7 +42,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     + " r.id = rp.role_id JOIN admin_user_role ur ON ur.role_id = r.id JOIN"
                     + " admin_user u ON u.id = ur.user_id WHERE u.username = :username AND u.status"
                     + " = 'ACTIVE' AND p.status = 'ACTIVE'")
-            .param("username", claims.getSubject()).query(String.class).list().stream()
+            .param("username", claims.getSubject())
+            .query(String.class)
+            .list()
+            .stream()
             .map(SimpleGrantedAuthority::new)
             .forEach(roles::add);
         SecurityContextHolder.getContext()
