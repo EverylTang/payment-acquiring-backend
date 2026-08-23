@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class AdminReconciliationController {
   private final ReconciliationService service;
+  private final AdminRequestAuthorizer auth;
 
   @PostMapping("/bills")
   public Map<String, Object> importBill(
@@ -34,6 +35,7 @@ public class AdminReconciliationController {
                             x.amount(),
                             x.currency()))
                 .toList();
+    auth.authorize(t, u, roles);
     return service.importBill(
         new ReconciliationService.BillRequest(
             r.billId(),
@@ -42,10 +44,7 @@ public class AdminReconciliationController {
             r.currency(),
             r.totalAmount(),
             r.totalCount(),
-            lines),
-        t,
-        u,
-        roles);
+            lines));
   }
 
   @GetMapping("/differences")
@@ -53,7 +52,8 @@ public class AdminReconciliationController {
       @RequestHeader("X-Gateway-Token") String t,
       @RequestHeader("X-User-Id") String u,
       @RequestHeader("X-Roles") String roles) {
-    return service.differences(t, u, roles);
+    auth.authorize(t, u, roles);
+    return service.differences();
   }
 
   @PostMapping("/bills/{billId}/reconcile")
@@ -62,7 +62,8 @@ public class AdminReconciliationController {
       @RequestHeader("X-Gateway-Token") String t,
       @RequestHeader("X-User-Id") String u,
       @RequestHeader("X-Roles") String roles) {
-    return service.reconcile(billId, t, u, roles);
+    auth.authorize(t, u, roles);
+    return service.reconcile(billId);
   }
 
   @PostMapping("/differences/{differenceId}/resolve")
@@ -72,8 +73,8 @@ public class AdminReconciliationController {
       @RequestHeader("X-Gateway-Token") String t,
       @RequestHeader("X-User-Id") String u,
       @RequestHeader("X-Roles") String roles) {
-    return service.resolve(
-        differenceId, new ReconciliationService.ResolveRequest(r.reason()), t, u, roles);
+    auth.authorize(t, u, roles);
+    return service.resolve(differenceId, new ReconciliationService.ResolveRequest(r.reason()), u);
   }
 
   public record BillRequest(

@@ -3,23 +3,14 @@ package com.example.payments.platform.service.service.admin;
 import com.example.payments.platform.service.controller.AdminPageResponse;
 import com.example.payments.platform.service.service.AdminMerchantAccessService;
 import com.example.payments.platform.service.service.PlatformDataService;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 
 @Service
 @RequiredArgsConstructor
@@ -27,12 +18,8 @@ public class MerchantProductAdminService {
   private final PlatformDataService mybatisClient;
   private final AdminMerchantAccessService accessService;
 
-  @GetMapping
-  @PreAuthorize("hasAuthority('merchant-product:list')")
   public AdminPageResponse<MerchantProductResponse> list(
-      @RequestParam(defaultValue = "1") int page,
-      @RequestParam(defaultValue = "20") int pageSize,
-      Authentication authentication) {
+      int page, int pageSize, Authentication authentication) {
     var currentPage = Math.max(page, 1);
     var size = Math.min(Math.max(pageSize, 1), 100);
     var offset = (currentPage - 1) * size;
@@ -75,10 +62,7 @@ public class MerchantProductAdminService {
         .list();
   }
 
-  @GetMapping("/{bindingId}")
-  @PreAuthorize("hasAuthority('merchant-product:detail')")
-  public MerchantProductResponse detail(
-      @PathVariable String bindingId, Authentication authentication) {
+  public MerchantProductResponse detail(String bindingId, Authentication authentication) {
     var where = accessService.predicate(authentication, "mp");
     return accessService
         .bindScope(
@@ -97,11 +81,8 @@ public class MerchantProductAdminService {
         .orElseThrow(() -> new IllegalArgumentException("商户产品绑定不存在: " + bindingId));
   }
 
-  @PostMapping
-  @PreAuthorize("hasAuthority('merchant-product:bind')")
   @Transactional
-  public MerchantProductResponse bind(
-      @Valid @RequestBody BindRequest request, Authentication authentication) {
+  public MerchantProductResponse bind(BindRequest request, Authentication authentication) {
     accessService.assertAllowed(authentication, request.merchantId());
     ensureActive("merchant", "merchant_id", request.merchantId());
     ensureActive("logical_product", "product_code", request.productCode());
@@ -131,13 +112,9 @@ public class MerchantProductAdminService {
     return detail(bindingId, authentication);
   }
 
-  @PutMapping("/{bindingId}")
-  @PreAuthorize("hasAuthority('merchant-product:update')")
   @Transactional
   public MerchantProductResponse update(
-      @PathVariable String bindingId,
-      @Valid @RequestBody UpdateRequest request,
-      Authentication authentication) {
+      String bindingId, UpdateRequest request, Authentication authentication) {
     accessService.assertAllowed(authentication, request.merchantId());
     detail(bindingId, authentication);
     ensureActive("merchant", "merchant_id", request.merchantId());
@@ -168,13 +145,8 @@ public class MerchantProductAdminService {
     return detail(bindingId, authentication);
   }
 
-  @PatchMapping("/{bindingId}/status")
-  @PreAuthorize("hasAuthority('merchant-product:status')")
   @Transactional
-  public void changeStatus(
-      @PathVariable String bindingId,
-      @Valid @RequestBody StatusRequest request,
-      Authentication authentication) {
+  public void changeStatus(String bindingId, StatusRequest request, Authentication authentication) {
     var current = detail(bindingId, authentication);
     accessService.assertAllowed(authentication, current.merchantId());
     mybatisClient

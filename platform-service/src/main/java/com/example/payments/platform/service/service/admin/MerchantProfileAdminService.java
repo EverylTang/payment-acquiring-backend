@@ -1,7 +1,6 @@
 package com.example.payments.platform.service.service.admin;
 
 import com.example.payments.platform.service.service.PlatformDataService;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -12,25 +11,16 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 
 @Service
 @RequiredArgsConstructor
 public class MerchantProfileAdminService {
   private final PlatformDataService mybatisClient;
 
-  @GetMapping("/profile")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY')")
-  public ProfileResponse profile(@PathVariable String merchantId) {
+  public ProfileResponse profile(String merchantId) {
     ensureMerchant(merchantId);
     return mybatisClient
         .sql(
@@ -43,13 +33,9 @@ public class MerchantProfileAdminService {
         .orElseGet(() -> new ProfileResponse(merchantId, "", "", null, "MEDIUM", null, null, null));
   }
 
-  @PutMapping("/profile")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   @Transactional
   public ProfileResponse updateProfile(
-      @PathVariable String merchantId,
-      @Valid @RequestBody ProfileRequest request,
-      Authentication authentication) {
+      String merchantId, ProfileRequest request, Authentication authentication) {
     ensureMerchant(merchantId);
     var now = Instant.now();
     mybatisClient
@@ -73,9 +59,7 @@ public class MerchantProfileAdminService {
     return profile(merchantId);
   }
 
-  @GetMapping("/contacts")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY')")
-  public List<ContactResponse> contacts(@PathVariable String merchantId) {
+  public List<ContactResponse> contacts(String merchantId) {
     ensureMerchant(merchantId);
     return mybatisClient
         .sql(
@@ -87,13 +71,9 @@ public class MerchantProfileAdminService {
         .list();
   }
 
-  @PostMapping("/contacts")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   @Transactional
   public ContactResponse createContact(
-      @PathVariable String merchantId,
-      @Valid @RequestBody ContactRequest request,
-      Authentication authentication) {
+      String merchantId, ContactRequest request, Authentication authentication) {
     ensureMerchant(merchantId);
     var now = Instant.now();
     mybatisClient
@@ -116,14 +96,9 @@ public class MerchantProfileAdminService {
         .orElseThrow();
   }
 
-  @PutMapping("/contacts/{contactId}")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   @Transactional
   public ContactResponse updateContact(
-      @PathVariable String merchantId,
-      @PathVariable long contactId,
-      @Valid @RequestBody ContactRequest request,
-      Authentication authentication) {
+      String merchantId, long contactId, ContactRequest request, Authentication authentication) {
     ensureMerchant(merchantId);
     var changed =
         mybatisClient
@@ -148,13 +123,9 @@ public class MerchantProfileAdminService {
         .orElseThrow();
   }
 
-  @PutMapping("/callback-config")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   @Transactional
   public CallbackResponse updateCallback(
-      @PathVariable String merchantId,
-      @Valid @RequestBody CallbackRequest request,
-      Authentication authentication) {
+      String merchantId, CallbackRequest request, Authentication authentication) {
     ensureMerchant(merchantId);
     var now = Instant.now();
     mybatisClient
@@ -174,9 +145,7 @@ public class MerchantProfileAdminService {
     return callback(merchantId);
   }
 
-  @GetMapping("/callback-config")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY')")
-  public CallbackResponse callback(@PathVariable String merchantId) {
+  public CallbackResponse callback(String merchantId) {
     ensureMerchant(merchantId);
     return mybatisClient
         .sql(
@@ -189,9 +158,7 @@ public class MerchantProfileAdminService {
         .orElseGet(() -> new CallbackResponse(merchantId, "", "[]", "DISABLED", null, null));
   }
 
-  @GetMapping("/credentials")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
-  public List<CredentialResponse> credentials(@PathVariable String merchantId) {
+  public List<CredentialResponse> credentials(String merchantId) {
     ensureMerchant(merchantId);
     return mybatisClient
         .sql(
@@ -203,13 +170,9 @@ public class MerchantProfileAdminService {
         .list();
   }
 
-  @PostMapping("/credentials/rotate")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   @Transactional
   public RotatedCredential rotateCredential(
-      @PathVariable String merchantId,
-      @Valid @RequestBody CredentialRequest request,
-      Authentication authentication) {
+      String merchantId, CredentialRequest request, Authentication authentication) {
     ensureMerchant(merchantId);
     var secret =
         UUID.randomUUID().toString().replace("-", "")
@@ -240,13 +203,9 @@ public class MerchantProfileAdminService {
     return new RotatedCredential(credentialId, request.credentialType(), secret, now);
   }
 
-  @PostMapping("/credentials/{credentialId}/revoke")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   @Transactional
   public void revokeCredential(
-      @PathVariable String merchantId,
-      @PathVariable String credentialId,
-      Authentication authentication) {
+      String merchantId, String credentialId, Authentication authentication) {
     ensureMerchant(merchantId);
     var changed =
         mybatisClient
@@ -262,13 +221,8 @@ public class MerchantProfileAdminService {
     audit(authentication.getName(), "REVOKE_CREDENTIAL", credentialId);
   }
 
-  @DeleteMapping("/contacts/{contactId}")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   @Transactional
-  public void deleteContact(
-      @PathVariable String merchantId,
-      @PathVariable long contactId,
-      Authentication authentication) {
+  public void deleteContact(String merchantId, long contactId, Authentication authentication) {
     ensureMerchant(merchantId);
     mybatisClient
         .sql("DELETE FROM merchant_contact WHERE id = :id AND merchant_id = :merchantId")

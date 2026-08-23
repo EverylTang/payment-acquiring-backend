@@ -1,7 +1,9 @@
 package com.example.payments.platform.service.controller;
 
 import com.example.payments.platform.service.service.admin.ConfigurationAdminService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,15 +25,17 @@ public class AdminConfigurationController {
   }
 
   @PostMapping("/channels")
+  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   public void createChannel(
-      @RequestBody ConfigurationAdminService.ChannelRequest r, Authentication a) {
+      @Valid @RequestBody ConfigurationAdminService.ChannelRequest r, Authentication a) {
     service.createChannel(r, a);
   }
 
   @PutMapping("/channels/{id}/status")
+  @PreAuthorize("hasRole('ADMIN')")
   public void updateChannelStatus(
       @PathVariable("id") String id,
-      @RequestBody ConfigurationAdminService.StatusRequest r,
+      @Valid @RequestBody ConfigurationAdminService.StatusRequest r,
       Authentication a) {
     service.updateChannelStatus(id, r, a);
   }
@@ -43,8 +47,9 @@ public class AdminConfigurationController {
   }
 
   @PostMapping("/routing-rules")
+  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   public void createRoutingRule(
-      @RequestBody ConfigurationAdminService.RoutingRuleRequest r, Authentication a) {
+      @Valid @RequestBody ConfigurationAdminService.RoutingRuleRequest r, Authentication a) {
     service.createRoutingRule(r, a);
   }
 
@@ -55,8 +60,9 @@ public class AdminConfigurationController {
   }
 
   @PostMapping("/pricing-rules")
+  @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'FINANCE')")
   public void createPricingRule(
-      @RequestBody ConfigurationAdminService.PricingRuleRequest r, Authentication a) {
+      @Valid @RequestBody ConfigurationAdminService.PricingRuleRequest r, Authentication a) {
     service.createPricingRule(r, a);
   }
 
@@ -67,8 +73,9 @@ public class AdminConfigurationController {
   }
 
   @PostMapping("/risk-policies")
+  @PreAuthorize("hasAnyRole('ADMIN', 'RISK')")
   public void createRiskPolicy(
-      @RequestBody ConfigurationAdminService.RiskPolicyRequest r, Authentication a) {
+      @Valid @RequestBody ConfigurationAdminService.RiskPolicyRequest r, Authentication a) {
     service.createRiskPolicy(r, a);
   }
 }

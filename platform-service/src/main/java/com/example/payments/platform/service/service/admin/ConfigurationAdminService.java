@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import com.example.payments.platform.service.service.PlatformDataService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.validation.Valid;
+
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -19,17 +19,17 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
-import org.springframework.security.access.prepost.PreAuthorize;
+
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.RequestParam;
+
+
+
+
+
+
+
+
 
 @Service
 @RequiredArgsConstructor
@@ -37,7 +37,6 @@ public class ConfigurationAdminService {
   private final PlatformDataService mybatisClient;
   private final ObjectMapper objectMapper;
 
-  @GetMapping("/dashboard/overview")
   public Map<String, Object> overview() {
     return Map.of(
         "paymentSuccessRate",
@@ -66,9 +65,8 @@ public class ConfigurationAdminService {
             .toList());
   }
 
-  @GetMapping("/channels")
   public AdminPageResponse<ChannelResponse> channels(
-      @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
+int page, int pageSize) {
     var q = pageQuery(page, pageSize);
     var total = count("channel", "1=1");
     var items =
@@ -91,10 +89,9 @@ public class ConfigurationAdminService {
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
 
-  @PostMapping("/channels")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
+
   @Transactional
-  public void createChannel( @Valid @RequestBody ChannelRequest request, Authentication authentication) {
+  public void createChannel( ChannelRequest request, Authentication authentication) {
     var now = Instant.now();
     mybatisClient
         .sql(
@@ -124,17 +121,15 @@ public class ConfigurationAdminService {
     audit(authentication.getName(), "CREATE", "CHANNEL", request.channelId(), request);
   }
 
-  @PutMapping("/channels/{channelId}/status")
-  @PreAuthorize("hasRole('ADMIN')")
+
   @Transactional
-  public void updateChannelStatus( @PathVariable String channelId, @Valid @RequestBody StatusRequest request, Authentication authentication) {
+  public void updateChannelStatus( String channelId, StatusRequest request, Authentication authentication) {
     updateStatus("channel", "channel_id", channelId, request.status());
     audit(authentication.getName(), "CHANGE_STATUS", "CHANNEL", channelId, request);
   }
 
-  @GetMapping("/routing-rules")
   public AdminPageResponse<RoutingRuleResponse> routingRules(
-      @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
+int page, int pageSize) {
     var q = pageQuery(page, pageSize);
     var total = count("routing_rule", "1=1");
     var items =
@@ -150,10 +145,9 @@ public class ConfigurationAdminService {
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
 
-  @PostMapping("/routing-rules")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
+
   @Transactional
-  public void createRoutingRule( @Valid @RequestBody RoutingRuleRequest request, Authentication authentication) {
+  public void createRoutingRule( RoutingRuleRequest request, Authentication authentication) {
     var version = draftVersion(request.releaseId());
     mybatisClient
         .sql(
@@ -175,9 +169,8 @@ public class ConfigurationAdminService {
     audit(authentication.getName(), "CREATE", "ROUTING_RULE", request.ruleId(), request);
   }
 
-  @GetMapping("/pricing-rules")
   public AdminPageResponse<PricingRuleResponse> pricingRules(
-      @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
+int page, int pageSize) {
     var q = pageQuery(page, pageSize);
     var total = count("pricing_rule", "1=1");
     var items =
@@ -193,10 +186,9 @@ public class ConfigurationAdminService {
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
 
-  @PostMapping("/pricing-rules")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'FINANCE')")
+
   @Transactional
-  public void createPricingRule( @Valid @RequestBody PricingRuleRequest request, Authentication authentication) {
+  public void createPricingRule( PricingRuleRequest request, Authentication authentication) {
     var version = draftVersion(request.releaseId());
     mybatisClient
         .sql(
@@ -218,9 +210,8 @@ public class ConfigurationAdminService {
     audit(authentication.getName(), "CREATE", "PRICING_RULE", request.ruleId(), request);
   }
 
-  @GetMapping("/risk-policies")
   public AdminPageResponse<RiskPolicyResponse> riskPolicies(
-      @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
+int page, int pageSize) {
     var q = pageQuery(page, pageSize);
     var total = count("risk_policy", "1=1");
     var items =
@@ -245,10 +236,9 @@ public class ConfigurationAdminService {
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
 
-  @PostMapping("/risk-policies")
-  @PreAuthorize("hasAnyRole('ADMIN', 'RISK')")
+
   @Transactional
-  public void createRiskPolicy( @Valid @RequestBody RiskPolicyRequest request, Authentication authentication) {
+  public void createRiskPolicy( RiskPolicyRequest request, Authentication authentication) {
     var version = draftVersion(request.releaseId());
     mybatisClient
         .sql(

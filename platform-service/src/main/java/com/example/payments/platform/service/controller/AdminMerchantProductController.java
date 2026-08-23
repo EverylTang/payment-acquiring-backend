@@ -1,7 +1,9 @@
 package com.example.payments.platform.service.controller;
 
 import com.example.payments.platform.service.service.admin.MerchantProductAdminService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,6 +14,7 @@ public class AdminMerchantProductController {
   private final MerchantProductAdminService service;
 
   @GetMapping
+  @PreAuthorize("hasAuthority('merchant-product:list')")
   public AdminPageResponse<MerchantProductAdminService.MerchantProductResponse> list(
       @RequestParam(defaultValue = "1") int p,
       @RequestParam(defaultValue = "20") int s,
@@ -20,29 +23,33 @@ public class AdminMerchantProductController {
   }
 
   @GetMapping("/{id}")
+  @PreAuthorize("hasAuthority('merchant-product:detail')")
   public MerchantProductAdminService.MerchantProductResponse detail(
       @PathVariable("id") String id, Authentication a) {
     return service.detail(id, a);
   }
 
   @PostMapping
+  @PreAuthorize("hasAuthority('merchant-product:bind')")
   public MerchantProductAdminService.MerchantProductResponse bind(
-      @RequestBody MerchantProductAdminService.BindRequest r, Authentication a) {
+      @Valid @RequestBody MerchantProductAdminService.BindRequest r, Authentication a) {
     return service.bind(r, a);
   }
 
   @PutMapping("/{id}")
+  @PreAuthorize("hasAuthority('merchant-product:update')")
   public MerchantProductAdminService.MerchantProductResponse update(
       @PathVariable("id") String id,
-      @RequestBody MerchantProductAdminService.UpdateRequest r,
+      @Valid @RequestBody MerchantProductAdminService.UpdateRequest r,
       Authentication a) {
     return service.update(id, r, a);
   }
 
   @PatchMapping("/{id}/status")
+  @PreAuthorize("hasAuthority('merchant-product:status')")
   public void changeStatus(
       @PathVariable("id") String id,
-      @RequestBody MerchantProductAdminService.StatusRequest r,
+      @Valid @RequestBody MerchantProductAdminService.StatusRequest r,
       Authentication a) {
     service.changeStatus(id, r, a);
   }

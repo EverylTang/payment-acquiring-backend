@@ -5,7 +5,6 @@ import com.example.payments.platform.service.service.ConfigurationSnapshotServic
 import com.example.payments.platform.service.service.PlatformDataService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
@@ -13,15 +12,9 @@ import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -31,9 +24,7 @@ public class ConfigReleaseService {
   private final ObjectMapper objectMapper;
   private final ConfigurationSnapshotService snapshotService;
 
-  @GetMapping
-  public AdminPageResponse<ReleaseResponse> list(
-      @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
+  public AdminPageResponse<ReleaseResponse> list(int page, int pageSize) {
     var currentPage = Math.max(page, 1);
     var size = Math.min(Math.max(pageSize, 1), 100);
     var total = mybatisClient.sql("SELECT COUNT(*) FROM config_release").query(Long.class).single();
@@ -50,11 +41,8 @@ public class ConfigReleaseService {
     return new AdminPageResponse<>(items, currentPage, size, total);
   }
 
-  @PostMapping
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   @Transactional
-  public ReleaseResponse create(
-      @Valid @RequestBody CreateReleaseRequest request, Authentication authentication) {
+  public ReleaseResponse create(CreateReleaseRequest request, Authentication authentication) {
     var version =
         mybatisClient
             .sql("SELECT COALESCE(MAX(version_no), 0) + 1 FROM config_release FOR UPDATE")
@@ -76,13 +64,9 @@ public class ConfigReleaseService {
     return find(releaseId);
   }
 
-  @PostMapping("/{releaseId}/submit")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
   @Transactional
   public ReleaseResponse submit(
-      @PathVariable String releaseId,
-      @Valid @RequestBody ReasonRequest request,
-      Authentication authentication) {
+      String releaseId, ReasonRequest request, Authentication authentication) {
     var release = find(releaseId);
     var errors = snapshotService.validate(release.versionNo());
     if (!errors.isEmpty()) {
@@ -98,13 +82,9 @@ public class ConfigReleaseService {
     return find(releaseId);
   }
 
-  @PostMapping("/{releaseId}/approve")
-  @PreAuthorize("hasRole('ADMIN')")
   @Transactional
   public ReleaseResponse approve(
-      @PathVariable String releaseId,
-      @RequestBody ReasonRequest request,
-      Authentication authentication) {
+      String releaseId, ReasonRequest request, Authentication authentication) {
     transition(releaseId, "IN_REVIEW", "APPROVED", authentication.getName());
     audit(
         authentication.getName(),
@@ -115,13 +95,9 @@ public class ConfigReleaseService {
     return find(releaseId);
   }
 
-  @PostMapping("/{releaseId}/publish")
-  @PreAuthorize("hasRole('ADMIN')")
   @Transactional
   public ReleaseResponse publish(
-      @PathVariable String releaseId,
-      @RequestBody ReasonRequest request,
-      Authentication authentication) {
+      String releaseId, ReasonRequest request, Authentication authentication) {
     var publishedAt = Instant.now();
     var updated =
         mybatisClient
@@ -147,8 +123,7 @@ public class ConfigReleaseService {
     return find(releaseId);
   }
 
-  @GetMapping("/{releaseId}/diff")
-  public Map<String, Object> diff(@PathVariable String releaseId) {
+  public Map<String, Object> diff(String releaseId) {
     var release = rawConfig(releaseId);
     var previous =
         mybatisClient
@@ -177,13 +152,9 @@ public class ConfigReleaseService {
     return Map.of("releaseId", releaseId, "versionNo", release.version(), "changes", changed);
   }
 
-  @PostMapping("/{releaseId}/rollback")
-  @PreAuthorize("hasRole('ADMIN')")
   @Transactional
   public ReleaseResponse rollback(
-      @PathVariable String releaseId,
-      @Valid @RequestBody ReasonRequest request,
-      Authentication authentication) {
+      String releaseId, ReasonRequest request, Authentication authentication) {
     var source = rawConfig(releaseId);
     var version =
         mybatisClient

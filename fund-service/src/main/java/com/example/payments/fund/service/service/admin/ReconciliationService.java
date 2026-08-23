@@ -1,6 +1,5 @@
 package com.example.payments.fund.service.service.admin;
 
-import com.example.payments.fund.service.controller.AdminRequestAuthorizer;
 import com.example.payments.fund.service.service.FundDataService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.math.BigDecimal;
@@ -13,22 +12,14 @@ import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.*;
 
 @Service
 @RequiredArgsConstructor
 public class ReconciliationService {
   private final FundDataService mybatisClient;
-  private final AdminRequestAuthorizer auth;
   private final MeterRegistry metrics;
 
-  @PostMapping("/bills")
-  public Map<String, Object> importBill(
-      @RequestBody BillRequest request,
-      @RequestHeader("X-Gateway-Token") String token,
-      @RequestHeader("X-User-Id") String user,
-      @RequestHeader("X-Roles") String roles) {
-    auth.authorize(token, user, roles);
+  public Map<String, Object> importBill(BillRequest request) {
     var id =
         request.billId() == null || request.billId().isBlank()
             ? "bill-" + UUID.randomUUID()
@@ -74,12 +65,7 @@ public class ReconciliationService {
     return Map.of("billId", id, "status", "IMPORTED");
   }
 
-  @GetMapping("/differences")
-  public Map<String, Object> differences(
-      @RequestHeader("X-Gateway-Token") String token,
-      @RequestHeader("X-User-Id") String user,
-      @RequestHeader("X-Roles") String roles) {
-    auth.authorize(token, user, roles);
+  public Map<String, Object> differences() {
     return Map.of(
         "items",
         mybatisClient
@@ -90,13 +76,7 @@ public class ReconciliationService {
             .listOfRows());
   }
 
-  @PostMapping("/bills/{billId}/reconcile")
-  public Map<String, Object> reconcile(
-      @PathVariable String billId,
-      @RequestHeader("X-Gateway-Token") String token,
-      @RequestHeader("X-User-Id") String user,
-      @RequestHeader("X-Roles") String roles) {
-    auth.authorize(token, user, roles);
+  public Map<String, Object> reconcile(String billId) {
     var bill =
         mybatisClient
             .sql(
@@ -233,14 +213,7 @@ public class ReconciliationService {
         .update();
   }
 
-  @PostMapping("/differences/{differenceId}/resolve")
-  public Map<String, Object> resolve(
-      @PathVariable String differenceId,
-      @RequestBody ResolveRequest request,
-      @RequestHeader("X-Gateway-Token") String token,
-      @RequestHeader("X-User-Id") String user,
-      @RequestHeader("X-Roles") String roles) {
-    auth.authorize(token, user, roles);
+  public Map<String, Object> resolve(String differenceId, ResolveRequest request, String operator) {
     var updated =
         mybatisClient
             .sql(
@@ -248,7 +221,7 @@ public class ReconciliationService {
                     + " resolved_by=:operator, resolved_at=:now WHERE difference_id=:id AND"
                     + " status='OPEN'")
             .param("reason", request.reason())
-            .param("operator", user)
+            .param("operator", operator)
             .param("now", Instant.now())
             .param("id", differenceId)
             .update();
