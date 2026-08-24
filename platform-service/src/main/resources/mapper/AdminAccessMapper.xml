@@ -1,7 +1,38 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.payments.platform.service.mapper.AdminAccessMapper">
-  <select id="selectRoles" resultType="string">SELECT r.role_code FROM admin_role r JOIN admin_user_role ur ON ur.role_id = r.id JOIN admin_user u ON u.id = ur.user_id WHERE u.username = #{username} AND u.status = 'ACTIVE' ORDER BY r.role_code</select>
-  <select id="selectMenus" resultType="com.example.payments.platform.service.model.AccessModel$MenuModel">SELECT DISTINCT m.menu_code, m.menu_name, m.menu_type, m.route_path, m.component_key, m.icon, m.sort_order FROM admin_menu m JOIN admin_role_menu rm ON rm.menu_id = m.id JOIN admin_role r ON r.id = rm.role_id JOIN admin_user_role ur ON ur.role_id = r.id JOIN admin_user u ON u.id = ur.user_id WHERE u.username = #{username} AND u.status = 'ACTIVE' AND m.status = 'ACTIVE' AND m.visible = TRUE ORDER BY m.sort_order, m.id</select>
-  <select id="selectPermissions" resultType="string">SELECT DISTINCT p.permission_code FROM admin_permission p JOIN admin_role_permission rp ON rp.permission_id = p.id JOIN admin_role r ON r.id = rp.role_id JOIN admin_user_role ur ON ur.role_id = r.id JOIN admin_user u ON u.id = ur.user_id WHERE u.username = #{username} AND u.status = 'ACTIVE' AND p.status = 'ACTIVE' ORDER BY p.permission_code</select>
+  <select id="selectRoles" resultType="string">
+    SELECT r.role_code
+    FROM admin_role r
+    JOIN admin_user_role ur ON ur.role_id = r.id
+    JOIN admin_user u ON u.id = ur.user_id
+    WHERE u.username = #{username}
+    AND u.status = 'ACTIVE'
+    ORDER BY r.role_code
+  </select>
+  <select id="selectMenus" resultType="com.example.payments.platform.service.model.AccessModel$MenuModel">
+    SELECT DISTINCT m.menu_code, m.menu_name, m.menu_type, m.route_path, m.component_key, m.icon, m.sort_order
+    FROM admin_menu m
+    JOIN admin_role_menu rm ON rm.menu_id = m.id
+    JOIN admin_role r ON r.id = rm.role_id
+    JOIN admin_user_role ur ON ur.role_id = r.id
+    JOIN admin_user u ON u.id = ur.user_id
+    WHERE u.username = #{username}
+    AND u.status = 'ACTIVE'
+    AND m.status = 'ACTIVE'
+    AND m.visible = TRUE
+    ORDER BY m.sort_order, m.id
+  </select>
+  <select id="selectPermissions" resultType="string">
+    SELECT DISTINCT p.permission_code
+    FROM admin_permission p
+    JOIN admin_role_permission rp ON rp.permission_id = p.id
+    JOIN admin_role r ON r.id = rp.role_id
+    JOIN admin_user_role ur ON ur.role_id = r.id
+    JOIN admin_user u ON u.id = ur.user_id
+    WHERE u.username = #{username}
+    AND u.status = 'ACTIVE'
+    AND p.status = 'ACTIVE'
+    ORDER BY p.permission_code
+  </select>
 </mapper>

@@ -2,32 +2,40 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.payments.fund.service.mapper.LedgerEntryMapper">
   <resultMap id="LedgerEntryResultMap" type="com.example.payments.fund.service.model.LedgerEntryEntity">
-    <id property="id" column="id"/>
-    <result property="entryId" column="entry_id"/>
-    <result property="accountId" column="account_id"/>
-    <result property="orderId" column="order_id"/>
-    <result property="refundId" column="refund_id"/>
-    <result property="entryType" column="entry_type"/>
-    <result property="debitCredit" column="debit_credit"/>
-    <result property="amount" column="amount"/>
-    <result property="currency" column="currency"/>
-    <result property="availableAt" column="available_at"/>
-    <result property="idempotencyKey" column="idempotency_key"/>
-    <result property="reversalOf" column="reversal_of"/>
-    <result property="createdAt" column="created_at"/>
+    <id property="id" column="id" />
+    <result property="entryId" column="entry_id" />
+    <result property="accountId" column="account_id" />
+    <result property="orderId" column="order_id" />
+    <result property="refundId" column="refund_id" />
+    <result property="entryType" column="entry_type" />
+    <result property="debitCredit" column="debit_credit" />
+    <result property="amount" column="amount" />
+    <result property="currency" column="currency" />
+    <result property="availableAt" column="available_at" />
+    <result property="idempotencyKey" column="idempotency_key" />
+    <result property="reversalOf" column="reversal_of" />
+    <result property="createdAt" column="created_at" />
   </resultMap>
   <select id="findByIdempotency" resultMap="LedgerEntryResultMap">
-    SELECT id, entry_id, account_id, order_id, refund_id, entry_type,
-           debit_credit, amount, currency, available_at, idempotency_key,
-           reversal_of, created_at
+    SELECT id, entry_id, account_id, order_id, refund_id, entry_type, debit_credit, amount, currency, available_at, idempotency_key, reversal_of, created_at
     FROM ledger_entry
     WHERE idempotency_key = #{key}
     LIMIT 1
   </select>
   <select id="sumRefundReversals" resultType="java.math.BigDecimal">
-    SELECT COALESCE(SUM(amount), 0) FROM ledger_entry WHERE order_id = #{orderId} AND entry_type = 'REFUND_REVERSAL' AND debit_credit = 'DEBIT'
+    SELECT COALESCE(SUM(amount), 0)
+    FROM ledger_entry
+    WHERE order_id = #{orderId}
+    AND entry_type = 'REFUND_REVERSAL'
+    AND debit_credit = 'DEBIT'
   </select>
   <select id="originalPaymentAmount" resultType="java.math.BigDecimal">
-    SELECT amount FROM ledger_entry WHERE order_id = #{orderId} AND entry_type = 'PAYMENT_SUCCESS' AND debit_credit = 'CREDIT' ORDER BY id LIMIT 1
+    SELECT amount
+    FROM ledger_entry
+    WHERE order_id = #{orderId}
+    AND entry_type = 'PAYMENT_SUCCESS'
+    AND debit_credit = 'CREDIT'
+    ORDER BY id
+    LIMIT 1
   </select>
 </mapper>

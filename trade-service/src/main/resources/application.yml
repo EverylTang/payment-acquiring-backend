@@ -44,6 +44,7 @@ rocketmq:
     group: ${ROCKETMQ_PRODUCER_GROUP:trade-producer}
 management:
   tracing:
+    enabled: ${OTEL_TRACING_ENABLED:false}
     sampling:
       probability: ${OTEL_SAMPLING_PROBABILITY:0.1}
   otlp:

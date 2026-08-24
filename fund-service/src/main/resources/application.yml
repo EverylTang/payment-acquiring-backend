@@ -37,6 +37,7 @@ fund:
     consumer-group: ${FUND_REFUND_SUCCESS_CONSUMER_GROUP:fund-refund-success}
 management:
   tracing:
+    enabled: ${OTEL_TRACING_ENABLED:false}
     sampling:
       probability: ${OTEL_SAMPLING_PROBABILITY:0.1}
   otlp:
