@@ -32,7 +32,7 @@ public class AdminProductCapabilityController {
   }
 
   @PostMapping
-  @PreAuthorize("hasAuthority('product-capability:list')")
+  @PreAuthorize("hasAuthority('product-capability:create')")
   public CapabilityResponse create(
       @PathVariable String productCode,
       @Valid @RequestBody CapabilityRequest request,
@@ -42,7 +42,7 @@ public class AdminProductCapabilityController {
   }
 
   @PutMapping("/{capabilityId}")
-  @PreAuthorize("hasAuthority('product-capability:create')")
+  @PreAuthorize("hasAuthority('product-capability:update')")
   public CapabilityResponse update(
       @PathVariable String productCode,
       @PathVariable String capabilityId,
@@ -54,7 +54,7 @@ public class AdminProductCapabilityController {
   }
 
   @PatchMapping("/{capabilityId}/status")
-  @PreAuthorize("hasAuthority('product-capability:update')")
+  @PreAuthorize("hasAuthority('product-capability:status')")
   public CapabilityResponse status(
       @PathVariable String productCode,
       @PathVariable String capabilityId,

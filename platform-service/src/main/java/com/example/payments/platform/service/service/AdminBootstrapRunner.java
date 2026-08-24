@@ -41,6 +41,7 @@ public class AdminBootstrapRunner implements ApplicationRunner {
   @Override
   @Transactional
   public void run(ApplicationArguments args) {
+    ensureSystemMenu();
     if (hasAdminUser()) {
       log.info("管理员账号已存在，跳过初始化");
       return;
@@ -81,6 +82,42 @@ public class AdminBootstrapRunner implements ApplicationRunner {
         .param("roleId", roleId)
         .update();
     log.warn("管理员账号初始化完成，请立即轮换初始密码，账号={}", username);
+  }
+
+  private void ensureSystemMenu() {
+    if (!hasTable("admin_menu") || !hasTable("admin_role_menu")) {
+      log.warn(
+          "基础平台菜单表未初始化，跳过菜单补偿；请由数据库发布流程执行基础平台升级 SQL 后再启用菜单管理");
+      return;
+    }
+    var now = Instant.now();
+    mybatisClient
+        .sql(
+            "INSERT IGNORE INTO admin_menu (parent_id, menu_code, menu_name, menu_type,"
+                + " route_path, component_key, icon, sort_order, visible, status, created_at,"
+                + " updated_at) VALUES (0, :menuCode, '菜单管理', 'PAGE', '/menus', 'menus',"
+                + " 'Settings2', 93, TRUE, 'ACTIVE', :now, :now)")
+        .param("menuCode", "system:menu")
+        .param("now", now)
+        .update();
+    mybatisClient
+        .sql(
+            "INSERT IGNORE INTO admin_role_menu (role_id, menu_id) SELECT r.id, m.id FROM"
+                + " admin_role r JOIN admin_menu m ON m.menu_code = :menuCode WHERE"
+                + " r.role_code = 'ADMIN'")
+        .param("menuCode", "system:menu")
+        .update();
+  }
+
+  private boolean hasTable(String tableName) {
+    return mybatisClient
+            .sql(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()"
+                    + " AND table_name = :tableName")
+            .param("tableName", tableName)
+            .query(Long.class)
+            .single()
+        > 0;
   }
 
   private boolean hasAdminUser() {

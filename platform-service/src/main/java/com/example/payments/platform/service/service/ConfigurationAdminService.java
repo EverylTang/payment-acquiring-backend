@@ -151,6 +151,13 @@ public class ConfigurationAdminService {
     audit(authentication.getName(), "CREATE", "ROUTING_RULE", request.ruleId(), request);
   }
 
+  @Transactional
+  public void updateRoutingRuleStatus(
+      String ruleId, StatusRequest request, Authentication authentication) {
+    updateStatus("routing_rule", "rule_id", ruleId, request.status());
+    audit(authentication.getName(), "CHANGE_STATUS", "ROUTING_RULE", ruleId, request);
+  }
+
   public AdminPageResponse<PricingRuleResponse> pricingRules(int page, int pageSize) {
     var q = pageQuery(page, pageSize);
     var total = count("pricing_rule", "1=1");
@@ -188,6 +195,13 @@ public class ConfigurationAdminService {
         .param("max", request.maxAmount())
         .update();
     audit(authentication.getName(), "CREATE", "PRICING_RULE", request.ruleId(), request);
+  }
+
+  @Transactional
+  public void updatePricingRuleStatus(
+      String ruleId, StatusRequest request, Authentication authentication) {
+    updateStatus("pricing_rule", "rule_id", ruleId, request.status());
+    audit(authentication.getName(), "CHANGE_STATUS", "PRICING_RULE", ruleId, request);
   }
 
   public AdminPageResponse<RiskPolicyResponse> riskPolicies(int page, int pageSize) {
@@ -231,6 +245,13 @@ public class ConfigurationAdminService {
         .param("condition", json(request.condition()))
         .update();
     audit(authentication.getName(), "CREATE", "RISK_POLICY", request.policyId(), request);
+  }
+
+  @Transactional
+  public void updateRiskPolicyStatus(
+      String policyId, StatusRequest request, Authentication authentication) {
+    updateStatus("risk_policy", "policy_id", policyId, request.status());
+    audit(authentication.getName(), "CHANGE_STATUS", "RISK_POLICY", policyId, request);
   }
 
   private long draftVersion(String releaseId) {

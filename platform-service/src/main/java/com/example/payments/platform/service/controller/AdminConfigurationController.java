@@ -53,6 +53,15 @@ public class AdminConfigurationController {
     service.createRoutingRule(r, a);
   }
 
+  @PutMapping("/routing-rules/{id}/status")
+  @PreAuthorize("hasRole('ADMIN')")
+  public void updateRoutingRuleStatus(
+      @PathVariable("id") String id,
+      @Valid @RequestBody ConfigurationAdminService.StatusRequest r,
+      Authentication a) {
+    service.updateRoutingRuleStatus(id, r, a);
+  }
+
   @GetMapping("/pricing-rules")
   public AdminPageResponse<ConfigurationAdminService.PricingRuleResponse> pricingRules(
       @RequestParam(defaultValue = "1") int p, @RequestParam(defaultValue = "20") int s) {
@@ -66,6 +75,15 @@ public class AdminConfigurationController {
     service.createPricingRule(r, a);
   }
 
+  @PutMapping("/pricing-rules/{id}/status")
+  @PreAuthorize("hasRole('ADMIN')")
+  public void updatePricingRuleStatus(
+      @PathVariable("id") String id,
+      @Valid @RequestBody ConfigurationAdminService.StatusRequest r,
+      Authentication a) {
+    service.updatePricingRuleStatus(id, r, a);
+  }
+
   @GetMapping("/risk-policies")
   public AdminPageResponse<ConfigurationAdminService.RiskPolicyResponse> riskPolicies(
       @RequestParam(defaultValue = "1") int p, @RequestParam(defaultValue = "20") int s) {
@@ -77,5 +95,14 @@ public class AdminConfigurationController {
   public void createRiskPolicy(
       @Valid @RequestBody ConfigurationAdminService.RiskPolicyRequest r, Authentication a) {
     service.createRiskPolicy(r, a);
+  }
+
+  @PutMapping("/risk-policies/{id}/status")
+  @PreAuthorize("hasRole('ADMIN')")
+  public void updateRiskPolicyStatus(
+      @PathVariable("id") String id,
+      @Valid @RequestBody ConfigurationAdminService.StatusRequest r,
+      Authentication a) {
+    service.updateRiskPolicyStatus(id, r, a);
   }
 }
