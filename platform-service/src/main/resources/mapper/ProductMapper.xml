@@ -13,7 +13,6 @@
       <arg column="statement_descriptor" javaType="java.lang.String" />
       <arg column="status" javaType="java.lang.String" />
       <arg column="active_capability_count" javaType="long" />
-      <arg column="supported_currencies" javaType="java.lang.String" />
       <arg column="supported_payment_methods" javaType="java.lang.String" />
       <arg column="created_at" javaType="java.time.Instant" />
       <arg column="updated_at" javaType="java.time.Instant" />
@@ -23,8 +22,7 @@
     p.product_code,p.name,p.product_type,p.access_mode,p.default_country,p.default_currency,
     p.description,p.statement_descriptor,p.status,p.created_at,p.updated_at,
     COUNT(CASE WHEN pc.status = 'ACTIVE' THEN 1 END) active_capability_count,
-    COALESCE(GROUP_CONCAT(DISTINCT CASE WHEN pc.status = 'ACTIVE' THEN pc.currency END ORDER BY pc.currency SEPARATOR ','), '') supported_currencies,
-    COALESCE(GROUP_CONCAT(DISTINCT CASE WHEN pc.status = 'ACTIVE' THEN pc.payment_method END ORDER BY pc.payment_method SEPARATOR ','), '') supported_payment_methods
+    COALESCE(GROUP_CONCAT(DISTINCT CASE WHEN pc.status = 'ACTIVE' THEN pc.customer_payment_method END ORDER BY pc.customer_payment_method SEPARATOR ','), '') supported_payment_methods
   </sql>
   <sql id="filters">
     <if test="status != null and status != ''">AND p.status=#{status}</if>

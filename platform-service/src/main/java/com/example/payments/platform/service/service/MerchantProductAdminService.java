@@ -36,10 +36,10 @@ public class MerchantProductAdminService {
                     .sql(
                         "SELECT mp.binding_id, mp.merchant_id, m.name merchant_name,"
                             + " mp.product_code, p.name product_name, mp.status, mp.created_at,"
-                            + " mp.updated_at, COALESCE((SELECT GROUP_CONCAT(DISTINCT pc.currency"
-                            + " ORDER BY pc.currency SEPARATOR ',') FROM product_capability pc"
+                            + " mp.updated_at, COALESCE((SELECT GROUP_CONCAT(DISTINCT pc.customer_payment_method"
+                            + " ORDER BY pc.customer_payment_method SEPARATOR ',') FROM product_capability pc"
                             + " WHERE pc.product_code = mp.product_code AND pc.status = 'ACTIVE'), '')"
-                            + " supported_currencies FROM merchant_product mp JOIN merchant m ON"
+                            + " supported_payment_methods FROM merchant_product mp JOIN merchant m ON"
                             + " m.merchant_id = mp.merchant_id JOIN logical_product p ON"
                             + " p.product_code = mp.product_code WHERE "
                             + where
@@ -57,9 +57,9 @@ public class MerchantProductAdminService {
         .sql(
             "SELECT mp.binding_id, mp.merchant_id, m.name merchant_name, mp.product_code, p.name"
                 + " product_name, mp.status, mp.created_at, mp.updated_at, COALESCE((SELECT"
-                + " GROUP_CONCAT(DISTINCT pc.currency ORDER BY pc.currency SEPARATOR ',') FROM"
+                + " GROUP_CONCAT(DISTINCT pc.customer_payment_method ORDER BY pc.customer_payment_method SEPARATOR ',') FROM"
                 + " product_capability pc WHERE pc.product_code = mp.product_code AND pc.status"
-                + " = 'ACTIVE'), '') supported_currencies FROM merchant_product mp"
+                + " = 'ACTIVE'), '') supported_payment_methods FROM merchant_product mp"
                 + " JOIN merchant m ON m.merchant_id = mp.merchant_id JOIN logical_product p ON"
                 + " p.product_code = mp.product_code ORDER BY mp.created_at DESC")
         .query(MerchantProductResponse.class)
@@ -74,9 +74,9 @@ public class MerchantProductAdminService {
                 .sql(
                     "SELECT mp.binding_id, mp.merchant_id, m.name merchant_name, mp.product_code,"
                         + " p.name product_name, mp.status, mp.created_at, mp.updated_at, COALESCE(("
-                        + " SELECT GROUP_CONCAT(DISTINCT pc.currency ORDER BY pc.currency SEPARATOR"
+                        + " SELECT GROUP_CONCAT(DISTINCT pc.customer_payment_method ORDER BY pc.customer_payment_method SEPARATOR"
                         + " ',') FROM product_capability pc WHERE pc.product_code = mp.product_code"
-                        + " AND pc.status = 'ACTIVE'), '') supported_currencies FROM"
+                        + " AND pc.status = 'ACTIVE'), '') supported_payment_methods FROM"
                         + " merchant_product mp JOIN merchant m ON m.merchant_id = mp.merchant_id"
                         + " JOIN logical_product p ON p.product_code = mp.product_code WHERE"
                         + " mp.binding_id = :bindingId AND "
@@ -211,5 +211,5 @@ public class MerchantProductAdminService {
       String status,
       Instant createdAt,
       Instant updatedAt,
-      String supportedCurrencies) {}
+      String supportedPaymentMethods) {}
 }

@@ -20,9 +20,8 @@ public interface ProductCapabilityMapper {
   int insertCapability(
       @Param("id") String id,
       @Param("productCode") String productCode,
-      @Param("country") String country,
-      @Param("currency") String currency,
-      @Param("paymentMethod") String paymentMethod,
+      @Param("customerPaymentMethod") String customerPaymentMethod,
+      @Param("channelPaymentMethod") String channelPaymentMethod,
       @Param("minAmount") BigDecimal minAmount,
       @Param("maxAmount") BigDecimal maxAmount,
       @Param("supportsRefund") boolean supportsRefund);
@@ -30,9 +29,8 @@ public interface ProductCapabilityMapper {
   int updateCapability(
       @Param("id") String id,
       @Param("productCode") String productCode,
-      @Param("country") String country,
-      @Param("currency") String currency,
-      @Param("paymentMethod") String paymentMethod,
+      @Param("customerPaymentMethod") String customerPaymentMethod,
+      @Param("channelPaymentMethod") String channelPaymentMethod,
       @Param("minAmount") BigDecimal minAmount,
       @Param("maxAmount") BigDecimal maxAmount,
       @Param("supportsRefund") boolean supportsRefund);
@@ -41,4 +39,6 @@ public interface ProductCapabilityMapper {
       @Param("id") String id,
       @Param("productCode") String productCode,
       @Param("status") String status);
+
+  int deleteCapability(@Param("id") String id, @Param("productCode") String productCode);
 }

@@ -103,7 +103,6 @@ public class AdminProductController {
         v.statementDescriptor(),
         v.status(),
         v.activeCapabilityCount(),
-        v.supportedCurrencies(),
         v.supportedPaymentMethods(),
         v.createdAt(),
         v.updatedAt());
@@ -141,7 +140,6 @@ public class AdminProductController {
       String statementDescriptor,
       String status,
       long activeCapabilityCount,
-      String supportedCurrencies,
       String supportedPaymentMethods,
       Instant createdAt,
       Instant updatedAt) {}

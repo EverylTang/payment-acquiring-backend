@@ -43,20 +43,20 @@ public class ConfigurationSnapshotService {
     var product =
         mybatisClient
             .sql(
-                "SELECT min_amount, max_amount, supports_refund FROM product_capability WHERE"
-                    + " product_code = :product AND payment_method = :method AND country = :country"
-                    + " AND currency = :currency AND status = 'ACTIVE' AND :amount BETWEEN"
+                "SELECT channel_payment_method, min_amount, max_amount, supports_refund FROM product_capability WHERE"
+                    + " product_code = :product AND customer_payment_method = :method"
+                    + " AND status = 'ACTIVE' AND :amount BETWEEN"
                     + " min_amount AND max_amount")
             .param("product", productCode)
             .param("method", paymentMethod)
-            .param("country", country)
-            .param("currency", currency)
             .param("amount", amount)
             .query(
                 (rs, rowNum) ->
                     Map.<String, Object>of(
                         "enabled",
                         true,
+                        "channelPaymentMethod",
+                        rs.getString("channel_payment_method"),
                         "supportsRefund",
                         rs.getBoolean("supports_refund"),
                         "minAmount",
@@ -65,6 +65,8 @@ public class ConfigurationSnapshotService {
                         rs.getBigDecimal("max_amount")))
             .optional()
             .orElseThrow(() -> unavailable("产品能力不支持当前交易"));
+
+    var channelPaymentMethod = (String) product.get("channelPaymentMethod");
 
     var candidates =
         mybatisClient
@@ -82,7 +84,7 @@ public class ConfigurationSnapshotService {
             .param("version", version)
             .param("product", productCode)
             .param("merchant", merchantId)
-            .param("method", paymentMethod)
+            .param("method", channelPaymentMethod)
             .param("country", country)
             .param("currency", currency)
             .param("amount", amount)
@@ -154,6 +156,7 @@ public class ConfigurationSnapshotService {
     result.put("merchantId", merchantId);
     result.put("productCode", productCode);
     result.put("paymentMethod", paymentMethod);
+    result.put("channelPaymentMethod", channelPaymentMethod);
     result.put("country", country);
     result.put("currency", currency);
     result.put("amount", amount);

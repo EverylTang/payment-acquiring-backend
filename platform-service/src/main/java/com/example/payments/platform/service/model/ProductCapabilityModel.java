@@ -6,9 +6,8 @@ import java.math.BigDecimal;
 public record ProductCapabilityModel(
     String capabilityId,
     String productCode,
-    String country,
-    String currency,
-    String paymentMethod,
+    String customerPaymentMethod,
+    String channelPaymentMethod,
     BigDecimal minAmount,
     BigDecimal maxAmount,
     boolean supportsRefund,

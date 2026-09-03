@@ -13,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProductCapabilityService {
   private final ProductCapabilityMapper mapper;
   private final ProductService products;
-  private final MasterDataService masterData;
   private final OperationAuditService audit;
 
   public Page list(String productCode, int page, int pageSize) {
@@ -40,9 +39,8 @@ public class ProductCapabilityService {
     mapper.insertCapability(
         id,
         productCode,
-        command.country(),
-        command.currency(),
-        command.paymentMethod(),
+        command.customerPaymentMethod(),
+        command.channelPaymentMethod(),
         command.minAmount(),
         command.maxAmount(),
         command.supportsRefund());
@@ -58,9 +56,8 @@ public class ProductCapabilityService {
         mapper.updateCapability(
             id,
             productCode,
-            command.country(),
-            command.currency(),
-            command.paymentMethod(),
+            command.customerPaymentMethod(),
+            command.channelPaymentMethod(),
             command.minAmount(),
             command.maxAmount(),
             command.supportsRefund());
@@ -77,8 +74,13 @@ public class ProductCapabilityService {
     return detail(id);
   }
 
+  @Transactional
+  public void delete(String productCode, String id, String operator, Object payload) {
+    requireUpdated(mapper.deleteCapability(id, productCode), id);
+    audit.record(operator, "DELETE", "PRODUCT_CAPABILITY", id, payload);
+  }
+
   private void validate(Command value) {
-    masterData.requireActive(value.country(), value.currency());
     if (value.maxAmount().compareTo(value.minAmount()) < 0)
       throw new IllegalArgumentException("最大金额不能小于最小金额");
   }
@@ -88,9 +90,8 @@ public class ProductCapabilityService {
   }
 
   public record Command(
-      String country,
-      String currency,
-      String paymentMethod,
+      String customerPaymentMethod,
+      String channelPaymentMethod,
       BigDecimal minAmount,
       BigDecimal maxAmount,
       boolean supportsRefund) {}

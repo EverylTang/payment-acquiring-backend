@@ -2,18 +2,19 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.payments.platform.service.mapper.ProductCapabilityMapper">
   <resultMap id="CapabilityMap" type="com.example.payments.platform.service.model.ProductCapabilityModel">
-    <id property="capabilityId" column="capability_id" />
-    <result property="productCode" column="product_code" />
-    <result property="country" column="country" />
-    <result property="currency" column="currency" />
-    <result property="paymentMethod" column="payment_method" />
-    <result property="minAmount" column="min_amount" />
-    <result property="maxAmount" column="max_amount" />
-    <result property="supportsRefund" column="supports_refund" />
-    <result property="status" column="status" />
+    <constructor>
+      <idArg column="capability_id" javaType="java.lang.String" />
+      <arg column="product_code" javaType="java.lang.String" />
+      <arg column="customer_payment_method" javaType="java.lang.String" />
+      <arg column="channel_payment_method" javaType="java.lang.String" />
+      <arg column="min_amount" javaType="java.math.BigDecimal" />
+      <arg column="max_amount" javaType="java.math.BigDecimal" />
+      <arg column="supports_refund" javaType="boolean" />
+      <arg column="status" javaType="java.lang.String" />
+    </constructor>
   </resultMap>
   <sql id="columns">
-    capability_id,product_code,country,currency,payment_method,min_amount,max_amount,supports_refund,status
+    capability_id,product_code,customer_payment_method,channel_payment_method,min_amount,max_amount,supports_refund,status
   </sql>
   <select id="countByProduct" resultType="long">
     SELECT COUNT(*)
@@ -36,12 +37,12 @@
     WHERE capability_id=#{capabilityId}
   </select>
   <insert id="insertCapability">
-    INSERT INTO product_capability(capability_id,product_code,country,currency,payment_method,min_amount,max_amount,supports_refund,status)
-    VALUES(#{id},#{productCode},#{country},#{currency},#{paymentMethod},#{minAmount},#{maxAmount},#{supportsRefund},'ACTIVE')
+    INSERT INTO product_capability(capability_id,product_code,customer_payment_method,channel_payment_method,min_amount,max_amount,supports_refund,status)
+    VALUES(#{id},#{productCode},#{customerPaymentMethod},#{channelPaymentMethod},#{minAmount},#{maxAmount},#{supportsRefund},'ACTIVE')
   </insert>
   <update id="updateCapability">
     UPDATE product_capability
-    SET country=#{country},currency=#{currency},payment_method=#{paymentMethod},min_amount=#{minAmount},max_amount=#{maxAmount},supports_refund=#{supportsRefund}
+    SET customer_payment_method=#{customerPaymentMethod},channel_payment_method=#{channelPaymentMethod},min_amount=#{minAmount},max_amount=#{maxAmount},supports_refund=#{supportsRefund}
     WHERE capability_id=#{id}
     AND product_code=#{productCode}
   </update>
@@ -51,4 +52,9 @@
     WHERE capability_id=#{id}
     AND product_code=#{productCode}
   </update>
+  <delete id="deleteCapability">
+    DELETE FROM product_capability
+    WHERE capability_id=#{id}
+    AND product_code=#{productCode}
+  </delete>
 </mapper>

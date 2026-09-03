@@ -66,11 +66,19 @@ public class AdminProductCapabilityController {
             productCode, capabilityId, request.status(), authentication.getName(), request));
   }
 
+  @DeleteMapping("/{capabilityId}")
+  @PreAuthorize("hasAuthority('product-capability:update')")
+  public void delete(
+      @PathVariable String productCode,
+      @PathVariable String capabilityId,
+      Authentication authentication) {
+    capabilityService.delete(productCode, capabilityId, authentication.getName(), capabilityId);
+  }
+
   private static ProductCapabilityService.Command command(CapabilityRequest r) {
     return new ProductCapabilityService.Command(
-        r.country(),
-        r.currency(),
-        r.paymentMethod(),
+        r.customerPaymentMethod().trim(),
+        r.channelPaymentMethod().trim(),
         r.minAmount(),
         r.maxAmount(),
         r.supportsRefund());
@@ -80,9 +88,8 @@ public class AdminProductCapabilityController {
     return new CapabilityResponse(
         v.capabilityId(),
         v.productCode(),
-        v.country(),
-        v.currency(),
-        v.paymentMethod(),
+        v.customerPaymentMethod(),
+        v.channelPaymentMethod(),
         v.minAmount(),
         v.maxAmount(),
         v.supportsRefund(),
@@ -90,9 +97,8 @@ public class AdminProductCapabilityController {
   }
 
   public record CapabilityRequest(
-      @NotBlank String country,
-      @Pattern(regexp = "[A-Z]{3}") String currency,
-      @NotBlank String paymentMethod,
+      @NotBlank String customerPaymentMethod,
+      @NotBlank String channelPaymentMethod,
       @DecimalMin("0.01") BigDecimal minAmount,
       @DecimalMin("0.01") BigDecimal maxAmount,
       boolean supportsRefund) {}
@@ -102,9 +108,8 @@ public class AdminProductCapabilityController {
   public record CapabilityResponse(
       String capabilityId,
       String productCode,
-      String country,
-      String currency,
-      String paymentMethod,
+      String customerPaymentMethod,
+      String channelPaymentMethod,
       BigDecimal minAmount,
       BigDecimal maxAmount,
       boolean supportsRefund,

@@ -193,16 +193,33 @@ CREATE TABLE IF NOT EXISTS product_capability (
   id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
   capability_id VARCHAR(64) NOT NULL COMMENT '能力ID',
   product_code VARCHAR(64) NOT NULL COMMENT '产品编码',
-  country VARCHAR(8) NOT NULL COMMENT '国家或地区',
-  currency VARCHAR(3) NOT NULL COMMENT '币种',
-  payment_method VARCHAR(64) NOT NULL COMMENT '支付方式',
+  payment_method VARCHAR(64) NULL COMMENT '历史支付方式（兼容字段）',
+  customer_payment_method VARCHAR(64) NOT NULL COMMENT '对客支付方式',
+  channel_payment_method VARCHAR(64) NOT NULL COMMENT '渠道支付方式',
   min_amount DECIMAL(20, 2) NOT NULL COMMENT '最小金额',
   max_amount DECIMAL(20, 2) NOT NULL COMMENT '最大金额',
   supports_refund BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否支持退款',
   status VARCHAR(16) NOT NULL COMMENT '业务状态',
   UNIQUE KEY uk_product_capability_id (capability_id),
-  UNIQUE KEY uk_product_capability_scope (product_code, country, currency, payment_method)
+  UNIQUE KEY uk_product_capability_method (product_code, customer_payment_method, channel_payment_method)
 );
+
+-- Compatibility migration for databases created by older versions of this script.
+ALTER TABLE product_capability MODIFY COLUMN payment_method VARCHAR(64) NULL COMMENT '历史支付方式（兼容字段）';
+ALTER TABLE product_capability ADD COLUMN IF NOT EXISTS customer_payment_method VARCHAR(64) NULL COMMENT '对客支付方式' AFTER payment_method;
+ALTER TABLE product_capability ADD COLUMN IF NOT EXISTS channel_payment_method VARCHAR(64) NULL COMMENT '渠道支付方式' AFTER customer_payment_method;
+UPDATE product_capability
+SET customer_payment_method = COALESCE(customer_payment_method, payment_method),
+    channel_payment_method = COALESCE(channel_payment_method, payment_method)
+WHERE customer_payment_method IS NULL OR channel_payment_method IS NULL;
+ALTER TABLE product_capability MODIFY COLUMN customer_payment_method VARCHAR(64) NOT NULL COMMENT '对客支付方式';
+ALTER TABLE product_capability MODIFY COLUMN channel_payment_method VARCHAR(64) NOT NULL COMMENT '渠道支付方式';
+ALTER TABLE product_capability DROP INDEX IF EXISTS uk_product_capability_scope;
+ALTER TABLE product_capability DROP INDEX IF EXISTS uk_product_capability_scope_v2;
+ALTER TABLE product_capability DROP COLUMN IF EXISTS country;
+ALTER TABLE product_capability DROP COLUMN IF EXISTS currency;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_product_capability_method
+  ON product_capability (product_code, customer_payment_method, channel_payment_method);
 
 CREATE TABLE IF NOT EXISTS merchant_product (
   id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
@@ -243,8 +260,8 @@ INSERT IGNORE INTO country_currency_master(country_code,currency_code,status,cre
 INSERT IGNORE INTO logical_product (product_code, name, product_type, access_mode, default_country, default_currency, description, statement_descriptor, status, created_at, updated_at)
 VALUES ('CARD-US-USD', '美国卡支付', 'PAYIN', 'DIRECT', 'US', 'USD', '面向美国市场的银行卡收款产品', 'DEMO PAYMENT', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
-INSERT IGNORE INTO product_capability (capability_id, product_code, country, currency, payment_method, min_amount, max_amount, supports_refund, status)
-VALUES ('pc-card-us-usd', 'CARD-US-USD', 'US', 'USD', 'CARD', 1.00, 10000.00, TRUE, 'ACTIVE');
+INSERT IGNORE INTO product_capability (capability_id, product_code, customer_payment_method, channel_payment_method, min_amount, max_amount, supports_refund, status)
+VALUES ('pc-card-us-usd', 'CARD-US-USD', 'CARD', 'CARD', 1.00, 10000.00, TRUE, 'ACTIVE');
 
 INSERT IGNORE INTO merchant_product (binding_id, merchant_id, product_code, status, created_at, updated_at)
 VALUES ('mp-demo-card', 'merchant-demo', 'CARD-US-USD', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));

@@ -14,7 +14,6 @@ public record ProductModel(
     String statementDescriptor,
     String status,
     Long activeCapabilityCount,
-    String supportedCurrencies,
     String supportedPaymentMethods,
     Instant createdAt,
     Instant updatedAt) {}
