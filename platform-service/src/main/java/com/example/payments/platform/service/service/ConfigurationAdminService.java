@@ -162,20 +162,23 @@ public class ConfigurationAdminService {
   public AdminPageResponse<PricingRuleResponse> pricingRules(int page, int pageSize) {
     var q = pageQuery(page, pageSize);
     var total = pricingRuleMapper.countAll();
-    var items = pricingRuleMapper.selectByPage(q.offset(), q.size()).stream()
-        .map(rule -> new PricingRuleResponse(
-            rule.getRuleId(),
-            rule.getReleaseVersion(),
-            rule.getProductCode(),
-            rule.getMerchantId(),
-            rule.getCurrency(),
-            rule.getFeeRate(),
-            rule.getFixedFee(),
-            rule.getFeeMode(),
-            rule.getMinAmount(),
-            rule.getMaxAmount(),
-            rule.getStatus()))
-        .toList();
+    var items =
+        pricingRuleMapper.selectByPage(q.offset(), q.size()).stream()
+            .map(
+                rule ->
+                    new PricingRuleResponse(
+                        rule.getRuleId(),
+                        rule.getReleaseVersion(),
+                        rule.getProductCode(),
+                        rule.getMerchantId(),
+                        rule.getCurrency(),
+                        rule.getFeeRate(),
+                        rule.getFixedFee(),
+                        rule.getFeeMode(),
+                        rule.getMinAmount(),
+                        rule.getMaxAmount(),
+                        rule.getStatus()))
+            .toList();
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
 

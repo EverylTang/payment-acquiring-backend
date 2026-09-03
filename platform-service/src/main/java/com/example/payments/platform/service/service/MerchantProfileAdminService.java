@@ -175,8 +175,7 @@ public class MerchantProfileAdminService {
     var credentialId = UUID.randomUUID().toString();
     var now = Instant.now();
     merchantCredentialFullMapper.revokeActiveByType(merchantId, request.credentialType(), now);
-    var secretHint =
-        secret.substring(0, 6) + "..." + secret.substring(secret.length() - 4);
+    var secretHint = secret.substring(0, 6) + "..." + secret.substring(secret.length() - 4);
     merchantCredentialFullMapper.insert(
         credentialId, merchantId, request.credentialType(), sha256(secret), secretHint, now);
     audit(authentication.getName(), "ROTATE_CREDENTIAL", merchantId);
@@ -187,8 +186,7 @@ public class MerchantProfileAdminService {
   public void revokeCredential(
       String merchantId, String credentialId, Authentication authentication) {
     ensureMerchant(merchantId);
-    var changed =
-        merchantCredentialFullMapper.revokeById(credentialId, merchantId, Instant.now());
+    var changed = merchantCredentialFullMapper.revokeById(credentialId, merchantId, Instant.now());
     if (changed == 0) throw new IllegalArgumentException("有效凭证不存在: " + credentialId);
     audit(authentication.getName(), "REVOKE_CREDENTIAL", credentialId);
   }

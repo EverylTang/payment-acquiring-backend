@@ -86,8 +86,7 @@ public class AdminBootstrapRunner implements ApplicationRunner {
 
   private void ensureSystemMenu() {
     if (!hasTable("admin_menu") || !hasTable("admin_role_menu")) {
-      log.warn(
-          "基础平台菜单表未初始化，跳过菜单补偿；请由数据库发布流程执行基础平台升级 SQL 后再启用菜单管理");
+      log.warn("基础平台菜单表未初始化，跳过菜单补偿；请由数据库发布流程执行基础平台升级 SQL 后再启用菜单管理");
       return;
     }
     var now = Instant.now();
