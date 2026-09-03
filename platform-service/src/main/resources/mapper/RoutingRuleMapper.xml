@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.payments.platform.service.mapper.RoutingRuleMapper">
+
+    <resultMap id="RoutingRuleFullResultMap" type="com.example.payments.platform.service.model.RoutingRuleFull">
+        <id property="id" column="id"/>
+        <result property="ruleId" column="rule_id"/>
+        <result property="releaseVersion" column="release_version"/>
+        <result property="productCode" column="product_code"/>
+        <result property="merchantId" column="merchant_id"/>
+        <result property="country" column="country"/>
+        <result property="paymentMethod" column="payment_method"/>
+        <result property="currency" column="currency"/>
+        <result property="channelId" column="channel_id"/>
+        <result property="priority" column="priority"/>
+        <result property="weight" column="weight"/>
+        <result property="status" column="status"/>
+    </resultMap>
+
+    <select id="selectByPage" resultMap="RoutingRuleFullResultMap">
+        SELECT id, rule_id, release_version, product_code, merchant_id, country, currency,
+               payment_method, channel_id, priority, weight, status
+        FROM routing_rule
+        ORDER BY id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM routing_rule
+    </select>
+
+    <select id="selectByRuleId" resultMap="RoutingRuleFullResultMap">
+        SELECT id, rule_id, release_version, product_code, merchant_id, country, currency,
+               payment_method, channel_id, priority, weight, status
+        FROM routing_rule
+        WHERE rule_id = #{ruleId}
+    </select>
+
+    <insert id="insert" parameterType="com.example.payments.platform.service.model.RoutingRuleFull">
+        INSERT INTO routing_rule (rule_id, release_version, product_code, merchant_id, country,
+                                  currency, payment_method, channel_id, priority, weight, status)
+        VALUES (#{ruleId}, #{releaseVersion}, #{productCode}, #{merchantId}, #{country},
+                #{currency}, #{paymentMethod}, #{channelId}, #{priority}, #{weight}, #{status})
+    </insert>
+
+    <update id="update" parameterType="com.example.payments.platform.service.model.RoutingRuleFull">
+        UPDATE routing_rule
+        SET release_version = #{releaseVersion},
+            product_code = #{productCode},
+            merchant_id = #{merchantId},
+            country = #{country},
+            currency = #{currency},
+            payment_method = #{paymentMethod},
+            channel_id = #{channelId},
+            priority = #{priority},
+            weight = #{weight},
+            status = #{status}
+        WHERE rule_id = #{ruleId}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE routing_rule
+        SET status = #{status}
+        WHERE rule_id = #{ruleId}
+    </update>
+
+    <delete id="deleteByRuleId">
+        DELETE FROM routing_rule WHERE rule_id = #{ruleId}
+    </delete>
+
+</mapper>

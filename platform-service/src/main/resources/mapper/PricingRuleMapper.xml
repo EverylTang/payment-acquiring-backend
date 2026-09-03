@@ -36,10 +36,36 @@
                 #{feeRate}, #{fixedFee}, #{feeMode}, #{minAmount}, #{maxAmount}, #{status})
     </insert>
 
+    <select id="selectByRuleId" resultMap="PricingRuleFullResultMap">
+        SELECT id, rule_id, release_version, product_code, merchant_id, currency,
+               fee_rate, fixed_fee, fee_mode, min_amount, max_amount, status
+        FROM pricing_rule
+        WHERE rule_id = #{ruleId}
+    </select>
+
+    <update id="update" parameterType="com.example.payments.platform.service.model.PricingRuleFull">
+        UPDATE pricing_rule
+        SET release_version = #{releaseVersion},
+            product_code = #{productCode},
+            merchant_id = #{merchantId},
+            currency = #{currency},
+            fee_rate = #{feeRate},
+            fixed_fee = #{fixedFee},
+            fee_mode = #{feeMode},
+            min_amount = #{minAmount},
+            max_amount = #{maxAmount},
+            status = #{status}
+        WHERE rule_id = #{ruleId}
+    </update>
+
     <update id="updateStatus">
         UPDATE pricing_rule
         SET status = #{status}
         WHERE rule_id = #{ruleId}
     </update>
+
+    <delete id="deleteByRuleId">
+        DELETE FROM pricing_rule WHERE rule_id = #{ruleId}
+    </delete>
 
 </mapper>

@@ -1,21 +1,21 @@
 package com.example.payments.platform.service.mapper;
 
-import com.example.payments.platform.service.model.PricingRuleFull;
+import com.example.payments.platform.service.model.RoutingRuleFull;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 @Mapper
-public interface PricingRuleMapper {
-  List<PricingRuleFull> selectByPage(@Param("offset") int offset, @Param("limit") int limit);
+public interface RoutingRuleMapper {
+  List<RoutingRuleFull> selectByPage(@Param("offset") int offset, @Param("limit") int limit);
 
   int countAll();
 
-  PricingRuleFull selectByRuleId(@Param("ruleId") String ruleId);
+  RoutingRuleFull selectByRuleId(@Param("ruleId") String ruleId);
 
-  void insert(PricingRuleFull rule);
+  void insert(RoutingRuleFull rule);
 
-  void update(PricingRuleFull rule);
+  void update(RoutingRuleFull rule);
 
   void updateStatus(@Param("ruleId") String ruleId, @Param("status") String status);
 
