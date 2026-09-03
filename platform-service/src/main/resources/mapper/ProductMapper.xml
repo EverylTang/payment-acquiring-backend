@@ -4,30 +4,55 @@
   <resultMap id="ProductMap" type="com.example.payments.platform.service.model.ProductModel">
     <id property="productCode" column="product_code" />
     <result property="name" column="name" />
+    <result property="productType" column="product_type" />
+    <result property="accessMode" column="access_mode" />
+    <result property="defaultCountry" column="default_country" />
+    <result property="defaultCurrency" column="default_currency" />
+    <result property="description" column="description" />
+    <result property="statementDescriptor" column="statement_descriptor" />
     <result property="status" column="status" />
+    <result property="activeCapabilityCount" column="active_capability_count" />
+    <result property="supportedCurrencies" column="supported_currencies" />
+    <result property="supportedPaymentMethods" column="supported_payment_methods" />
     <result property="createdAt" column="created_at" />
     <result property="updatedAt" column="updated_at" />
   </resultMap>
   <sql id="columns">
-    product_code,name,status,created_at,updated_at
+    p.product_code,p.name,p.product_type,p.access_mode,p.default_country,p.default_currency,
+    p.description,p.statement_descriptor,p.status,p.created_at,p.updated_at,
+    COUNT(CASE WHEN pc.status = 'ACTIVE' THEN 1 END) active_capability_count,
+    COALESCE(GROUP_CONCAT(DISTINCT CASE WHEN pc.status = 'ACTIVE' THEN pc.currency END ORDER BY pc.currency SEPARATOR ','), '') supported_currencies,
+    COALESCE(GROUP_CONCAT(DISTINCT CASE WHEN pc.status = 'ACTIVE' THEN pc.payment_method END ORDER BY pc.payment_method SEPARATOR ','), '') supported_payment_methods
   </sql>
-  <select id="countAll" resultType="long">
+  <sql id="filters">
+    <if test="status != null and status != ''">AND p.status=#{status}</if>
+    <if test="productType != null and productType != ''">AND p.product_type=#{productType}</if>
+  </sql>
+  <select id="count" resultType="long">
     SELECT COUNT(*)
-    FROM logical_product
+    FROM logical_product p
+    WHERE 1=1
+    <include refid="filters" />
   </select>
   <select id="selectPage" resultMap="ProductMap">
     SELECT
     <include refid="columns" />
-    FROM logical_product
-    ORDER BY created_at DESC
+    FROM logical_product p
+    LEFT JOIN product_capability pc ON pc.product_code = p.product_code
+    WHERE 1=1
+    <include refid="filters" />
+    GROUP BY p.id,p.product_code,p.name,p.product_type,p.access_mode,p.default_country,p.default_currency,p.description,p.statement_descriptor,p.status,p.created_at,p.updated_at
+    ORDER BY p.updated_at DESC
     LIMIT #{limit}
     OFFSET #{offset}
   </select>
   <select id="selectByCode" resultMap="ProductMap">
     SELECT
     <include refid="columns" />
-    FROM logical_product
-    WHERE product_code=#{productCode}
+    FROM logical_product p
+    LEFT JOIN product_capability pc ON pc.product_code = p.product_code
+    WHERE p.product_code=#{productCode}
+    GROUP BY p.id,p.product_code,p.name,p.product_type,p.access_mode,p.default_country,p.default_currency,p.description,p.statement_descriptor,p.status,p.created_at,p.updated_at
   </select>
   <select id="existsByCode" resultType="boolean">
     SELECT EXISTS(SELECT 1
@@ -35,12 +60,12 @@
     WHERE product_code=#{productCode})
   </select>
   <insert id="insertProduct">
-    INSERT INTO logical_product(product_code,name,status,created_at,updated_at)
-    VALUES(#{productCode},#{name},'ACTIVE',#{now},#{now})
+    INSERT INTO logical_product(product_code,name,product_type,access_mode,default_country,default_currency,description,statement_descriptor,status,created_at,updated_at)
+    VALUES(#{productCode},#{name},#{productType},#{accessMode},#{defaultCountry},#{defaultCurrency},#{description},#{statementDescriptor},'ACTIVE',#{now},#{now})
   </insert>
   <update id="updateProduct">
     UPDATE logical_product
-    SET name=#{name},updated_at=#{now}
+    SET name=#{name},product_type=#{productType},access_mode=#{accessMode},default_country=#{defaultCountry},default_currency=#{defaultCurrency},description=#{description},statement_descriptor=#{statementDescriptor},updated_at=#{now}
     WHERE product_code=#{productCode}
   </update>
   <update id="updateStatus">

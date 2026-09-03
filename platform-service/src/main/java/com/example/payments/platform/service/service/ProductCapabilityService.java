@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProductCapabilityService {
   private final ProductCapabilityMapper mapper;
   private final ProductService products;
+  private final MasterDataService masterData;
   private final OperationAuditService audit;
 
   public Page list(String productCode, int page, int pageSize) {
@@ -77,6 +78,7 @@ public class ProductCapabilityService {
   }
 
   private void validate(Command value) {
+    masterData.requireActive(value.country(), value.currency());
     if (value.maxAmount().compareTo(value.minAmount()) < 0)
       throw new IllegalArgumentException("最大金额不能小于最小金额");
   }

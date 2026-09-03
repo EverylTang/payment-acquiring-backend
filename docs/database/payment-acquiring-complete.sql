@@ -65,10 +65,49 @@ CREATE TABLE IF NOT EXISTS logical_product (
   id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
   product_code VARCHAR(64) NOT NULL COMMENT '产品编码',
   name VARCHAR(128) NOT NULL COMMENT '名称',
+  product_type VARCHAR(16) NOT NULL DEFAULT 'PAYIN' COMMENT '产品类型：PAYIN/PAYOUT',
+  access_mode VARCHAR(16) COMMENT '收款接入模式：DIRECT/AGGREGATED；出款产品为空',
+  default_country VARCHAR(8) NOT NULL DEFAULT 'US' COMMENT '默认国家或地区',
+  default_currency VARCHAR(3) NOT NULL DEFAULT 'USD' COMMENT '默认币种',
+  description VARCHAR(1000) COMMENT '产品描述',
+  statement_descriptor VARCHAR(22) COMMENT '默认账单描述符',
   status VARCHAR(16) NOT NULL COMMENT '业务状态',
   created_at DATETIME(3) NOT NULL COMMENT '创建时间',
   updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
-  UNIQUE KEY uk_product_code (product_code)
+  UNIQUE KEY uk_product_code (product_code),
+  KEY idx_logical_product_status_type (status, product_type, updated_at)
+);
+
+CREATE TABLE IF NOT EXISTS country_master (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  country_code VARCHAR(2) NOT NULL COMMENT 'ISO 3166-1 alpha-2 国家地区码',
+  country_name VARCHAR(128) NOT NULL COMMENT '国家或地区名称',
+  region VARCHAR(64) COMMENT '区域',
+  status VARCHAR(16) NOT NULL COMMENT '业务状态',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
+  UNIQUE KEY uk_country_master_code (country_code)
+);
+CREATE TABLE IF NOT EXISTS currency_master (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  currency_code VARCHAR(3) NOT NULL COMMENT 'ISO 4217 币种代码',
+  currency_name VARCHAR(128) NOT NULL COMMENT '币种名称',
+  symbol VARCHAR(16) COMMENT '币种符号',
+  decimal_places TINYINT NOT NULL DEFAULT 2 COMMENT '金额小数位',
+  status VARCHAR(16) NOT NULL COMMENT '业务状态',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
+  UNIQUE KEY uk_currency_master_code (currency_code)
+);
+CREATE TABLE IF NOT EXISTS country_currency_master (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  country_code VARCHAR(2) NOT NULL COMMENT '国家或地区代码',
+  currency_code VARCHAR(3) NOT NULL COMMENT '币种代码',
+  status VARCHAR(16) NOT NULL COMMENT '业务状态',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
+  UNIQUE KEY uk_country_currency_master_scope (country_code, currency_code),
+  KEY idx_country_currency_master_status (status, country_code, currency_code)
 );
 
 CREATE TABLE IF NOT EXISTS channel (
@@ -194,8 +233,15 @@ CREATE TABLE IF NOT EXISTS channel_capability (
 INSERT IGNORE INTO merchant (merchant_id, name, status, created_at, updated_at)
 VALUES ('merchant-demo', 'Demo Merchant', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
-INSERT IGNORE INTO logical_product (product_code, name, status, created_at, updated_at)
-VALUES ('CARD-US-USD', '美国卡支付', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
+INSERT IGNORE INTO country_master(country_code,country_name,region,status,created_at,updated_at) VALUES
+  ('US','美国','北美','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('CN','中国','亚太','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('GB','英国','欧洲','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('SG','新加坡','亚太','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('HK','中国香港','亚太','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3));
+INSERT IGNORE INTO currency_master(currency_code,currency_name,symbol,decimal_places,status,created_at,updated_at) VALUES
+  ('USD','美元','$',2,'ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('CNY','人民币','¥',2,'ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('GBP','英镑','£',2,'ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('SGD','新加坡元','S$',2,'ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('HKD','港元','HK$',2,'ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('JPY','日元','¥',0,'ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3));
+INSERT IGNORE INTO country_currency_master(country_code,currency_code,status,created_at,updated_at) VALUES
+  ('US','USD','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('CN','CNY','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('GB','GBP','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('SG','SGD','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('HK','HKD','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3));
+
+INSERT IGNORE INTO logical_product (product_code, name, product_type, access_mode, default_country, default_currency, description, statement_descriptor, status, created_at, updated_at)
+VALUES ('CARD-US-USD', '美国卡支付', 'PAYIN', 'DIRECT', 'US', 'USD', '面向美国市场的银行卡收款产品', 'DEMO PAYMENT', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
 INSERT IGNORE INTO product_capability (capability_id, product_code, country, currency, payment_method, min_amount, max_amount, supports_refund, status)
 VALUES ('pc-card-us-usd', 'CARD-US-USD', 'US', 'USD', 'CARD', 1.00, 10000.00, TRUE, 'ACTIVE');
@@ -279,18 +325,18 @@ CREATE TABLE IF NOT EXISTS admin_role_permission (
 INSERT IGNORE INTO admin_menu (parent_id, menu_code, menu_name, menu_type, route_path, component_key, icon, sort_order, visible, status, created_at, updated_at)
 VALUES
   (0, 'dashboard', '总览', 'PAGE', '/', 'dashboard', 'LayoutDashboard', 10, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  (0, 'trade', '订单与支付', 'PAGE', '/orders', 'orders', 'WalletCards', 20, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  (0, 'merchant', '商户管理', 'PAGE', '/merchants', 'merchants', 'Store', 30, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  (0, 'product', '产品管理', 'PAGE', '/products', 'products', 'Layers3', 40, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  (0, 'merchant', '商户管理', 'PAGE', '/merchants', 'merchants', 'Store', 20, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  (0, 'product', '产品管理', 'PAGE', '/products', 'products', 'Layers3', 30, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'merchant-product', '商户产品', 'PAGE', '/merchant-products', 'merchant-products', 'Link', 50, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'routing', '路由与渠道', 'PAGE', '/routing', 'routing', 'Network', 60, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'pricing', '费率与结算', 'PAGE', '/pricing', 'pricing', 'CircleDollarSign', 70, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'risk', '风控工作台', 'PAGE', '/risk', 'risk', 'ShieldCheck', 80, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  (0, 'system', '系统管理', 'DIRECTORY', NULL, NULL, 'Settings2', 90, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  (0, 'operations', '运营处置', 'PAGE', '/operations', 'operations', 'ShieldCheck', 85, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
+  (0, 'trade', '订单与支付', 'PAGE', '/orders', 'orders', 'WalletCards', 90, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  (0, 'operations', '运营处置', 'PAGE', '/operations', 'operations', 'ShieldCheck', 100, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  (0, 'system', '系统管理', 'DIRECTORY', NULL, NULL, 'Settings2', 110, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
 INSERT IGNORE INTO admin_menu (parent_id, menu_code, menu_name, menu_type, route_path, component_key, icon, sort_order, visible, status, created_at, updated_at)
-SELECT id, 'system:user', '用户管理', 'PAGE', '/users', 'users', 'Users', 91, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
+SELECT id, 'system:user', '用户管理', 'PAGE', '/users', 'users', 'Users', 111, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
 FROM admin_menu WHERE menu_code = 'system';
 
 INSERT IGNORE INTO admin_permission (permission_code, permission_name, resource_type, status, created_at, updated_at)
@@ -320,7 +366,7 @@ SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code
 
 -- SOURCE: consolidated platform-service V5
 INSERT IGNORE INTO admin_menu (parent_id, menu_code, menu_name, menu_type, route_path, component_key, icon, sort_order, visible, status, created_at, updated_at)
-SELECT id, 'system:role', '角色权限', 'PAGE', '/roles', 'roles', 'UsersRound', 92, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
+SELECT id, 'system:role', '角色权限', 'PAGE', '/roles', 'roles', 'UsersRound', 112, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
 FROM admin_menu WHERE menu_code = 'system';
 
 INSERT IGNORE INTO admin_permission (permission_code, permission_name, resource_type, status, created_at, updated_at)
@@ -336,7 +382,7 @@ SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code
 
 -- SOURCE: consolidated platform-service V6
 INSERT IGNORE INTO admin_menu (parent_id, menu_code, menu_name, menu_type, route_path, component_key, icon, sort_order, visible, status, created_at, updated_at)
-SELECT id, 'system:menu', '菜单管理', 'PAGE', '/menus', 'menus', 'Settings2', 93, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
+SELECT id, 'system:menu', '菜单管理', 'PAGE', '/menus', 'menus', 'Settings2', 113, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
 FROM admin_menu WHERE menu_code = 'system';
 
 INSERT IGNORE INTO admin_permission (permission_code, permission_name, resource_type, status, created_at, updated_at)
@@ -822,6 +868,9 @@ ALTER TABLE admin_user_role COMMENT = '管理员用户与角色关联';
 ALTER TABLE config_release COMMENT = '配置发布版本';
 ALTER TABLE merchant COMMENT = '商户主表';
 ALTER TABLE logical_product COMMENT = '逻辑产品';
+ALTER TABLE country_master COMMENT = '国家或地区基础数据';
+ALTER TABLE currency_master COMMENT = '币种基础数据';
+ALTER TABLE country_currency_master COMMENT = '国家或地区与币种关联基础数据';
 ALTER TABLE channel COMMENT = '支付渠道';
 ALTER TABLE routing_rule COMMENT = '支付路由规则';
 ALTER TABLE pricing_rule COMMENT = '费率定价规则';
@@ -857,3 +906,39 @@ ALTER TABLE settlement_bill COMMENT = '渠道结算账单';
 ALTER TABLE reconciliation_difference COMMENT = '对账差异记录';
 ALTER TABLE settlement_bill_line COMMENT = '渠道结算账单明细';
 ALTER TABLE refund_event_consumption COMMENT = '退款事件消费记录';
+
+USE pay_platform;
+INSERT IGNORE INTO admin_resource_type(resource_type,resource_name,status) VALUES ('MASTER_DATA','国家与币种基础数据','ACTIVE');
+INSERT IGNORE INTO admin_menu(parent_id,menu_code,menu_name,menu_type,route_path,component_key,icon,sort_order,visible,status,created_at,updated_at)
+VALUES (0,'master-data','国家与币种','PAGE','/master-data','master-data','MapPinned',40,TRUE,'ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3));
+INSERT IGNORE INTO admin_menu_resource_type(menu_id,resource_type) SELECT id,'MASTER_DATA' FROM admin_menu WHERE menu_code='master-data';
+INSERT IGNORE INTO admin_permission(permission_code,permission_name,resource_type,status,created_at,updated_at) VALUES
+('master-data:list','查看国家与币种','MASTER_DATA','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)),('master-data:create','新增国家与币种','MASTER_DATA','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)),('master-data:update','编辑国家与币种','MASTER_DATA','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)),('master-data:status','变更国家与币种状态','MASTER_DATA','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3));
+INSERT IGNORE INTO admin_role_menu(role_id,menu_id) SELECT r.id,m.id FROM admin_role r JOIN admin_menu m ON m.menu_code='master-data' WHERE r.role_code IN ('ADMIN','OPS');
+INSERT IGNORE INTO admin_role_permission(role_id,permission_id) SELECT r.id,p.id FROM admin_role r JOIN admin_permission p ON p.permission_code LIKE 'master-data:%' WHERE r.role_code IN ('ADMIN','OPS');
+
+-- 菜单按收单业务操作顺序展示；同时覆盖已初始化环境的旧排序。
+UPDATE admin_menu
+SET sort_order = CASE menu_code
+  WHEN 'dashboard' THEN 10
+  WHEN 'merchant' THEN 20
+  WHEN 'product' THEN 30
+  WHEN 'master-data' THEN 40
+  WHEN 'merchant-product' THEN 50
+  WHEN 'routing' THEN 60
+  WHEN 'pricing' THEN 70
+  WHEN 'risk' THEN 80
+  WHEN 'trade' THEN 90
+  WHEN 'operations' THEN 100
+  WHEN 'system' THEN 110
+  WHEN 'system:user' THEN 111
+  WHEN 'system:role' THEN 112
+  WHEN 'system:menu' THEN 113
+  ELSE sort_order
+END,
+updated_at = CURRENT_TIMESTAMP(3)
+WHERE menu_code IN (
+  'dashboard', 'merchant', 'product', 'master-data', 'merchant-product',
+  'routing', 'pricing', 'risk', 'trade', 'operations', 'system',
+  'system:user', 'system:role', 'system:menu'
+);

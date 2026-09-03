@@ -8,9 +8,13 @@ import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface ProductMapper {
-  long countAll();
+  long count(@Param("status") String status, @Param("productType") String productType);
 
-  List<ProductModel> selectPage(@Param("limit") int limit, @Param("offset") int offset);
+  List<ProductModel> selectPage(
+      @Param("status") String status,
+      @Param("productType") String productType,
+      @Param("limit") int limit,
+      @Param("offset") int offset);
 
   ProductModel selectByCode(@Param("productCode") String productCode);
 
@@ -19,11 +23,23 @@ public interface ProductMapper {
   int insertProduct(
       @Param("productCode") String productCode,
       @Param("name") String name,
+      @Param("productType") String productType,
+      @Param("accessMode") String accessMode,
+      @Param("defaultCountry") String defaultCountry,
+      @Param("defaultCurrency") String defaultCurrency,
+      @Param("description") String description,
+      @Param("statementDescriptor") String statementDescriptor,
       @Param("now") Instant now);
 
   int updateProduct(
       @Param("productCode") String productCode,
       @Param("name") String name,
+      @Param("productType") String productType,
+      @Param("accessMode") String accessMode,
+      @Param("defaultCountry") String defaultCountry,
+      @Param("defaultCurrency") String defaultCurrency,
+      @Param("description") String description,
+      @Param("statementDescriptor") String statementDescriptor,
       @Param("now") Instant now);
 
   int updateStatus(

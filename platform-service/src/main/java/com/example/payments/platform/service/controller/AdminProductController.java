@@ -5,6 +5,7 @@ import com.example.payments.platform.service.service.ProductService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,8 +21,11 @@ public class AdminProductController {
   @GetMapping
   @PreAuthorize("hasAuthority('product:list')")
   public AdminPageResponse<ProductResponse> list(
-      @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
-    var result = productService.list(page, pageSize);
+      @RequestParam(defaultValue = "1") int page,
+      @RequestParam(defaultValue = "20") int pageSize,
+      @RequestParam(required = false) String status,
+      @RequestParam(required = false) String productType) {
+    var result = productService.list(page, pageSize, status, productType);
     return new AdminPageResponse<>(
         result.items().stream().map(AdminProductController::response).toList(),
         result.page(),
@@ -41,7 +45,7 @@ public class AdminProductController {
       @Valid @RequestBody CreateRequest request, Authentication authentication) {
     return response(
         productService.create(
-            request.productCode(), request.name(), authentication.getName(), request));
+            request.productCode(), command(request), authentication.getName(), request));
   }
 
   @PutMapping("/{productCode}")
@@ -51,7 +55,7 @@ public class AdminProductController {
       @Valid @RequestBody UpdateRequest request,
       Authentication authentication) {
     return response(
-        productService.update(productCode, request.name(), authentication.getName(), request));
+        productService.update(productCode, command(request), authentication.getName(), request));
   }
 
   @PatchMapping("/{productCode}/status")
@@ -65,16 +69,80 @@ public class AdminProductController {
             productCode, request.status(), authentication.getName(), request));
   }
 
-  private static ProductResponse response(ProductModel v) {
-    return new ProductResponse(v.productCode(), v.name(), v.status(), v.createdAt(), v.updatedAt());
+  private static ProductService.Command command(CreateRequest v) {
+    return new ProductService.Command(
+        v.name(),
+        v.productType(),
+        v.accessMode(),
+        v.defaultCountry(),
+        v.defaultCurrency(),
+        v.description(),
+        v.statementDescriptor());
   }
 
-  public record CreateRequest(@NotBlank String productCode, @NotBlank String name) {}
+  private static ProductService.Command command(UpdateRequest v) {
+    return new ProductService.Command(
+        v.name(),
+        v.productType(),
+        v.accessMode(),
+        v.defaultCountry(),
+        v.defaultCurrency(),
+        v.description(),
+        v.statementDescriptor());
+  }
 
-  public record UpdateRequest(@NotBlank String name) {}
+  private static ProductResponse response(ProductModel v) {
+    return new ProductResponse(
+        v.productCode(),
+        v.name(),
+        v.productType(),
+        v.accessMode(),
+        v.defaultCountry(),
+        v.defaultCurrency(),
+        v.description(),
+        v.statementDescriptor(),
+        v.status(),
+        v.activeCapabilityCount(),
+        v.supportedCurrencies(),
+        v.supportedPaymentMethods(),
+        v.createdAt(),
+        v.updatedAt());
+  }
+
+  public record CreateRequest(
+      @NotBlank String productCode,
+      @NotBlank String name,
+      @NotBlank @Pattern(regexp = "PAYIN|PAYOUT") String productType,
+      @Pattern(regexp = "DIRECT|AGGREGATED") String accessMode,
+      @NotBlank @Pattern(regexp = "[A-Z]{2}") String defaultCountry,
+      @NotBlank @Pattern(regexp = "[A-Z]{3}") String defaultCurrency,
+      @Size(max = 1000) String description,
+      @Size(max = 22) String statementDescriptor) {}
+
+  public record UpdateRequest(
+      @NotBlank String name,
+      @NotBlank @Pattern(regexp = "PAYIN|PAYOUT") String productType,
+      @Pattern(regexp = "DIRECT|AGGREGATED") String accessMode,
+      @NotBlank @Pattern(regexp = "[A-Z]{2}") String defaultCountry,
+      @NotBlank @Pattern(regexp = "[A-Z]{3}") String defaultCurrency,
+      @Size(max = 1000) String description,
+      @Size(max = 22) String statementDescriptor) {}
 
   public record StatusRequest(@Pattern(regexp = "ACTIVE|DISABLED") String status) {}
 
   public record ProductResponse(
-      String productCode, String name, String status, Instant createdAt, Instant updatedAt) {}
+      String productCode,
+      String name,
+      String productType,
+      String accessMode,
+      String defaultCountry,
+      String defaultCurrency,
+      String description,
+      String statementDescriptor,
+      String status,
+      long activeCapabilityCount,
+      String supportedCurrencies,
+      String supportedPaymentMethods,
+      Instant createdAt,
+      Instant updatedAt) {}
 }
