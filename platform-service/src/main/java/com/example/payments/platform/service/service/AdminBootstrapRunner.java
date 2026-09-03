@@ -42,6 +42,7 @@ public class AdminBootstrapRunner implements ApplicationRunner {
   @Transactional
   public void run(ApplicationArguments args) {
     ensureSystemMenu();
+    ensureAdminPermissions();
     if (hasAdminUser()) {
       log.info("管理员账号已存在，跳过初始化");
       return;
@@ -105,6 +106,21 @@ public class AdminBootstrapRunner implements ApplicationRunner {
                 + " admin_role r JOIN admin_menu m ON m.menu_code = :menuCode WHERE"
                 + " r.role_code = 'ADMIN'")
         .param("menuCode", "system:menu")
+        .update();
+  }
+
+  private void ensureAdminPermissions() {
+    if (!hasTable("admin_role")
+        || !hasTable("admin_permission")
+        || !hasTable("admin_role_permission")) {
+      log.warn("后台权限表未初始化，跳过 ADMIN 全量操作权限同步");
+      return;
+    }
+    mybatisClient
+        .sql(
+            "INSERT IGNORE INTO admin_role_permission (role_id, permission_id) SELECT r.id, p.id"
+                + " FROM admin_role r CROSS JOIN admin_permission p WHERE r.role_code = 'ADMIN'"
+                + " AND p.status = 'ACTIVE'")
         .update();
   }
 

@@ -9,11 +9,13 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AdminAccessService {
   private final AdminAccessMapper mapper;
+  private final AdminPermissionResolver permissionResolver;
 
   public AccessModel current(String username) {
+    var roles = mapper.selectRoles(username);
     return new AccessModel(
-        mapper.selectRoles(username),
+        roles,
         mapper.selectMenus(username),
-        mapper.selectPermissions(username));
+        permissionResolver.effectivePermissions(username, roles));
   }
 }

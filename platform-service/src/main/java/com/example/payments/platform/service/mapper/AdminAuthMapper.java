@@ -13,8 +13,6 @@ public interface AdminAuthMapper {
 
   List<String> findRoles(@Param("userId") long userId);
 
-  List<String> findPermissions(@Param("userId") long userId);
-
   int updatePassword(
       @Param("id") long id, @Param("passwordHash") String passwordHash, @Param("now") Instant now);
 

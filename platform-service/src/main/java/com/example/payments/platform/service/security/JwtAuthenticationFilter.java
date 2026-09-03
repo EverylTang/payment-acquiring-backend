@@ -1,6 +1,6 @@
 package com.example.payments.platform.service.security;
 
-import com.example.payments.platform.service.mapper.MybatisPlusClient;
+import com.example.payments.platform.service.service.AdminPermissionResolver;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,7 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
   private final JwtService jwtService;
-  private final MybatisPlusClient mybatisClient;
+  private final AdminPermissionResolver permissionResolver;
 
   @Override
   protected void doFilterInternal(
@@ -29,20 +29,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     if (authorization != null && authorization.startsWith("Bearer ")) {
       try {
         var claims = jwtService.parse(authorization.substring(7));
-        List<SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
-        mybatisClient
-            .sql(
-                "SELECT DISTINCT p.permission_code FROM admin_permission p JOIN"
-                    + " admin_role_permission rp ON rp.permission_id = p.id JOIN admin_role r ON"
-                    + " r.id = rp.role_id JOIN admin_user_role ur ON ur.role_id = r.id JOIN"
-                    + " admin_user u ON u.id = ur.user_id WHERE u.username = :username AND u.status"
-                    + " = 'ACTIVE' AND p.status = 'ACTIVE'")
-            .param("username", claims.getSubject())
-            .query(String.class)
-            .list()
-            .stream()
-            .map(SimpleGrantedAuthority::new)
-            .forEach(authorities::add);
+        List<SimpleGrantedAuthority> authorities =
+            permissionResolver.effectivePermissions(claims.getSubject()).stream()
+                .map(SimpleGrantedAuthority::new)
+                .toList();
         SecurityContextHolder.getContext()
             .setAuthentication(
                 new UsernamePasswordAuthenticationToken(claims.getSubject(), null, authorities));

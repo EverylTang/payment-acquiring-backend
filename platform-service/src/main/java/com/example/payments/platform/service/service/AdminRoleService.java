@@ -64,6 +64,7 @@ public class AdminRoleService {
   public Permissions update(
       String code, List<String> menus, List<String> permissions, String operator, Object payload) {
     long id = roleId(code);
+    if ("ADMIN".equals(code)) permissions = mapper.activePermissions();
     validate(menus, mapper.validMenus(menus), "菜单");
     validate(permissions, mapper.validPermissions(permissions), "权限");
     mapper.clearMenus(id);

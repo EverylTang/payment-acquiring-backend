@@ -43,7 +43,9 @@ public class AdminAuthenticationFilter implements GlobalFilter, Ordered {
               .parseSignedClaims(authorization.substring(7))
               .getPayload();
       Object permissionsClaim = claims.get("permissions");
-      List<?> permissionValues = permissionsClaim instanceof List<?> values ? values : List.of();
+      if (!(permissionsClaim instanceof List<?> permissionValues)) {
+        return unauthorized(exchange);
+      }
       var permissions =
           permissionValues.stream().map(String::valueOf).map(this::encodePermission).toList();
       var authenticated =

@@ -33,6 +33,12 @@
     WHERE rp.role_id=#{id}
     ORDER BY p.permission_code
   </select>
+  <select id="activePermissions" resultType="string">
+    SELECT permission_code
+    FROM admin_permission
+    WHERE status='ACTIVE'
+    ORDER BY permission_code
+  </select>
   <select id="menus" resultType="string">
     SELECT m.menu_code
     FROM admin_menu m

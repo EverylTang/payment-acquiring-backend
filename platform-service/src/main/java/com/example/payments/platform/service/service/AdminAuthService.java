@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AdminAuthService {
   private final AdminAuthMapper mapper;
+  private final AdminPermissionResolver permissionResolver;
   private final PasswordEncoder passwordEncoder;
   private final JwtService jwtService;
 
@@ -21,7 +22,8 @@ public class AdminAuthService {
       throw new UnauthorizedException();
     var roles = mapper.findRoles(user.id());
     return new AuthResult(
-        jwtService.create(user.username(), mapper.findPermissions(user.id())),
+        jwtService.create(
+            user.username(), permissionResolver.effectivePermissions(user.username(), roles)),
         jwtService.expirationSeconds(),
         new CurrentUser(user.username(), user.displayName(), roles));
   }

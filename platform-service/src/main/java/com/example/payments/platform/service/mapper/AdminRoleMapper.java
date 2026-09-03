@@ -18,6 +18,8 @@ public interface AdminRoleMapper {
 
   List<String> permissions(@Param("id") long id);
 
+  List<String> activePermissions();
+
   List<String> menus(@Param("id") long id);
 
   long validMenus(@Param("codes") List<String> codes);
