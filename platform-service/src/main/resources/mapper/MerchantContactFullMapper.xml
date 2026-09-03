@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.payments.platform.service.mapper.MerchantContactFullMapper">
+  
+  <select id="selectByMerchantId" resultType="com.example.payments.platform.service.model.MerchantContactFullModel">
+    SELECT id, merchant_id, contact_type, contact_name, email, phone, notify_enabled, created_at, updated_at
+    FROM merchant_contact
+    WHERE merchant_id = #{merchantId}
+    ORDER BY created_at
+  </select>
+  
+  <select id="selectById" resultType="com.example.payments.platform.service.model.MerchantContactFullModel">
+    SELECT id, merchant_id, contact_type, contact_name, email, phone, notify_enabled, created_at, updated_at
+    FROM merchant_contact
+    WHERE id = #{id} AND merchant_id = #{merchantId}
+  </select>
+  
+  <insert id="insert">
+    INSERT INTO merchant_contact (merchant_id, contact_type, contact_name, email, phone, notify_enabled, created_at, updated_at)
+    VALUES (#{merchantId}, #{contactType}, #{contactName}, #{email}, #{phone}, #{notifyEnabled}, #{now}, #{now})
+  </insert>
+  
+  <update id="update">
+    UPDATE merchant_contact
+    SET contact_type = #{contactType},
+        contact_name = #{contactName},
+        email = #{email},
+        phone = #{phone},
+        notify_enabled = #{notifyEnabled},
+        updated_at = #{now}
+    WHERE id = #{id} AND merchant_id = #{merchantId}
+  </update>
+  
+  <delete id="deleteById">
+    DELETE FROM merchant_contact
+    WHERE id = #{id} AND merchant_id = #{merchantId}
+  </delete>
+  
+</mapper>

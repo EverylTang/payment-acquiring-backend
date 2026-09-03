@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.payments.platform.service.mapper.MerchantProfileMapper">
+  <select id="selectByMerchantId" resultType="com.example.payments.platform.service.model.MerchantProfileModel">
+    SELECT merchant_id, legal_name, registered_country, industry, risk_level, tax_identifier, created_at, updated_at
+    FROM merchant_profile
+    WHERE merchant_id = #{merchantId}
+  </select>
+  <insert id="upsert">
+    INSERT INTO merchant_profile (merchant_id, legal_name, registered_country, industry, risk_level, tax_identifier, created_at, updated_at)
+    VALUES (#{merchantId}, #{legalName}, #{registeredCountry}, #{industry}, #{riskLevel}, #{taxIdentifier}, #{now}, #{now})
+    ON DUPLICATE KEY UPDATE
+      legal_name = VALUES(legal_name),
+      registered_country = VALUES(registered_country),
+      industry = VALUES(industry),
+      risk_level = VALUES(risk_level),
+      tax_identifier = VALUES(tax_identifier),
+      updated_at = VALUES(updated_at)
+  </insert>
+</mapper>

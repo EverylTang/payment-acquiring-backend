@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.payments.platform.service.mapper.MerchantCallbackConfigFullMapper">
+  
+  <select id="selectByMerchantId" resultType="com.example.payments.platform.service.model.MerchantCallbackConfigFullModel">
+    SELECT merchant_id, callback_url, event_types, status, created_at, updated_at
+    FROM merchant_callback_config
+    WHERE merchant_id = #{merchantId}
+  </select>
+  
+  <insert id="upsert">
+    INSERT INTO merchant_callback_config (merchant_id, callback_url, event_types, status, created_at, updated_at)
+    VALUES (#{merchantId}, #{callbackUrl}, #{eventTypes}, #{status}, #{now}, #{now})
+    ON DUPLICATE KEY UPDATE
+      callback_url = VALUES(callback_url),
+      event_types = VALUES(event_types),
+      status = VALUES(status),
+      updated_at = VALUES(updated_at)
+  </insert>
+  
+</mapper>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.payments.platform.service.mapper.MerchantContactMapper">
+  <select id="selectByMerchantId" resultType="com.example.payments.platform.service.model.MerchantContactModel">
+    SELECT merchant_id, contact_name, contact_email, contact_phone, created_at, updated_at
+    FROM merchant_contact
+    WHERE merchant_id = #{merchantId}
+  </select>
+  <insert id="upsert">
+    INSERT INTO merchant_contact (merchant_id, contact_name, contact_email, contact_phone, created_at, updated_at)
+    VALUES (#{merchantId}, #{contactName}, #{contactEmail}, #{contactPhone}, #{now}, #{now})
+    ON DUPLICATE KEY UPDATE
+      contact_name = VALUES(contact_name),
+      contact_email = VALUES(contact_email),
+      contact_phone = VALUES(contact_phone),
+      updated_at = VALUES(updated_at)
+  </insert>
+</mapper>

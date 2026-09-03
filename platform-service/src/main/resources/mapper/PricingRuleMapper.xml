@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.payments.platform.service.mapper.PricingRuleMapper">
+
+    <resultMap id="PricingRuleFullResultMap" type="com.example.payments.platform.service.model.PricingRuleFull">
+        <id property="id" column="id"/>
+        <result property="ruleId" column="rule_id"/>
+        <result property="releaseVersion" column="release_version"/>
+        <result property="productCode" column="product_code"/>
+        <result property="merchantId" column="merchant_id"/>
+        <result property="currency" column="currency"/>
+        <result property="feeRate" column="fee_rate"/>
+        <result property="fixedFee" column="fixed_fee"/>
+        <result property="feeMode" column="fee_mode"/>
+        <result property="minAmount" column="min_amount"/>
+        <result property="maxAmount" column="max_amount"/>
+        <result property="status" column="status"/>
+    </resultMap>
+
+    <select id="selectByPage" resultMap="PricingRuleFullResultMap">
+        SELECT id, rule_id, release_version, product_code, merchant_id, currency,
+               fee_rate, fixed_fee, fee_mode, min_amount, max_amount, status
+        FROM pricing_rule
+        ORDER BY id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM pricing_rule
+    </select>
+
+    <insert id="insert" parameterType="com.example.payments.platform.service.model.PricingRuleFull">
+        INSERT INTO pricing_rule (rule_id, release_version, product_code, merchant_id, currency,
+                                  fee_rate, fixed_fee, fee_mode, min_amount, max_amount, status)
+        VALUES (#{ruleId}, #{releaseVersion}, #{productCode}, #{merchantId}, #{currency},
+                #{feeRate}, #{fixedFee}, #{feeMode}, #{minAmount}, #{maxAmount}, #{status})
+    </insert>
+
+    <update id="updateStatus">
+        UPDATE pricing_rule
+        SET status = #{status}
+        WHERE rule_id = #{ruleId}
+    </update>
+
+</mapper>

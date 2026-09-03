@@ -1,5 +1,9 @@
 package com.example.payments.platform.service.service;
 
+import com.example.payments.platform.service.mapper.MerchantCallbackConfigFullMapper;
+import com.example.payments.platform.service.mapper.MerchantContactFullMapper;
+import com.example.payments.platform.service.mapper.MerchantCredentialFullMapper;
+import com.example.payments.platform.service.mapper.MerchantProfileMapper;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -18,18 +22,26 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class MerchantProfileAdminService {
   private final PlatformDataService mybatisClient;
+  private final MerchantProfileMapper merchantProfileMapper;
+  private final MerchantContactFullMapper merchantContactFullMapper;
+  private final MerchantCallbackConfigFullMapper merchantCallbackConfigFullMapper;
+  private final MerchantCredentialFullMapper merchantCredentialFullMapper;
 
   public ProfileResponse profile(String merchantId) {
     ensureMerchant(merchantId);
-    return mybatisClient
-        .sql(
-            "SELECT merchant_id, legal_name, registered_country, industry, risk_level,"
-                + " tax_identifier, created_at, updated_at FROM merchant_profile WHERE merchant_id"
-                + " = :merchantId")
-        .param("merchantId", merchantId)
-        .query(ProfileResponse.class)
-        .optional()
-        .orElseGet(() -> new ProfileResponse(merchantId, "", "", null, "MEDIUM", null, null, null));
+    var model = merchantProfileMapper.selectByMerchantId(merchantId);
+    if (model == null) {
+      return new ProfileResponse(merchantId, "", "", null, "MEDIUM", null, null, null);
+    }
+    return new ProfileResponse(
+        model.merchantId(),
+        model.legalName(),
+        model.registeredCountry(),
+        model.industry(),
+        model.riskLevel(),
+        model.taxIdentifier(),
+        model.createdAt(),
+        model.updatedAt());
   }
 
   @Transactional
@@ -37,37 +49,34 @@ public class MerchantProfileAdminService {
       String merchantId, ProfileRequest request, Authentication authentication) {
     ensureMerchant(merchantId);
     var now = Instant.now();
-    mybatisClient
-        .sql(
-            "INSERT INTO merchant_profile (merchant_id, legal_name, registered_country, industry,"
-                + " risk_level, tax_identifier, created_at, updated_at) VALUES (:merchantId,"
-                + " :legalName, :country, :industry, :risk, :taxId, :now, :now) ON DUPLICATE KEY"
-                + " UPDATE legal_name = VALUES(legal_name), registered_country ="
-                + " VALUES(registered_country), industry = VALUES(industry), risk_level ="
-                + " VALUES(risk_level), tax_identifier = VALUES(tax_identifier), updated_at ="
-                + " VALUES(updated_at)")
-        .param("merchantId", merchantId)
-        .param("legalName", request.legalName())
-        .param("country", request.registeredCountry())
-        .param("industry", request.industry())
-        .param("risk", request.riskLevel())
-        .param("taxId", request.taxIdentifier())
-        .param("now", now)
-        .update();
+    merchantProfileMapper.upsert(
+        merchantId,
+        request.legalName(),
+        request.registeredCountry(),
+        request.industry(),
+        request.riskLevel(),
+        request.taxIdentifier(),
+        now);
     audit(authentication.getName(), "UPDATE_PROFILE", merchantId);
     return profile(merchantId);
   }
 
   public List<ContactResponse> contacts(String merchantId) {
     ensureMerchant(merchantId);
-    return mybatisClient
-        .sql(
-            "SELECT id, merchant_id, contact_type, contact_name, email, phone, notify_enabled,"
-                + " created_at, updated_at FROM merchant_contact WHERE merchant_id = :merchantId"
-                + " ORDER BY id")
-        .param("merchantId", merchantId)
-        .query(ContactResponse.class)
-        .list();
+    return merchantContactFullMapper.selectByMerchantId(merchantId).stream()
+        .map(
+            m ->
+                new ContactResponse(
+                    m.id(),
+                    m.merchantId(),
+                    m.contactType(),
+                    m.contactName(),
+                    m.email(),
+                    m.phone(),
+                    m.notifyEnabled(),
+                    m.createdAt(),
+                    m.updatedAt()))
+        .toList();
   }
 
   @Transactional
@@ -75,19 +84,14 @@ public class MerchantProfileAdminService {
       String merchantId, ContactRequest request, Authentication authentication) {
     ensureMerchant(merchantId);
     var now = Instant.now();
-    mybatisClient
-        .sql(
-            "INSERT INTO merchant_contact (merchant_id, contact_type, contact_name, email, phone,"
-                + " notify_enabled, created_at, updated_at) VALUES (:merchantId, :type, :name,"
-                + " :email, :phone, :notify, :now, :now)")
-        .param("merchantId", merchantId)
-        .param("type", request.contactType())
-        .param("name", request.contactName())
-        .param("email", request.email())
-        .param("phone", request.phone())
-        .param("notify", request.notifyEnabled())
-        .param("now", now)
-        .update();
+    merchantContactFullMapper.insert(
+        merchantId,
+        request.contactType(),
+        request.contactName(),
+        request.email(),
+        request.phone(),
+        request.notifyEnabled(),
+        now);
     audit(authentication.getName(), "CREATE_CONTACT", merchantId);
     return contacts(merchantId).stream()
         .filter(item -> item.contactType().equals(request.contactType()))
@@ -99,21 +103,17 @@ public class MerchantProfileAdminService {
   public ContactResponse updateContact(
       String merchantId, long contactId, ContactRequest request, Authentication authentication) {
     ensureMerchant(merchantId);
+    var now = Instant.now();
     var changed =
-        mybatisClient
-            .sql(
-                "UPDATE merchant_contact SET contact_type = :type, contact_name = :name, email ="
-                    + " :email, phone = :phone, notify_enabled = :notify, updated_at = :now WHERE"
-                    + " id = :id AND merchant_id = :merchantId")
-            .param("type", request.contactType())
-            .param("name", request.contactName())
-            .param("email", request.email())
-            .param("phone", request.phone())
-            .param("notify", request.notifyEnabled())
-            .param("now", Instant.now())
-            .param("id", contactId)
-            .param("merchantId", merchantId)
-            .update();
+        merchantContactFullMapper.update(
+            contactId,
+            merchantId,
+            request.contactType(),
+            request.contactName(),
+            request.email(),
+            request.phone(),
+            request.notifyEnabled(),
+            now);
     if (changed == 0) throw new IllegalArgumentException("联系人不存在: " + contactId);
     audit(authentication.getName(), "UPDATE_CONTACT", String.valueOf(contactId));
     return contacts(merchantId).stream()
@@ -127,46 +127,42 @@ public class MerchantProfileAdminService {
       String merchantId, CallbackRequest request, Authentication authentication) {
     ensureMerchant(merchantId);
     var now = Instant.now();
-    mybatisClient
-        .sql(
-            "INSERT INTO merchant_callback_config (merchant_id, callback_url, event_types, status,"
-                + " created_at, updated_at) VALUES (:merchantId, :url, :events, :status, :now,"
-                + " :now) ON DUPLICATE KEY UPDATE callback_url = VALUES(callback_url), event_types"
-                + " = VALUES(event_types), status = VALUES(status), updated_at ="
-                + " VALUES(updated_at)")
-        .param("merchantId", merchantId)
-        .param("url", request.callbackUrl())
-        .param("events", request.eventTypesJson())
-        .param("status", request.status())
-        .param("now", now)
-        .update();
+    merchantCallbackConfigFullMapper.upsert(
+        merchantId, request.callbackUrl(), request.eventTypesJson(), request.status(), now);
     audit(authentication.getName(), "UPDATE_CALLBACK", merchantId);
     return callback(merchantId);
   }
 
   public CallbackResponse callback(String merchantId) {
     ensureMerchant(merchantId);
-    return mybatisClient
-        .sql(
-            "SELECT merchant_id, callback_url, CAST(event_types AS CHAR) event_types, status,"
-                + " created_at, updated_at FROM merchant_callback_config WHERE merchant_id ="
-                + " :merchantId")
-        .param("merchantId", merchantId)
-        .query(CallbackResponse.class)
-        .optional()
-        .orElseGet(() -> new CallbackResponse(merchantId, "", "[]", "DISABLED", null, null));
+    var model = merchantCallbackConfigFullMapper.selectByMerchantId(merchantId);
+    if (model == null) {
+      return new CallbackResponse(merchantId, "", "[]", "DISABLED", null, null);
+    }
+    return new CallbackResponse(
+        model.merchantId(),
+        model.callbackUrl(),
+        model.eventTypes(),
+        model.status(),
+        model.createdAt(),
+        model.updatedAt());
   }
 
   public List<CredentialResponse> credentials(String merchantId) {
     ensureMerchant(merchantId);
-    return mybatisClient
-        .sql(
-            "SELECT credential_id, merchant_id, credential_type, secret_hint, status, created_at,"
-                + " rotated_at, revoked_at FROM merchant_credential WHERE merchant_id = :merchantId"
-                + " ORDER BY created_at DESC")
-        .param("merchantId", merchantId)
-        .query(CredentialResponse.class)
-        .list();
+    return merchantCredentialFullMapper.selectByMerchantId(merchantId).stream()
+        .map(
+            m ->
+                new CredentialResponse(
+                    m.credentialId(),
+                    m.merchantId(),
+                    m.credentialType(),
+                    m.secretHint(),
+                    m.status(),
+                    m.createdAt(),
+                    m.rotatedAt(),
+                    m.revokedAt()))
+        .toList();
   }
 
   @Transactional
@@ -178,26 +174,11 @@ public class MerchantProfileAdminService {
             + UUID.randomUUID().toString().replace("-", "");
     var credentialId = UUID.randomUUID().toString();
     var now = Instant.now();
-    mybatisClient
-        .sql(
-            "UPDATE merchant_credential SET status = 'REVOKED', revoked_at = :now WHERE merchant_id"
-                + " = :merchantId AND credential_type = :type AND status = 'ACTIVE'")
-        .param("merchantId", merchantId)
-        .param("type", request.credentialType())
-        .param("now", now)
-        .update();
-    mybatisClient
-        .sql(
-            "INSERT INTO merchant_credential (credential_id, merchant_id, credential_type,"
-                + " secret_hash, secret_hint, status, created_at, rotated_at) VALUES (:id,"
-                + " :merchantId, :type, :hash, :hint, 'ACTIVE', :now, :now)")
-        .param("id", credentialId)
-        .param("merchantId", merchantId)
-        .param("type", request.credentialType())
-        .param("hash", sha256(secret))
-        .param("hint", secret.substring(0, 6) + "..." + secret.substring(secret.length() - 4))
-        .param("now", now)
-        .update();
+    merchantCredentialFullMapper.revokeActiveByType(merchantId, request.credentialType(), now);
+    var secretHint =
+        secret.substring(0, 6) + "..." + secret.substring(secret.length() - 4);
+    merchantCredentialFullMapper.insert(
+        credentialId, merchantId, request.credentialType(), sha256(secret), secretHint, now);
     audit(authentication.getName(), "ROTATE_CREDENTIAL", merchantId);
     return new RotatedCredential(credentialId, request.credentialType(), secret, now);
   }
@@ -207,15 +188,7 @@ public class MerchantProfileAdminService {
       String merchantId, String credentialId, Authentication authentication) {
     ensureMerchant(merchantId);
     var changed =
-        mybatisClient
-            .sql(
-                "UPDATE merchant_credential SET status = 'REVOKED', revoked_at = :now WHERE"
-                    + " credential_id = :credentialId AND merchant_id = :merchantId AND status ="
-                    + " 'ACTIVE'")
-            .param("credentialId", credentialId)
-            .param("merchantId", merchantId)
-            .param("now", Instant.now())
-            .update();
+        merchantCredentialFullMapper.revokeById(credentialId, merchantId, Instant.now());
     if (changed == 0) throw new IllegalArgumentException("有效凭证不存在: " + credentialId);
     audit(authentication.getName(), "REVOKE_CREDENTIAL", credentialId);
   }
@@ -223,11 +196,7 @@ public class MerchantProfileAdminService {
   @Transactional
   public void deleteContact(String merchantId, long contactId, Authentication authentication) {
     ensureMerchant(merchantId);
-    mybatisClient
-        .sql("DELETE FROM merchant_contact WHERE id = :id AND merchant_id = :merchantId")
-        .param("id", contactId)
-        .param("merchantId", merchantId)
-        .update();
+    merchantContactFullMapper.deleteById(contactId, merchantId);
     audit(authentication.getName(), "DELETE_CONTACT", String.valueOf(contactId));
   }
 

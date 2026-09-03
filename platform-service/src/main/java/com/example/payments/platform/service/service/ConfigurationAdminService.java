@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ConfigurationAdminService {
   private final PlatformDataService mybatisClient;
   private final ObjectMapper objectMapper;
+  private final com.example.payments.platform.service.mapper.PricingRuleMapper pricingRuleMapper;
 
   public Map<String, Object> overview() {
     return Map.of(
@@ -160,47 +161,47 @@ public class ConfigurationAdminService {
 
   public AdminPageResponse<PricingRuleResponse> pricingRules(int page, int pageSize) {
     var q = pageQuery(page, pageSize);
-    var total = count("pricing_rule", "1=1");
-    var items =
-        mybatisClient
-            .sql(
-                "SELECT rule_id, release_version, product_code, merchant_id, currency, fee_rate,"
-                    + " fixed_fee, fee_mode, min_amount, max_amount, status FROM pricing_rule ORDER"
-                    + " BY release_version DESC, id LIMIT :limit OFFSET :offset")
-            .param("limit", q.size())
-            .param("offset", q.offset())
-            .query(PricingRuleResponse.class)
-            .list();
+    var total = pricingRuleMapper.countAll();
+    var items = pricingRuleMapper.selectByPage(q.offset(), q.size()).stream()
+        .map(rule -> new PricingRuleResponse(
+            rule.getRuleId(),
+            rule.getReleaseVersion(),
+            rule.getProductCode(),
+            rule.getMerchantId(),
+            rule.getCurrency(),
+            rule.getFeeRate(),
+            rule.getFixedFee(),
+            rule.getFeeMode(),
+            rule.getMinAmount(),
+            rule.getMaxAmount(),
+            rule.getStatus()))
+        .toList();
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
 
   @Transactional
   public void createPricingRule(PricingRuleRequest request, Authentication authentication) {
     var version = draftVersion(request.releaseId());
-    mybatisClient
-        .sql(
-            "INSERT INTO pricing_rule (rule_id, release_version, product_code, merchant_id,"
-                + " currency, fee_rate, fixed_fee, fee_mode, min_amount, max_amount, status) VALUES"
-                + " (:id, :version, :product, :merchant, :currency, :rate, :fixed, :mode, :min,"
-                + " :max, 'ACTIVE')")
-        .param("id", request.ruleId())
-        .param("version", version)
-        .param("product", request.productCode())
-        .param("merchant", request.merchantId())
-        .param("currency", request.currency())
-        .param("rate", request.feeRate())
-        .param("fixed", request.fixedFee())
-        .param("mode", request.feeMode())
-        .param("min", request.minAmount())
-        .param("max", request.maxAmount())
-        .update();
+    var rule = new com.example.payments.platform.service.model.PricingRuleFull();
+    rule.setRuleId(request.ruleId());
+    rule.setReleaseVersion(version);
+    rule.setProductCode(request.productCode());
+    rule.setMerchantId(request.merchantId());
+    rule.setCurrency(request.currency());
+    rule.setFeeRate(request.feeRate());
+    rule.setFixedFee(request.fixedFee());
+    rule.setFeeMode(request.feeMode());
+    rule.setMinAmount(request.minAmount());
+    rule.setMaxAmount(request.maxAmount());
+    rule.setStatus("ACTIVE");
+    pricingRuleMapper.insert(rule);
     audit(authentication.getName(), "CREATE", "PRICING_RULE", request.ruleId(), request);
   }
 
   @Transactional
   public void updatePricingRuleStatus(
       String ruleId, StatusRequest request, Authentication authentication) {
-    updateStatus("pricing_rule", "rule_id", ruleId, request.status());
+    pricingRuleMapper.updateStatus(ruleId, request.status());
     audit(authentication.getName(), "CHANGE_STATUS", "PRICING_RULE", ruleId, request);
   }
 
