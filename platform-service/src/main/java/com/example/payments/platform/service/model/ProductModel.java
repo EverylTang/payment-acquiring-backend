@@ -13,7 +13,7 @@ public record ProductModel(
     String description,
     String statementDescriptor,
     String status,
-    long activeCapabilityCount,
+    Long activeCapabilityCount,
     String supportedCurrencies,
     String supportedPaymentMethods,
     Instant createdAt,
