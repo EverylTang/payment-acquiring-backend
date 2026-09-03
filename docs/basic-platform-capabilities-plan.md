@@ -284,7 +284,6 @@ GET    /api/admin/v1/users/{id}/audits
 
 - `merchant_profile`：简称、全称、注册国家、行业、税务信息、风险等级。
 - `merchant_contact`：联系人、邮箱、电话和通知类型。
-- `merchant_callback_config`：回调地址、事件范围、启用状态。
 - `merchant_credential`：凭证摘要、版本、状态、创建和轮换时间；密钥只保存加密值或不可逆摘要。
 - `merchant_data_scope`：内部用户或角色可访问的商户范围。
 
@@ -292,9 +291,9 @@ GET    /api/admin/v1/users/{id}/audits
 
 ### 7.2 页面能力
 
-- 商户分页列表：商户号、名称、状态、结算币种、风险等级、产品数、创建时间。
+- 商户分页列表：商户号、名称、状态、风险等级、产品数、创建时间；结算币种以已绑定产品的产品能力币种展示。
 - 商户详情：基础资料、联系人、回调配置、凭证状态、产品绑定、关联配置和操作记录。
-- 新增商户：基础资料、结算币种、默认状态和初始配置。
+- 新增商户：基础资料、默认状态和初始配置；币种在商户产品及其产品能力中维护。
 - 编辑商户：非标识字段和可变配置。
 - 启用/禁用商户，并展示影响范围。
 - 凭证创建、轮换、撤销；敏感内容仅在创建或轮换时展示一次。
@@ -309,7 +308,6 @@ PUT    /api/admin/v1/merchants/{merchantId}
 PATCH  /api/admin/v1/merchants/{merchantId}/status
 GET    /api/admin/v1/merchants/{merchantId}/products
 GET    /api/admin/v1/merchants/{merchantId}/audits
-PUT    /api/admin/v1/merchants/{merchantId}/callback-config
 POST   /api/admin/v1/merchants/{merchantId}/credentials/rotate
 POST   /api/admin/v1/merchants/{merchantId}/credentials/revoke
 ```

@@ -49,9 +49,7 @@ public class AdminMerchantController {
   @PreAuthorize("hasAuthority('merchant:create')")
   public MerchantResponse create(
       @Valid @RequestBody CreateRequest request, Authentication authentication) {
-    return response(
-        merchantService.create(
-            request.merchantId(), request.name(), request.settlementCurrency(), authentication));
+    return response(merchantService.create(request.merchantId(), request.name(), authentication));
   }
 
   @PutMapping("/{merchantId}")
@@ -60,9 +58,7 @@ public class AdminMerchantController {
       @PathVariable String merchantId,
       @Valid @RequestBody UpdateRequest request,
       Authentication authentication) {
-    return response(
-        merchantService.update(
-            merchantId, request.name(), request.settlementCurrency(), authentication));
+    return response(merchantService.update(merchantId, request.name(), authentication));
   }
 
   @PatchMapping("/{merchantId}/status")
@@ -76,29 +72,15 @@ public class AdminMerchantController {
 
   private static MerchantResponse response(MerchantModel value) {
     return new MerchantResponse(
-        value.merchantId(),
-        value.name(),
-        value.status(),
-        value.settlementCurrency(),
-        value.createdAt(),
-        value.updatedAt());
+        value.merchantId(), value.name(), value.status(), value.createdAt(), value.updatedAt());
   }
 
-  public record CreateRequest(
-      @NotBlank String merchantId,
-      @NotBlank String name,
-      @Pattern(regexp = "[A-Z]{3}") String settlementCurrency) {}
+  public record CreateRequest(String merchantId, @NotBlank String name) {}
 
-  public record UpdateRequest(
-      @NotBlank String name, @Pattern(regexp = "[A-Z]{3}") String settlementCurrency) {}
+  public record UpdateRequest(@NotBlank String name) {}
 
   public record StatusRequest(@Pattern(regexp = "ACTIVE|DISABLED") String status) {}
 
   public record MerchantResponse(
-      String merchantId,
-      String name,
-      String status,
-      String settlementCurrency,
-      Instant createdAt,
-      Instant updatedAt) {}
+      String merchantId, String name, String status, Instant createdAt, Instant updatedAt) {}
 }

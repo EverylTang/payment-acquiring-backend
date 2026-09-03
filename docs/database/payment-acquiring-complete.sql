@@ -56,7 +56,6 @@ CREATE TABLE IF NOT EXISTS merchant (
   merchant_id VARCHAR(64) NOT NULL COMMENT '商户ID',
   name VARCHAR(128) NOT NULL COMMENT '名称',
   status VARCHAR(16) NOT NULL COMMENT '业务状态',
-  settlement_currency VARCHAR(3) NOT NULL COMMENT '结算币种',
   created_at DATETIME(3) NOT NULL COMMENT '创建时间',
   updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
   UNIQUE KEY uk_merchant_id (merchant_id)
@@ -192,8 +191,8 @@ CREATE TABLE IF NOT EXISTS channel_capability (
   UNIQUE KEY uk_channel_capability_scope (channel_id, country, currency, payment_method)
 );
 
-INSERT IGNORE INTO merchant (merchant_id, name, status, settlement_currency, created_at, updated_at)
-VALUES ('merchant-demo', 'Demo Merchant', 'ACTIVE', 'USD', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
+INSERT IGNORE INTO merchant (merchant_id, name, status, created_at, updated_at)
+VALUES ('merchant-demo', 'Demo Merchant', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
 INSERT IGNORE INTO logical_product (product_code, name, status, created_at, updated_at)
 VALUES ('CARD-US-USD', '美国卡支付', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
@@ -362,8 +361,20 @@ SELECT r.id, m.id FROM admin_role r JOIN admin_menu m ON m.menu_code IN ('system
 CREATE TABLE IF NOT EXISTS merchant_profile (
   merchant_id VARCHAR(64) PRIMARY KEY COMMENT '商户ID',
   legal_name VARCHAR(256) NOT NULL COMMENT '法定名称',
+  business_type VARCHAR(32) NOT NULL DEFAULT 'COMPANY' COMMENT '商户主体类型',
   registered_country VARCHAR(8) NOT NULL COMMENT '注册国家或地区',
   industry VARCHAR(128) COMMENT '所属行业',
+  business_url VARCHAR(1024) COMMENT '商户官网',
+  product_description VARCHAR(1000) COMMENT '商品或服务描述',
+  statement_descriptor VARCHAR(22) COMMENT '账单描述符',
+  support_email VARCHAR(256) COMMENT '客户支持邮箱',
+  support_phone VARCHAR(64) COMMENT '客户支持电话',
+  support_url VARCHAR(1024) COMMENT '客户支持网址',
+  address_line1 VARCHAR(256) COMMENT '注册地址第一行',
+  address_line2 VARCHAR(256) COMMENT '注册地址第二行',
+  address_city VARCHAR(128) COMMENT '注册城市',
+  address_state VARCHAR(128) COMMENT '注册省州',
+  address_postal_code VARCHAR(32) COMMENT '注册地址邮编',
   risk_level VARCHAR(16) NOT NULL DEFAULT 'MEDIUM' COMMENT '风险等级',
   tax_identifier VARCHAR(128) COMMENT '税务识别号',
   created_at DATETIME(3) NOT NULL COMMENT '创建时间',
@@ -382,15 +393,6 @@ CREATE TABLE IF NOT EXISTS merchant_contact (
   updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
   UNIQUE KEY uk_merchant_contact_type (merchant_id, contact_type),
   KEY idx_merchant_contact (merchant_id)
-);
-
-CREATE TABLE IF NOT EXISTS merchant_callback_config (
-  merchant_id VARCHAR(64) PRIMARY KEY COMMENT '商户ID',
-  callback_url VARCHAR(1024) NOT NULL COMMENT '回调地址',
-  event_types JSON NOT NULL COMMENT '回调事件类型列表',
-  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '业务状态',
-  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
-  updated_at DATETIME(3) NOT NULL COMMENT '更新时间'
 );
 
 CREATE TABLE IF NOT EXISTS merchant_credential (
@@ -412,13 +414,12 @@ INSERT IGNORE INTO admin_permission (permission_code, permission_name, resource_
 VALUES
   ('merchant:profile', '查看商户资料', 'MERCHANT', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   ('merchant:contact:update', '维护商户联系人', 'MERCHANT', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  ('merchant:callback:update', '维护商户回调配置', 'MERCHANT', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   ('merchant:credential:rotate', '轮换商户凭证', 'MERCHANT', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   ('merchant:credential:revoke', '撤销商户凭证', 'MERCHANT', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM admin_role r JOIN admin_permission p
-  ON p.permission_code IN ('merchant:profile', 'merchant:contact:update', 'merchant:callback:update', 'merchant:credential:rotate', 'merchant:credential:revoke')
+  ON p.permission_code IN ('merchant:profile', 'merchant:contact:update', 'merchant:credential:rotate', 'merchant:credential:revoke')
 WHERE r.role_code IN ('ADMIN', 'OPS');
 
 -- SOURCE: consolidated platform-service V8
@@ -501,7 +502,7 @@ FROM (
   SELECT 'config-release:publish', '发布配置', 'CONFIG_RELEASE' UNION ALL SELECT 'config-release:diff', '查看配置差异', 'CONFIG_RELEASE' UNION ALL
   SELECT 'config-release:rollback', '回滚配置', 'CONFIG_RELEASE' UNION ALL SELECT 'audit:list', '查看操作审计', 'AUDIT' UNION ALL
   SELECT 'merchant:profile:update', '编辑商户资料', 'MERCHANT' UNION ALL SELECT 'merchant:contact:list', '查看商户联系人', 'MERCHANT' UNION ALL
-  SELECT 'merchant:callback:list', '查看商户回调配置', 'MERCHANT' UNION ALL SELECT 'merchant:credential:list', '查看商户凭证', 'MERCHANT' UNION ALL
+  SELECT 'merchant:credential:list', '查看商户凭证', 'MERCHANT' UNION ALL
   SELECT 'order:list', '查看订单', 'ORDER' UNION ALL SELECT 'order:statistics', '查看订单统计', 'ORDER' UNION ALL
   SELECT 'outbox:list', '查看失败事件', 'OUTBOX' UNION ALL SELECT 'outbox:detail', '查看事件详情', 'OUTBOX' UNION ALL SELECT 'outbox:redrive', '重放失败事件', 'OUTBOX' UNION ALL
   SELECT 'payment-event:list', '查看失败支付事件', 'PAYMENT_EVENT' UNION ALL SELECT 'payment-event:detail', '查看支付事件详情', 'PAYMENT_EVENT' UNION ALL SELECT 'payment-event:replay', '重放支付事件', 'PAYMENT_EVENT' UNION ALL
@@ -512,7 +513,7 @@ FROM (
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM admin_role r CROSS JOIN admin_permission p WHERE r.role_code = 'ADMIN';
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
-SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('auth:me', 'auth:password:change', 'system:access:list', 'dashboard:overview', 'channel:list', 'channel:health:list', 'routing-rule:list', 'routing-rule:detail', 'pricing-rule:list', 'pricing-rule:detail', 'risk-policy:list', 'configuration:snapshot:list', 'config-release:list', 'config-release:diff', 'audit:list', 'merchant:profile', 'merchant:contact:list', 'merchant:callback:list', 'order:list', 'order:statistics') WHERE r.role_code IN ('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY');
+SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('auth:me', 'auth:password:change', 'system:access:list', 'dashboard:overview', 'channel:list', 'channel:health:list', 'routing-rule:list', 'routing-rule:detail', 'pricing-rule:list', 'pricing-rule:detail', 'risk-policy:list', 'configuration:snapshot:list', 'config-release:list', 'config-release:diff', 'audit:list', 'merchant:profile', 'merchant:contact:list', 'order:list', 'order:statistics') WHERE r.role_code IN ('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY');
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('merchant:profile:update', 'merchant:credential:list', 'channel:create', 'routing-rule:create', 'routing-rule:update', 'pricing-rule:create', 'config-release:create', 'config-release:submit', 'outbox:list', 'outbox:detail', 'outbox:redrive', 'payment-event:list', 'payment-event:detail', 'payment-event:replay', 'reconciliation:bill:import', 'reconciliation:difference:list', 'reconciliation:bill:reconcile', 'reconciliation:difference:resolve') WHERE r.role_code = 'OPS';
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
@@ -706,7 +707,8 @@ CREATE TABLE IF NOT EXISTS ledger_entry (
   created_at DATETIME(3) NOT NULL COMMENT '创建时间',
   UNIQUE KEY uk_entry_id (entry_id),
   UNIQUE KEY uk_ledger_idempotency (idempotency_key),
-  KEY idx_account_created (account_id, created_at)
+  KEY idx_account_created (account_id, created_at),
+  KEY idx_account_currency_created (account_id, currency, created_at)
 );
 
 -- SOURCE: consolidated fund-service V2
@@ -834,7 +836,6 @@ ALTER TABLE admin_role_menu COMMENT = '角色与菜单关联';
 ALTER TABLE admin_role_permission COMMENT = '角色与权限关联';
 ALTER TABLE merchant_profile COMMENT = '商户资料';
 ALTER TABLE merchant_contact COMMENT = '商户联系人';
-ALTER TABLE merchant_callback_config COMMENT = '商户回调配置';
 ALTER TABLE merchant_credential COMMENT = '商户接入凭证';
 ALTER TABLE admin_role_data_scope COMMENT = '角色数据范围';
 ALTER TABLE admin_user_merchant_scope COMMENT = '管理员商户数据范围';

@@ -33,15 +33,24 @@ public class MerchantService {
   }
 
   @Transactional
-  public MerchantModel create(String id, String name, String currency, Authentication auth) {
-    mapper.insertMerchant(id, name, currency, Instant.now());
-    return detail(id, auth);
+  public MerchantModel create(String requestedId, String name, Authentication auth) {
+    var now = Instant.now();
+    String merchantId = requestedId == null ? "" : requestedId.trim();
+    if (merchantId.isEmpty()) {
+      mapper.insertMerchantWithGeneratedId(name, now);
+      long databaseId = mapper.selectLastInsertId();
+      merchantId = "mch_" + databaseId;
+      mapper.updateMerchantId(databaseId, merchantId);
+    } else {
+      mapper.insertMerchant(merchantId, name, now);
+    }
+    return detail(merchantId, auth);
   }
 
   @Transactional
-  public MerchantModel update(String id, String name, String currency, Authentication auth) {
+  public MerchantModel update(String id, String name, Authentication auth) {
     access.assertAllowed(auth, id);
-    mapper.updateMerchant(id, name, currency, Instant.now());
+    mapper.updateMerchant(id, name, Instant.now());
     return detail(id, auth);
   }
 

@@ -27,8 +27,6 @@ public final class AdminOperationPermissionCatalog {
           "merchant-product:list",
           "merchant-product:status",
           "merchant-product:update",
-          "merchant:callback:list",
-          "merchant:callback:update",
           "merchant:contact:list",
           "merchant:contact:update",
           "merchant:create",

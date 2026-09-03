@@ -54,21 +54,6 @@ public class AdminMerchantProfileController {
     return service.updateContact(merchantId, contactId, r, a);
   }
 
-  @PutMapping("/callback-config")
-  @PreAuthorize("hasAuthority('merchant:callback:update')")
-  public MerchantProfileAdminService.CallbackResponse updateCallback(
-      @PathVariable String merchantId,
-      @Valid @RequestBody MerchantProfileAdminService.CallbackRequest r,
-      Authentication a) {
-    return service.updateCallback(merchantId, r, a);
-  }
-
-  @GetMapping("/callback-config")
-  @PreAuthorize("hasAuthority('merchant:callback:list')")
-  public MerchantProfileAdminService.CallbackResponse callback(@PathVariable String merchantId) {
-    return service.callback(merchantId);
-  }
-
   @GetMapping("/credentials")
   @PreAuthorize("hasAuthority('merchant:credential:list')")
   public java.util.List<MerchantProfileAdminService.CredentialResponse> credentials(

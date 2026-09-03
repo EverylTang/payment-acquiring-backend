@@ -24,13 +24,17 @@ public interface MerchantMapper {
   int insertMerchant(
       @Param("merchantId") String merchantId,
       @Param("name") String name,
-      @Param("currency") String currency,
       @Param("now") Instant now);
+
+  int insertMerchantWithGeneratedId(@Param("name") String name, @Param("now") Instant now);
+
+  long selectLastInsertId();
+
+  int updateMerchantId(@Param("id") long id, @Param("merchantId") String merchantId);
 
   int updateMerchant(
       @Param("merchantId") String merchantId,
       @Param("name") String name,
-      @Param("currency") String currency,
       @Param("now") Instant now);
 
   int updateStatus(

@@ -2,17 +2,40 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.payments.platform.service.mapper.MerchantProfileMapper">
   <select id="selectByMerchantId" resultType="com.example.payments.platform.service.model.MerchantProfileModel">
-    SELECT merchant_id, legal_name, registered_country, industry, risk_level, tax_identifier, created_at, updated_at
+    SELECT merchant_id, legal_name, business_type, registered_country, industry, business_url,
+      product_description, statement_descriptor, support_email, support_phone, support_url,
+      address_line1, address_line2, address_city, address_state, address_postal_code,
+      risk_level, tax_identifier, created_at, updated_at
     FROM merchant_profile
     WHERE merchant_id = #{merchantId}
   </select>
   <insert id="upsert">
-    INSERT INTO merchant_profile (merchant_id, legal_name, registered_country, industry, risk_level, tax_identifier, created_at, updated_at)
-    VALUES (#{merchantId}, #{legalName}, #{registeredCountry}, #{industry}, #{riskLevel}, #{taxIdentifier}, #{now}, #{now})
+    INSERT INTO merchant_profile (
+      merchant_id, legal_name, business_type, registered_country, industry, business_url,
+      product_description, statement_descriptor, support_email, support_phone, support_url,
+      address_line1, address_line2, address_city, address_state, address_postal_code,
+      risk_level, tax_identifier, created_at, updated_at)
+    VALUES (
+      #{merchantId}, #{legalName}, #{businessType}, #{registeredCountry}, #{industry}, #{businessUrl},
+      #{productDescription}, #{statementDescriptor}, #{supportEmail}, #{supportPhone}, #{supportUrl},
+      #{addressLine1}, #{addressLine2}, #{addressCity}, #{addressState}, #{addressPostalCode},
+      #{riskLevel}, #{taxIdentifier}, #{now}, #{now})
     ON DUPLICATE KEY UPDATE
       legal_name = VALUES(legal_name),
+      business_type = VALUES(business_type),
       registered_country = VALUES(registered_country),
       industry = VALUES(industry),
+      business_url = VALUES(business_url),
+      product_description = VALUES(product_description),
+      statement_descriptor = VALUES(statement_descriptor),
+      support_email = VALUES(support_email),
+      support_phone = VALUES(support_phone),
+      support_url = VALUES(support_url),
+      address_line1 = VALUES(address_line1),
+      address_line2 = VALUES(address_line2),
+      address_city = VALUES(address_city),
+      address_state = VALUES(address_state),
+      address_postal_code = VALUES(address_postal_code),
       risk_level = VALUES(risk_level),
       tax_identifier = VALUES(tax_identifier),
       updated_at = VALUES(updated_at)

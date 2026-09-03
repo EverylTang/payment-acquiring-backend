@@ -1,6 +1,5 @@
 package com.example.payments.platform.service.service;
 
-import com.example.payments.platform.service.mapper.MerchantCallbackConfigFullMapper;
 import com.example.payments.platform.service.mapper.MerchantContactFullMapper;
 import com.example.payments.platform.service.mapper.MerchantCredentialFullMapper;
 import com.example.payments.platform.service.mapper.MerchantProfileMapper;
@@ -24,20 +23,51 @@ public class MerchantProfileAdminService {
   private final PlatformDataService mybatisClient;
   private final MerchantProfileMapper merchantProfileMapper;
   private final MerchantContactFullMapper merchantContactFullMapper;
-  private final MerchantCallbackConfigFullMapper merchantCallbackConfigFullMapper;
   private final MerchantCredentialFullMapper merchantCredentialFullMapper;
 
   public ProfileResponse profile(String merchantId) {
     ensureMerchant(merchantId);
     var model = merchantProfileMapper.selectByMerchantId(merchantId);
     if (model == null) {
-      return new ProfileResponse(merchantId, "", "", null, "MEDIUM", null, null, null);
+      return new ProfileResponse(
+          merchantId,
+          "",
+          "COMPANY",
+          "",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "MEDIUM",
+          null,
+          null,
+          null);
     }
     return new ProfileResponse(
         model.merchantId(),
         model.legalName(),
+        model.businessType(),
         model.registeredCountry(),
         model.industry(),
+        model.businessUrl(),
+        model.productDescription(),
+        model.statementDescriptor(),
+        model.supportEmail(),
+        model.supportPhone(),
+        model.supportUrl(),
+        model.addressLine1(),
+        model.addressLine2(),
+        model.addressCity(),
+        model.addressState(),
+        model.addressPostalCode(),
         model.riskLevel(),
         model.taxIdentifier(),
         model.createdAt(),
@@ -52,8 +82,20 @@ public class MerchantProfileAdminService {
     merchantProfileMapper.upsert(
         merchantId,
         request.legalName(),
+        request.businessType() == null ? "COMPANY" : request.businessType(),
         request.registeredCountry(),
         request.industry(),
+        request.businessUrl(),
+        request.productDescription(),
+        request.statementDescriptor(),
+        request.supportEmail(),
+        request.supportPhone(),
+        request.supportUrl(),
+        request.addressLine1(),
+        request.addressLine2(),
+        request.addressCity(),
+        request.addressState(),
+        request.addressPostalCode(),
         request.riskLevel(),
         request.taxIdentifier(),
         now);
@@ -120,32 +162,6 @@ public class MerchantProfileAdminService {
         .filter(item -> item.id() == contactId)
         .findFirst()
         .orElseThrow();
-  }
-
-  @Transactional
-  public CallbackResponse updateCallback(
-      String merchantId, CallbackRequest request, Authentication authentication) {
-    ensureMerchant(merchantId);
-    var now = Instant.now();
-    merchantCallbackConfigFullMapper.upsert(
-        merchantId, request.callbackUrl(), request.eventTypesJson(), request.status(), now);
-    audit(authentication.getName(), "UPDATE_CALLBACK", merchantId);
-    return callback(merchantId);
-  }
-
-  public CallbackResponse callback(String merchantId) {
-    ensureMerchant(merchantId);
-    var model = merchantCallbackConfigFullMapper.selectByMerchantId(merchantId);
-    if (model == null) {
-      return new CallbackResponse(merchantId, "", "[]", "DISABLED", null, null);
-    }
-    return new CallbackResponse(
-        model.merchantId(),
-        model.callbackUrl(),
-        model.eventTypes(),
-        model.status(),
-        model.createdAt(),
-        model.updatedAt());
   }
 
   public List<CredentialResponse> credentials(String merchantId) {
@@ -233,16 +249,40 @@ public class MerchantProfileAdminService {
 
   public record ProfileRequest(
       @NotBlank String legalName,
+      @Pattern(regexp = "COMPANY|INDIVIDUAL|NON_PROFIT|GOVERNMENT") String businessType,
       @NotBlank String registeredCountry,
       String industry,
+      String businessUrl,
+      String productDescription,
+      String statementDescriptor,
+      @Email String supportEmail,
+      String supportPhone,
+      String supportUrl,
+      String addressLine1,
+      String addressLine2,
+      String addressCity,
+      String addressState,
+      String addressPostalCode,
       @Pattern(regexp = "LOW|MEDIUM|HIGH") String riskLevel,
       String taxIdentifier) {}
 
   public record ProfileResponse(
       String merchantId,
       String legalName,
+      String businessType,
       String registeredCountry,
       String industry,
+      String businessUrl,
+      String productDescription,
+      String statementDescriptor,
+      String supportEmail,
+      String supportPhone,
+      String supportUrl,
+      String addressLine1,
+      String addressLine2,
+      String addressCity,
+      String addressState,
+      String addressPostalCode,
       String riskLevel,
       String taxIdentifier,
       Instant createdAt,
@@ -263,19 +303,6 @@ public class MerchantProfileAdminService {
       String email,
       String phone,
       boolean notifyEnabled,
-      Instant createdAt,
-      Instant updatedAt) {}
-
-  public record CallbackRequest(
-      @NotBlank String callbackUrl,
-      @NotBlank String eventTypesJson,
-      @Pattern(regexp = "ACTIVE|DISABLED") String status) {}
-
-  public record CallbackResponse(
-      String merchantId,
-      String callbackUrl,
-      String eventTypes,
-      String status,
       Instant createdAt,
       Instant updatedAt) {}
 
