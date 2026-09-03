@@ -2,6 +2,7 @@ package com.example.payments.platform.service.service;
 
 import com.example.payments.platform.service.mapper.AdminUserMapper;
 import com.example.payments.platform.service.model.UserModel;
+import com.example.payments.platform.service.model.UserRow;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -20,7 +21,11 @@ public class AdminUserService {
   public Page list(int page, int size) {
     int p = Math.max(page, 1), s = Math.min(Math.max(size, 1), 100);
     return new Page(
-        mapper.selectUsers().stream().skip((long) (p - 1) * s).limit(s).toList(),
+        mapper.selectUsers().stream()
+            .map(this::normalize)
+            .skip((long) (p - 1) * s)
+            .limit(s)
+            .toList(),
         p,
         s,
         mapper.countUsers());
@@ -86,15 +91,13 @@ public class AdminUserService {
     return detail(id);
   }
 
-  private UserModel normalize(UserModel v) {
+  private UserModel normalize(UserRow v) {
     return new UserModel(
         v.id(),
         v.username(),
         v.displayName(),
         v.status(),
-        v.roles() == null || v.roles().isEmpty()
-            ? List.of()
-            : List.of(v.roles().get(0).split(",")));
+        v.roles() == null || v.roles().isEmpty() ? List.of() : List.of(v.roles().split(",")));
   }
 
   private void replaceRoles(long id, List<String> roles) {

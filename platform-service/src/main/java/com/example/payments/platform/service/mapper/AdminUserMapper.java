@@ -1,6 +1,6 @@
 package com.example.payments.platform.service.mapper;
 
-import com.example.payments.platform.service.model.UserModel;
+import com.example.payments.platform.service.model.UserRow;
 import java.time.Instant;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
@@ -10,9 +10,9 @@ import org.apache.ibatis.annotations.Param;
 public interface AdminUserMapper {
   long countUsers();
 
-  List<UserModel> selectUsers();
+  List<UserRow> selectUsers();
 
-  UserModel selectById(@Param("id") long id);
+  UserRow selectById(@Param("id") long id);
 
   int insertUser(
       @Param("username") String username,

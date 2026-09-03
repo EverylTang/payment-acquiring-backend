@@ -16,6 +16,7 @@ public class AdminPermissionCatalogService {
             .map(
                 v ->
                     new Menu(
+                        v.id(),
                         v.menuCode(),
                         v.menuName(),
                         v.parentId(),
@@ -35,6 +36,7 @@ public class AdminPermissionCatalogService {
   public record Catalog(List<Menu> menus, List<Permission> permissions) {}
 
   public record Menu(
+      long id,
       String menuCode,
       String menuName,
       long parentId,

@@ -17,6 +17,15 @@
     FROM admin_role
     WHERE role_code=#{code}
   </select>
+  <insert id="insertRole">
+    INSERT INTO admin_role(role_code,role_name)
+    VALUES(#{code},#{name})
+  </insert>
+  <update id="updateName">
+    UPDATE admin_role
+    SET role_name=#{name}
+    WHERE role_code=#{code}
+  </update>
   <select id="permissions" resultType="string">
     SELECT p.permission_code
     FROM admin_permission p
@@ -32,18 +41,28 @@
     ORDER BY m.sort_order,m.id
   </select>
   <select id="validMenus" resultType="long">
-    SELECT COUNT(*)
-    FROM admin_menu
-    WHERE menu_code IN
-    <foreach collection="codes" item="code" open="(" separator="," close=")">#{code}</foreach>
-    AND status='ACTIVE'
+    <choose>
+      <when test="codes != null and codes.size() > 0">
+        SELECT COUNT(*)
+        FROM admin_menu
+        WHERE menu_code IN
+        <foreach collection="codes" item="code" open="(" separator="," close=")">#{code}</foreach>
+        AND status='ACTIVE'
+      </when>
+      <otherwise>SELECT 0</otherwise>
+    </choose>
   </select>
   <select id="validPermissions" resultType="long">
-    SELECT COUNT(*)
-    FROM admin_permission
-    WHERE permission_code IN
-    <foreach collection="codes" item="code" open="(" separator="," close=")">#{code}</foreach>
-    AND status='ACTIVE'
+    <choose>
+      <when test="codes != null and codes.size() > 0">
+        SELECT COUNT(*)
+        FROM admin_permission
+        WHERE permission_code IN
+        <foreach collection="codes" item="code" open="(" separator="," close=")">#{code}</foreach>
+        AND status='ACTIVE'
+      </when>
+      <otherwise>SELECT 0</otherwise>
+    </choose>
   </select>
   <delete id="clearMenus">
     DELETE
@@ -64,5 +83,9 @@
     INSERT INTO admin_role_permission(role_id,permission_id) SELECT #{id},id
     FROM admin_permission
     WHERE permission_code=#{code}
+  </insert>
+  <insert id="addScope">
+    INSERT INTO admin_role_data_scope(role_id,scope_type)
+    VALUES(#{id},#{scope})
   </insert>
 </mapper>

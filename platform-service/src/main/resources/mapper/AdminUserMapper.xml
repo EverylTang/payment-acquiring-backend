@@ -5,7 +5,7 @@
     SELECT COUNT(*)
     FROM admin_user
   </select>
-  <select id="selectUsers" resultType="com.example.payments.platform.service.model.UserModel">
+  <select id="selectUsers" resultType="com.example.payments.platform.service.model.UserRow">
     SELECT u.id, u.username, u.display_name, u.status, GROUP_CONCAT(r.role_code
     ORDER BY r.role_code SEPARATOR ',') roles
     FROM admin_user u
@@ -16,7 +16,7 @@
     GROUP BY u.id, u.username, u.display_name, u.status
     ORDER BY u.created_at DESC
   </select>
-  <select id="selectById" resultType="com.example.payments.platform.service.model.UserModel">
+  <select id="selectById" resultType="com.example.payments.platform.service.model.UserRow">
     SELECT u.id, u.username, u.display_name, u.status, GROUP_CONCAT(r.role_code
     ORDER BY r.role_code SEPARATOR ',') roles
     FROM admin_user u

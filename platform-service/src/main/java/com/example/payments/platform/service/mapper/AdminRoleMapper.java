@@ -12,6 +12,10 @@ public interface AdminRoleMapper {
 
   Long id(@Param("code") String code);
 
+  void insertRole(@Param("code") String code, @Param("name") String name);
+
+  void updateName(@Param("code") String code, @Param("name") String name);
+
   List<String> permissions(@Param("id") long id);
 
   List<String> menus(@Param("id") long id);
@@ -27,6 +31,8 @@ public interface AdminRoleMapper {
   void addMenu(@Param("id") long id, @Param("code") String code);
 
   void addPermission(@Param("id") long id, @Param("code") String code);
+
+  void addScope(@Param("id") long id, @Param("scope") String scope);
 
   record RoleRow(long id, String roleCode, String roleName) {}
 }

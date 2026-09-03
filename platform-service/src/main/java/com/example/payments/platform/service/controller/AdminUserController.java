@@ -21,7 +21,8 @@ public class AdminUserController {
 
   @GetMapping
   public AdminPageResponse<UserResponse> list(
-      @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
+      @RequestParam(name = "page", defaultValue = "1") int page,
+      @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
     var r = service.list(page, pageSize);
     return new AdminPageResponse<>(
         r.items().stream().map(AdminUserController::response).toList(),
@@ -31,7 +32,7 @@ public class AdminUserController {
   }
 
   @GetMapping("/{id}")
-  public UserResponse detail(@PathVariable long id) {
+  public UserResponse detail(@PathVariable("id") long id) {
     return response(service.detail(id));
   }
 
@@ -44,25 +45,25 @@ public class AdminUserController {
 
   @PutMapping("/{id}")
   public UserResponse update(
-      @PathVariable long id, @Valid @RequestBody UpdateUserRequest r, Authentication a) {
+      @PathVariable("id") long id, @Valid @RequestBody UpdateUserRequest r, Authentication a) {
     return response(service.update(id, r.displayName(), r.roles(), a.getName(), r));
   }
 
   @PatchMapping("/{id}/status")
   public UserResponse changeStatus(
-      @PathVariable long id, @Valid @RequestBody StatusRequest r, Authentication a) {
+      @PathVariable("id") long id, @Valid @RequestBody StatusRequest r, Authentication a) {
     return response(service.changeStatus(id, r.status(), a.getName(), r));
   }
 
   @PostMapping("/{id}/reset-password")
   public void resetPassword(
-      @PathVariable long id, @Valid @RequestBody ResetPasswordRequest r, Authentication a) {
+      @PathVariable("id") long id, @Valid @RequestBody ResetPasswordRequest r, Authentication a) {
     service.resetPassword(id, r.newPassword(), a.getName(), r);
   }
 
   @PutMapping("/{id}/roles")
   public UserResponse updateRoles(
-      @PathVariable long id, @Valid @RequestBody RoleUpdateRequest r, Authentication a) {
+      @PathVariable("id") long id, @Valid @RequestBody RoleUpdateRequest r, Authentication a) {
     return response(service.updateRoles(id, r.roles(), a.getName(), r));
   }
 

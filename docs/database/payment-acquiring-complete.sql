@@ -252,6 +252,19 @@ CREATE TABLE IF NOT EXISTS admin_permission (
   UNIQUE KEY uk_admin_permission_code (permission_code)
 );
 
+CREATE TABLE IF NOT EXISTS admin_resource_type (
+  resource_type VARCHAR(64) NOT NULL COMMENT '资源类型编码',
+  resource_name VARCHAR(128) NOT NULL COMMENT '资源类型名称',
+  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '业务状态',
+  PRIMARY KEY (resource_type)
+);
+
+CREATE TABLE IF NOT EXISTS admin_menu_resource_type (
+  menu_id BIGINT NOT NULL COMMENT '菜单ID',
+  resource_type VARCHAR(64) NOT NULL COMMENT '资源类型编码',
+  PRIMARY KEY (menu_id, resource_type)
+);
+
 CREATE TABLE IF NOT EXISTS admin_role_menu (
   role_id BIGINT NOT NULL COMMENT '角色ID',
   menu_id BIGINT NOT NULL COMMENT '菜单ID',

@@ -56,29 +56,43 @@
     VALUES(#{userId},#{merchantId})
   </insert>
   <select id="hasAllScope" resultType="boolean">
-    SELECT EXISTS(SELECT 1
-    FROM admin_role_data_scope ds
-    JOIN admin_role r ON r.id=ds.role_id
-    JOIN admin_user_role ur ON ur.role_id=r.id
-    JOIN admin_user u ON u.id=ur.user_id
-    WHERE u.username=#{username}
-    AND u.status='ACTIVE'
-    AND ds.scope_type='ALL')
+    SELECT EXISTS(
+      SELECT 1
+      FROM admin_user u
+      WHERE u.username=#{username}
+      AND u.status='ACTIVE'
+      AND (
+        EXISTS(SELECT 1
+          FROM admin_user_role ur
+          JOIN admin_role_data_scope ds ON ds.role_id=ur.role_id
+          WHERE ur.user_id=u.id
+          AND ds.scope_type='ALL')
+        OR NOT EXISTS(SELECT 1
+          FROM admin_user_merchant_scope ums
+          WHERE ums.user_id=u.id)
+      )
+    )
   </select>
   <select id="allowed" resultType="boolean">
-    SELECT EXISTS(SELECT 1
-    FROM merchant m
-    WHERE m.merchant_id=#{merchantId} AND (EXISTS(SELECT 1
-    FROM admin_user_role ur
-    JOIN admin_role_data_scope ds ON ds.role_id=ur.role_id
-    JOIN admin_user u ON u.id=ur.user_id
-    WHERE u.username=#{username}
-    AND u.status='ACTIVE'
-    AND ds.scope_type='ALL')
-    OR EXISTS(SELECT 1
-    FROM admin_user_merchant_scope ums
-    JOIN admin_user u ON u.id=ums.user_id
-    WHERE u.username=#{username}
-    AND ums.merchant_id=m.merchant_id)))
+    SELECT EXISTS(
+      SELECT 1
+      FROM merchant m
+      JOIN admin_user u ON u.username=#{username} AND u.status='ACTIVE'
+      WHERE m.merchant_id=#{merchantId}
+      AND (
+        EXISTS(SELECT 1
+          FROM admin_user_role ur
+          JOIN admin_role_data_scope ds ON ds.role_id=ur.role_id
+          WHERE ur.user_id=u.id
+          AND ds.scope_type='ALL')
+        OR NOT EXISTS(SELECT 1
+          FROM admin_user_merchant_scope ums
+          WHERE ums.user_id=u.id)
+        OR EXISTS(SELECT 1
+          FROM admin_user_merchant_scope ums
+          WHERE ums.user_id=u.id
+          AND ums.merchant_id=m.merchant_id)
+      )
+    )
   </select>
 </mapper>

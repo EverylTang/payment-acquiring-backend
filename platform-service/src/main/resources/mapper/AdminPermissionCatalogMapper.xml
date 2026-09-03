@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.payments.platform.service.mapper.AdminPermissionCatalogMapper">
   <select id="menus" resultType="com.example.payments.platform.service.mapper.AdminPermissionCatalogMapper$MenuRow">
-    SELECT menu_code,menu_name,parent_id,menu_type,status,visible,sort_order
+    SELECT id,menu_code,menu_name,parent_id,menu_type,status,visible,sort_order
     FROM admin_menu
     WHERE status='ACTIVE'
     ORDER BY parent_id,sort_order,id

@@ -10,6 +10,7 @@ public interface AdminPermissionCatalogMapper {
   List<PermissionRow> permissions();
 
   record MenuRow(
+      long id,
       String menuCode,
       String menuName,
       long parentId,

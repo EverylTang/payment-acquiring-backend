@@ -44,6 +44,7 @@ public class AdminDataScopeService {
   }
 
   public boolean hasAllScope(String username) {
+    // An empty user-specific scope intentionally grants access to all merchants.
     return mapper.hasAllScope(username);
   }
 

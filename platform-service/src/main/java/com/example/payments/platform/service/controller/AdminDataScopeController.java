@@ -19,13 +19,13 @@ public class AdminDataScopeController {
   private final AdminDataScopeService service;
 
   @GetMapping("/roles/{roleCode}")
-  public RoleScopeResponse role(@PathVariable String roleCode) {
+  public RoleScopeResponse role(@PathVariable("roleCode") String roleCode) {
     return new RoleScopeResponse(roleCode, service.role(roleCode));
   }
 
   @PutMapping("/roles/{roleCode}")
   public RoleScopeResponse updateRole(
-      @PathVariable String roleCode,
+      @PathVariable("roleCode") String roleCode,
       @Valid @RequestBody RoleScopeRequest request,
       Authentication a) {
     return new RoleScopeResponse(
@@ -33,13 +33,15 @@ public class AdminDataScopeController {
   }
 
   @GetMapping("/users/{userId}")
-  public UserScopeResponse user(@PathVariable long userId) {
+  public UserScopeResponse user(@PathVariable("userId") long userId) {
     return new UserScopeResponse(userId, service.user(userId));
   }
 
   @PutMapping("/users/{userId}")
   public UserScopeResponse updateUser(
-      @PathVariable long userId, @Valid @RequestBody UserScopeRequest request, Authentication a) {
+      @PathVariable("userId") long userId,
+      @Valid @RequestBody UserScopeRequest request,
+      Authentication a) {
     return new UserScopeResponse(
         userId, service.updateUser(userId, request.merchantIds(), a.getName(), request));
   }

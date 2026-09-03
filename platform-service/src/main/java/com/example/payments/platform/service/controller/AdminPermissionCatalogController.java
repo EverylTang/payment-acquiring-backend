@@ -21,6 +21,7 @@ public class AdminPermissionCatalogController {
             .map(
                 v ->
                     new MenuResponse(
+                        v.id(),
                         v.menuCode(),
                         v.menuName(),
                         v.parentId(),
@@ -40,6 +41,7 @@ public class AdminPermissionCatalogController {
   public record PermissionCatalog(List<MenuResponse> menus, List<PermissionResponse> permissions) {}
 
   public record MenuResponse(
+      long id,
       String menuCode,
       String menuName,
       long parentId,
