@@ -23,6 +23,8 @@ public class AdminAccessController {
             .map(
                 m ->
                     new MenuItem(
+                        m.id(),
+                        m.parentId(),
                         m.menuCode(),
                         m.menuName(),
                         m.menuType(),
@@ -38,6 +40,8 @@ public class AdminAccessController {
       List<String> roles, List<MenuItem> menus, List<String> permissions) {}
 
   public record MenuItem(
+      long id,
+      long parentId,
       String menuCode,
       String menuName,
       String menuType,

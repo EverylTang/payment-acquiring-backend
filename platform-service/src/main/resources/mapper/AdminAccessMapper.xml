@@ -11,7 +11,7 @@
     ORDER BY r.role_code
   </select>
   <select id="selectMenus" resultType="com.example.payments.platform.service.model.AccessModel$MenuModel">
-    SELECT DISTINCT m.menu_code, m.menu_name, m.menu_type, m.route_path, m.component_key, m.icon, m.sort_order
+    SELECT DISTINCT m.id, m.parent_id, m.menu_code, m.menu_name, m.menu_type, m.route_path, m.component_key, m.icon, m.sort_order
     FROM admin_menu m
     JOIN admin_role_menu rm ON rm.menu_id = m.id
     JOIN admin_role r ON r.id = rm.role_id

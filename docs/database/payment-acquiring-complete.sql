@@ -275,7 +275,11 @@ VALUES
   (0, 'pricing', '费率与结算', 'PAGE', '/pricing', 'pricing', 'CircleDollarSign', 70, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'risk', '风控工作台', 'PAGE', '/risk', 'risk', 'ShieldCheck', 80, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'system', '系统管理', 'DIRECTORY', NULL, NULL, 'Settings2', 90, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  (0, 'system:user', '用户管理', 'PAGE', '/users', 'users', 'Users', 91, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
+  (0, 'operations', '运营处置', 'PAGE', '/operations', 'operations', 'ShieldCheck', 85, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
+
+INSERT IGNORE INTO admin_menu (parent_id, menu_code, menu_name, menu_type, route_path, component_key, icon, sort_order, visible, status, created_at, updated_at)
+SELECT id, 'system:user', '用户管理', 'PAGE', '/users', 'users', 'Users', 91, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
+FROM admin_menu WHERE menu_code = 'system';
 
 INSERT IGNORE INTO admin_permission (permission_code, permission_name, resource_type, status, created_at, updated_at)
 VALUES
@@ -293,7 +297,7 @@ VALUES
   ('merchant-product:bind', '绑定商户产品', 'MERCHANT_PRODUCT', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
 INSERT IGNORE INTO admin_role_menu (role_id, menu_id)
-SELECT r.id, m.id FROM admin_role r CROSS JOIN admin_menu m WHERE r.role_code IN ('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY');
+SELECT r.id, m.id FROM admin_role r CROSS JOIN admin_menu m WHERE r.role_code = 'ADMIN';
 
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM admin_role r CROSS JOIN admin_permission p WHERE r.role_code = 'ADMIN';
@@ -304,7 +308,8 @@ SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code
 
 -- SOURCE: consolidated platform-service V5
 INSERT IGNORE INTO admin_menu (parent_id, menu_code, menu_name, menu_type, route_path, component_key, icon, sort_order, visible, status, created_at, updated_at)
-VALUES (0, 'system:role', '角色管理', 'PAGE', '/roles', 'roles', 'UsersRound', 92, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
+SELECT id, 'system:role', '角色权限', 'PAGE', '/roles', 'roles', 'UsersRound', 92, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
+FROM admin_menu WHERE menu_code = 'system';
 
 INSERT IGNORE INTO admin_permission (permission_code, permission_name, resource_type, status, created_at, updated_at)
 VALUES
@@ -319,7 +324,7 @@ SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code
 
 -- SOURCE: consolidated platform-service V6
 INSERT IGNORE INTO admin_menu (parent_id, menu_code, menu_name, menu_type, route_path, component_key, icon, sort_order, visible, status, created_at, updated_at)
-SELECT id, 'system:role', '角色权限', 'PAGE', '/roles', 'roles', 'ShieldCheck', 92, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
+SELECT id, 'system:menu', '菜单管理', 'PAGE', '/menus', 'menus', 'Settings2', 93, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
 FROM admin_menu WHERE menu_code = 'system';
 
 INSERT IGNORE INTO admin_permission (permission_code, permission_name, resource_type, status, created_at, updated_at)
@@ -338,7 +343,7 @@ VALUES
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('system:role:list', 'system:role:update') WHERE r.role_code = 'ADMIN';
 INSERT IGNORE INTO admin_role_menu (role_id, menu_id)
-SELECT r.id, m.id FROM admin_role r JOIN admin_menu m ON m.menu_code = 'system:role' WHERE r.role_code = 'ADMIN';
+SELECT r.id, m.id FROM admin_role r JOIN admin_menu m ON m.menu_code IN ('system:role', 'system:menu') WHERE r.role_code = 'ADMIN';
 
 -- SOURCE: consolidated platform-service V7
 CREATE TABLE IF NOT EXISTS merchant_profile (

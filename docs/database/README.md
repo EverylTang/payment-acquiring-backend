@@ -14,4 +14,10 @@ docker exec -i local-mysql mysql -uroot -p < docs/database/payment-acquiring-com
 
 历史版本已合并进完整 SQL 文件，不再单独维护增量迁移目录。已有环境升级前应由数据库发布流程基于备份和变更审计执行经过评审的 SQL；新环境直接执行完整 SQL。
 
+若既有 `pay_platform` 缺少后台菜单、权限或角色关联表，使用 [`platform-menu-initialization.sql`](./platform-menu-initialization.sql) 补齐 Platform 菜单/RBAC 基线。该脚本可重复执行，会创建缺失表、同步菜单元数据，并仅为 `ADMIN` 授予全部初始导航；其他角色应由管理员在后台按职责配置菜单授权。
+
+```bash
+docker exec -i local-mysql mysql -uroot -p < docs/database/platform-menu-initialization.sql
+```
+
 生产环境应使用受控数据库发布 Job、备份和回滚方案执行完整 SQL，并保存执行版本、校验哈希和结果。

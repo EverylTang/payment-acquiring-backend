@@ -4,6 +4,8 @@ import java.util.List;
 
 public record AccessModel(List<String> roles, List<MenuModel> menus, List<String> permissions) {
   public record MenuModel(
+      long id,
+      long parentId,
       String menuCode,
       String menuName,
       String menuType,

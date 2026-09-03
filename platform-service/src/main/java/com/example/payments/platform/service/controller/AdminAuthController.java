@@ -3,6 +3,7 @@ package com.example.payments.platform.service.controller;
 import com.example.payments.platform.service.service.AdminAuthService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -45,11 +46,25 @@ public class AdminAuthController {
     }
   }
 
+  @PostMapping("/change-password")
+  public void changePassword(
+      @Valid @RequestBody ChangePasswordRequest request, Authentication authentication) {
+    try {
+      authService.changePassword(
+          authentication.getName(), request.currentPassword(), request.newPassword());
+    } catch (AdminAuthService.UnauthorizedException e) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前密码不正确");
+    }
+  }
+
   private ResponseStatusException unauthorized() {
     return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "用户名或密码错误");
   }
 
   public record LoginRequest(@NotBlank String username, @NotBlank String password) {}
+
+  public record ChangePasswordRequest(
+      @NotBlank String currentPassword, @NotBlank @Size(min = 12, max = 128) String newPassword) {}
 
   public record LoginResponse(
       String accessToken, String tokenType, long expiresIn, CurrentUser user) {}

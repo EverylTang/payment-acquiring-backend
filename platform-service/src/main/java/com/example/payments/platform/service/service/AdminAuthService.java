@@ -2,6 +2,7 @@ package com.example.payments.platform.service.service;
 
 import com.example.payments.platform.service.mapper.AdminAuthMapper;
 import com.example.payments.platform.service.security.JwtService;
+import java.time.Instant;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -29,6 +30,14 @@ public class AdminAuthService {
     var user = mapper.findActiveUserWithoutPassword(username);
     if (user == null) throw new UnauthorizedException();
     return new CurrentUser(user.username(), user.displayName(), mapper.findRoles(user.id()));
+  }
+
+  public void changePassword(String username, String currentPassword, String newPassword) {
+    var user = mapper.findActiveUser(username);
+    if (user == null || !passwordEncoder.matches(currentPassword, user.passwordHash())) {
+      throw new UnauthorizedException();
+    }
+    mapper.updatePassword(user.id(), passwordEncoder.encode(newPassword), Instant.now());
   }
 
   public record AuthResult(String token, long expiresIn, CurrentUser user) {}

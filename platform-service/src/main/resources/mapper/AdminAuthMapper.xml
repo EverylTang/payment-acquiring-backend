@@ -20,4 +20,9 @@
     WHERE ur.user_id = #{userId}
     ORDER BY r.role_code
   </select>
+  <update id="updatePassword">
+    UPDATE admin_user
+    SET password_hash = #{passwordHash}, updated_at = #{now}
+    WHERE id = #{id}
+  </update>
 </mapper>
