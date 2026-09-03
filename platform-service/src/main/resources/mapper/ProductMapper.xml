@@ -2,20 +2,22 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.payments.platform.service.mapper.ProductMapper">
   <resultMap id="ProductMap" type="com.example.payments.platform.service.model.ProductModel">
-    <id property="productCode" column="product_code" />
-    <result property="name" column="name" />
-    <result property="productType" column="product_type" />
-    <result property="accessMode" column="access_mode" />
-    <result property="defaultCountry" column="default_country" />
-    <result property="defaultCurrency" column="default_currency" />
-    <result property="description" column="description" />
-    <result property="statementDescriptor" column="statement_descriptor" />
-    <result property="status" column="status" />
-    <result property="activeCapabilityCount" column="active_capability_count" />
-    <result property="supportedCurrencies" column="supported_currencies" />
-    <result property="supportedPaymentMethods" column="supported_payment_methods" />
-    <result property="createdAt" column="created_at" />
-    <result property="updatedAt" column="updated_at" />
+    <constructor>
+      <idArg column="product_code" javaType="java.lang.String" />
+      <arg column="name" javaType="java.lang.String" />
+      <arg column="product_type" javaType="java.lang.String" />
+      <arg column="access_mode" javaType="java.lang.String" />
+      <arg column="default_country" javaType="java.lang.String" />
+      <arg column="default_currency" javaType="java.lang.String" />
+      <arg column="description" javaType="java.lang.String" />
+      <arg column="statement_descriptor" javaType="java.lang.String" />
+      <arg column="status" javaType="java.lang.String" />
+      <arg column="active_capability_count" javaType="long" />
+      <arg column="supported_currencies" javaType="java.lang.String" />
+      <arg column="supported_payment_methods" javaType="java.lang.String" />
+      <arg column="created_at" javaType="java.time.Instant" />
+      <arg column="updated_at" javaType="java.time.Instant" />
+    </constructor>
   </resultMap>
   <sql id="columns">
     p.product_code,p.name,p.product_type,p.access_mode,p.default_country,p.default_currency,
