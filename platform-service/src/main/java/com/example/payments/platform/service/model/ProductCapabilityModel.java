@@ -10,5 +10,5 @@ public record ProductCapabilityModel(
     String channelPaymentMethod,
     BigDecimal minAmount,
     BigDecimal maxAmount,
-    boolean supportsRefund,
+    Boolean supportsRefund,
     String status) {}

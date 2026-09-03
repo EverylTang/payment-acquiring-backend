@@ -21,8 +21,10 @@ public class AdminRoleController {
   @PreAuthorize("hasAuthority('system:role:list')")
   public AdminPageResponse<RoleResponse> list(
       @RequestParam(name = "page", defaultValue = "1") int page,
-      @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
-    var r = service.list(page, pageSize);
+      @RequestParam(name = "pageSize", defaultValue = "20") int pageSize,
+      @RequestParam(required = false) String roleName,
+      @RequestParam(required = false) String roleCode) {
+    var r = service.list(page, pageSize, new AdminRoleService.RoleFilter(roleName, roleCode));
     return new AdminPageResponse<>(
         r.items().stream().map(v -> new RoleResponse(v.id(), v.roleCode(), v.roleName())).toList(),
         r.page(),

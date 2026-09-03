@@ -1,9 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.payments.platform.service.mapper.AdminUserMapper">
+  <sql id="filters">
+    <if test="username != null and username != ''">
+      AND LOWER(u.username) LIKE CONCAT('%', LOWER(#{username}), '%')
+    </if>
+    <if test="displayName != null and displayName != ''">
+      AND LOWER(u.display_name) LIKE CONCAT('%', LOWER(#{displayName}), '%')
+    </if>
+    <if test="status != null and status != ''">
+      AND u.status = #{status}
+    </if>
+    <if test="roleCode != null and roleCode != ''">
+      AND EXISTS (SELECT 1 FROM admin_user_role filter_ur
+      JOIN admin_role filter_r ON filter_r.id = filter_ur.role_id
+      WHERE filter_ur.user_id = u.id AND filter_r.role_code = #{roleCode})
+    </if>
+  </sql>
   <select id="countUsers" resultType="long">
     SELECT COUNT(*)
-    FROM admin_user
+    FROM admin_user u
+    WHERE 1=1
+    <include refid="filters" />
   </select>
   <select id="selectUsers" resultType="com.example.payments.platform.service.model.UserRow">
     SELECT u.id, u.username, u.display_name, u.status, GROUP_CONCAT(r.role_code
@@ -13,8 +31,12 @@
     JOIN admin_user_role ur ON ur.user_id = u.id
     LEFT
     JOIN admin_role r ON r.id = ur.role_id
+    WHERE 1=1
+    <include refid="filters" />
     GROUP BY u.id, u.username, u.display_name, u.status
     ORDER BY u.created_at DESC
+    LIMIT #{limit}
+    OFFSET #{offset}
   </select>
   <select id="selectById" resultType="com.example.payments.platform.service.model.UserRow">
     SELECT u.id, u.username, u.display_name, u.status, GROUP_CONCAT(r.role_code

@@ -6,9 +6,13 @@ import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface AdminRoleMapper {
-  long count();
+  long count(@Param("roleName") String roleName, @Param("roleCode") String roleCode);
 
-  List<RoleRow> page(@Param("limit") int limit, @Param("offset") int offset);
+  List<RoleRow> page(
+      @Param("roleName") String roleName,
+      @Param("roleCode") String roleCode,
+      @Param("limit") int limit,
+      @Param("offset") int offset);
 
   Long id(@Param("code") String code);
 

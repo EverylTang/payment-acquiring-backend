@@ -18,16 +18,27 @@ public class AdminMenuService {
   private final MybatisPlusClient mybatisClient;
   private final OperationAuditService auditService;
 
-  public AdminPageResponse<MenuResponse> list(int page, int pageSize) {
+  public AdminPageResponse<MenuResponse> list(int page, int pageSize, MenuFilter filter) {
     int currentPage = Math.max(page, 1);
     int size = Math.min(Math.max(pageSize, 1), 100);
-    long total = mybatisClient.sql("SELECT COUNT(*) FROM admin_menu").query(Long.class).single();
+    String conditions = " WHERE (:menuName IS NULL OR LOWER(menu_name) LIKE CONCAT('%', LOWER(:menuName), '%'))"
+        + " AND (:menuCode IS NULL OR LOWER(menu_code) LIKE CONCAT('%', LOWER(:menuCode), '%'))"
+        + " AND (:menuType IS NULL OR menu_type = :menuType)"
+        + " AND (:status IS NULL OR status = :status)";
+    long total = mybatisClient.sql("SELECT COUNT(*) FROM admin_menu" + conditions)
+        .param("menuName", filter.menuName()).param("menuCode", filter.menuCode())
+        .param("menuType", filter.menuType()).param("status", filter.status())
+        .query(Long.class).single();
     var items =
         mybatisClient
             .sql(
                 "SELECT id, parent_id, menu_code, menu_name, menu_type, route_path, component_key,"
-                    + " icon, sort_order, visible, status FROM admin_menu ORDER BY parent_id,"
+                    + " icon, sort_order, visible, status FROM admin_menu" + conditions + " ORDER BY parent_id,"
                     + " sort_order, id LIMIT :limit OFFSET :offset")
+            .param("menuName", filter.menuName())
+            .param("menuCode", filter.menuCode())
+            .param("menuType", filter.menuType())
+            .param("status", filter.status())
             .param("limit", size)
             .param("offset", (currentPage - 1) * size)
             .query(MenuResponse.class)
@@ -343,6 +354,19 @@ public class AdminMenuService {
       int sortOrder,
       boolean visible,
       String status) {}
+
+  public record MenuFilter(String menuName, String menuCode, String menuType, String status) {
+    public MenuFilter {
+      menuName = normalize(menuName);
+      menuCode = normalize(menuCode);
+      menuType = normalize(menuType);
+      status = normalize(status);
+    }
+
+    private static String normalize(String value) {
+      return value == null || value.isBlank() ? null : value.trim();
+    }
+  }
 
   public record PermissionResponse(
       String permissionCode, String permissionName, String resourceType, String status) {}

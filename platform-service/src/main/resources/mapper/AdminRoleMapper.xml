@@ -1,13 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.payments.platform.service.mapper.AdminRoleMapper">
+  <sql id="filters">
+    <if test="roleName != null and roleName != ''">
+      AND LOWER(role_name) LIKE CONCAT('%', LOWER(#{roleName}), '%')
+    </if>
+    <if test="roleCode != null and roleCode != ''">
+      AND LOWER(role_code) LIKE CONCAT('%', LOWER(#{roleCode}), '%')
+    </if>
+  </sql>
   <select id="count" resultType="long">
     SELECT COUNT(*)
     FROM admin_role
+    WHERE 1=1
+    <include refid="filters" />
   </select>
   <select id="page" resultType="com.example.payments.platform.service.mapper.AdminRoleMapper$RoleRow">
     SELECT id,role_code,role_name
     FROM admin_role
+    WHERE 1=1
+    <include refid="filters" />
     ORDER BY role_code
     LIMIT #{limit}
     OFFSET #{offset}

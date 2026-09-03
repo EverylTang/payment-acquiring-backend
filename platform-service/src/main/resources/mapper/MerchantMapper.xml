@@ -17,17 +17,36 @@
     JOIN admin_user u ON u.id = ums.user_id
     WHERE u.username = #{username}))
   </sql>
+  <sql id="filters">
+    <if test="merchantName != null and merchantName != ''">
+      AND LOWER(m.name) LIKE CONCAT('%', LOWER(#{merchantName}), '%')
+    </if>
+    <if test="merchantId != null and merchantId != ''">
+      AND LOWER(m.merchant_id) LIKE CONCAT('%', LOWER(#{merchantId}), '%')
+    </if>
+    <if test="status != null and status != ''">
+      AND m.status = #{status}
+    </if>
+    <if test="createdFrom != null">
+      AND m.created_at >= #{createdFrom}
+    </if>
+    <if test="createdTo != null">
+      AND m.created_at &lt; DATE_ADD(#{createdTo}, INTERVAL 1 DAY)
+    </if>
+  </sql>
   <select id="countVisible" resultType="long">
     SELECT COUNT(*)
     FROM merchant m
     WHERE
     <include refid="scope" />
+    <include refid="filters" />
   </select>
   <select id="selectVisible" resultMap="MerchantMap">
     SELECT merchant_id,name,status,created_at,updated_at
     FROM merchant m
     WHERE
     <include refid="scope" />
+    <include refid="filters" />
     ORDER BY created_at DESC
     LIMIT #{limit}
     OFFSET #{offset}

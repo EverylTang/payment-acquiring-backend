@@ -8,9 +8,19 @@ import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface AdminUserMapper {
-  long countUsers();
+  long countUsers(
+      @Param("username") String username,
+      @Param("displayName") String displayName,
+      @Param("status") String status,
+      @Param("roleCode") String roleCode);
 
-  List<UserRow> selectUsers();
+  List<UserRow> selectUsers(
+      @Param("username") String username,
+      @Param("displayName") String displayName,
+      @Param("status") String status,
+      @Param("roleCode") String roleCode,
+      @Param("limit") int limit,
+      @Param("offset") int offset);
 
   UserRow selectById(@Param("id") long id);
 

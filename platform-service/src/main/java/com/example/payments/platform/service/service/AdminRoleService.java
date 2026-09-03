@@ -14,15 +14,15 @@ public class AdminRoleService {
   private final AdminRoleMapper mapper;
   private final OperationAuditService audit;
 
-  public Page list(int page, int size) {
+  public Page list(int page, int size, RoleFilter filter) {
     int p = Math.max(page, 1), s = Math.min(Math.max(size, 1), 100);
     return new Page(
-        mapper.page(s, (p - 1) * s).stream()
+        mapper.page(filter.roleName(), filter.roleCode(), s, (p - 1) * s).stream()
             .map(r -> new RoleModel(r.id(), r.roleCode(), r.roleName()))
             .toList(),
         p,
         s,
-        mapper.count());
+        mapper.count(filter.roleName(), filter.roleCode()));
   }
 
   public Permissions permissions(String code) {
@@ -98,6 +98,17 @@ public class AdminRoleService {
   }
 
   public record Page(List<RoleModel> items, int page, int pageSize, long total) {}
+
+  public record RoleFilter(String roleName, String roleCode) {
+    public RoleFilter {
+      roleName = normalize(roleName);
+      roleCode = normalize(roleCode);
+    }
+
+    private static String normalize(String value) {
+      return value == null || value.isBlank() ? null : value.trim();
+    }
+  }
 
   public record Permissions(List<String> menuCodes, List<String> permissionCodes) {}
 }

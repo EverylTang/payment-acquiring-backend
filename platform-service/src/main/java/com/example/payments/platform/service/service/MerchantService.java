@@ -3,6 +3,7 @@ package com.example.payments.platform.service.service;
 import com.example.payments.platform.service.mapper.MerchantMapper;
 import com.example.payments.platform.service.model.MerchantModel;
 import java.time.Instant;
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -14,15 +15,19 @@ public class MerchantService {
   private final MerchantMapper mapper;
   private final AdminMerchantAccessService access;
 
-  public Page list(int page, int pageSize, Authentication auth) {
+  public Page list(int page, int pageSize, MerchantFilter filter, Authentication auth) {
     int safePage = Math.max(page, 1), safeSize = Math.min(Math.max(pageSize, 1), 100);
     String username = auth.getName();
     boolean all = access.hasAllScope(username);
     return new Page(
-        mapper.selectVisible(username, all, safeSize, (safePage - 1) * safeSize),
+        mapper.selectVisible(
+            username, all, filter.merchantName(), filter.merchantId(), filter.status(),
+            filter.createdFrom(), filter.createdTo(), safeSize, (safePage - 1) * safeSize),
         safePage,
         safeSize,
-        mapper.countVisible(username, all));
+        mapper.countVisible(
+            username, all, filter.merchantName(), filter.merchantId(), filter.status(),
+            filter.createdFrom(), filter.createdTo()));
   }
 
   public MerchantModel detail(String id, Authentication auth) {
@@ -62,4 +67,17 @@ public class MerchantService {
   }
 
   public record Page(java.util.List<MerchantModel> items, int page, int pageSize, long total) {}
+
+  public record MerchantFilter(
+      String merchantName, String merchantId, String status, LocalDate createdFrom, LocalDate createdTo) {
+    public MerchantFilter {
+      merchantName = normalize(merchantName);
+      merchantId = normalize(merchantId);
+      status = normalize(status);
+    }
+
+    private static String normalize(String value) {
+      return value == null || value.isBlank() ? null : value.trim();
+    }
+  }
 }

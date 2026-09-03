@@ -18,17 +18,17 @@ public class AdminUserService {
   private final PasswordEncoder encoder;
   private final OperationAuditService audit;
 
-  public Page list(int page, int size) {
+  public Page list(int page, int size, UserFilter filter) {
     int p = Math.max(page, 1), s = Math.min(Math.max(size, 1), 100);
     return new Page(
-        mapper.selectUsers().stream()
-            .map(this::normalize)
-            .skip((long) (p - 1) * s)
-            .limit(s)
-            .toList(),
+        mapper.selectUsers(
+                filter.username(), filter.displayName(), filter.status(), filter.roleCode(),
+                s, (p - 1) * s)
+            .stream().map(this::normalize).toList(),
         p,
         s,
-        mapper.countUsers());
+        mapper.countUsers(
+            filter.username(), filter.displayName(), filter.status(), filter.roleCode()));
   }
 
   public UserModel detail(long id) {
@@ -120,4 +120,17 @@ public class AdminUserService {
   }
 
   public record Page(List<UserModel> items, int page, int pageSize, long total) {}
+
+  public record UserFilter(String username, String displayName, String status, String roleCode) {
+    public UserFilter {
+      username = normalize(username);
+      displayName = normalize(displayName);
+      status = normalize(status);
+      roleCode = normalize(roleCode);
+    }
+
+    private static String normalize(String value) {
+      return value == null || value.isBlank() ? null : value.trim();
+    }
+  }
 }

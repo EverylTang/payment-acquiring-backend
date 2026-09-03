@@ -17,8 +17,13 @@ public class AdminMenuController {
   @PreAuthorize("hasAuthority('system:menu:list')")
   public AdminPageResponse<AdminMenuService.MenuResponse> list(
       @RequestParam(name = "page", defaultValue = "1") int page,
-      @RequestParam(name = "pageSize", defaultValue = "100") int pageSize) {
-    return service.list(page, pageSize);
+      @RequestParam(name = "pageSize", defaultValue = "100") int pageSize,
+      @RequestParam(required = false) String menuName,
+      @RequestParam(required = false) String menuCode,
+      @RequestParam(required = false) @jakarta.validation.constraints.Pattern(regexp = "DIRECTORY|PAGE") String menuType,
+      @RequestParam(required = false) @jakarta.validation.constraints.Pattern(regexp = "ACTIVE|DISABLED") String status) {
+    return service.list(
+        page, pageSize, new AdminMenuService.MenuFilter(menuName, menuCode, menuType, status));
   }
 
   @PostMapping

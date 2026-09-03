@@ -9,7 +9,7 @@
       <arg column="channel_payment_method" javaType="java.lang.String" />
       <arg column="min_amount" javaType="java.math.BigDecimal" />
       <arg column="max_amount" javaType="java.math.BigDecimal" />
-      <arg column="supports_refund" javaType="boolean" />
+      <arg column="supports_refund" javaType="java.lang.Boolean" />
       <arg column="status" javaType="java.lang.String" />
     </constructor>
   </resultMap>
@@ -26,7 +26,7 @@
     <include refid="columns" />
     FROM product_capability
     WHERE product_code=#{productCode}
-    ORDER BY id
+    ORDER BY capability_id
     LIMIT #{limit}
     OFFSET #{offset}
   </select>

@@ -22,8 +22,13 @@ public class AdminUserController {
   @PreAuthorize("hasAuthority('system:user:list')")
   public AdminPageResponse<UserResponse> list(
       @RequestParam(name = "page", defaultValue = "1") int page,
-      @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
-    var r = service.list(page, pageSize);
+      @RequestParam(name = "pageSize", defaultValue = "20") int pageSize,
+      @RequestParam(required = false) String username,
+      @RequestParam(required = false) String displayName,
+      @RequestParam(required = false) @Pattern(regexp = "ACTIVE|DISABLED") String status,
+      @RequestParam(required = false) String roleCode) {
+    var r = service.list(
+        page, pageSize, new AdminUserService.UserFilter(username, displayName, status, roleCode));
     return new AdminPageResponse<>(
         r.items().stream().map(AdminUserController::response).toList(),
         r.page(),

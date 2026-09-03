@@ -6,7 +6,9 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import java.time.Instant;
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,8 +32,16 @@ public class AdminMerchantController {
   public AdminPageResponse<MerchantResponse> list(
       @RequestParam(defaultValue = "1") int page,
       @RequestParam(defaultValue = "20") int pageSize,
+      @RequestParam(required = false) String merchantName,
+      @RequestParam(required = false) String merchantId,
+      @RequestParam(required = false) @Pattern(regexp = "ACTIVE|DISABLED") String status,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdFrom,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdTo,
       Authentication authentication) {
-    var result = merchantService.list(page, pageSize, authentication);
+    var result = merchantService.list(
+        page, pageSize,
+        new MerchantService.MerchantFilter(merchantName, merchantId, status, createdFrom, createdTo),
+        authentication);
     return new AdminPageResponse<>(
         result.items().stream().map(AdminMerchantController::response).toList(),
         result.page(),
