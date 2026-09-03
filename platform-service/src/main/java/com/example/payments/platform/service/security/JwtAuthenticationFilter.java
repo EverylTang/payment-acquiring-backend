@@ -29,12 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     if (authorization != null && authorization.startsWith("Bearer ")) {
       try {
         var claims = jwtService.parse(authorization.substring(7));
-        List<SimpleGrantedAuthority> roles =
-            ((List<?>) claims.get("roles", List.class))
-                .stream()
-                    .map(String::valueOf)
-                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
-                    .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+        List<SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
         mybatisClient
             .sql(
                 "SELECT DISTINCT p.permission_code FROM admin_permission p JOIN"
@@ -47,10 +42,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             .list()
             .stream()
             .map(SimpleGrantedAuthority::new)
-            .forEach(roles::add);
+            .forEach(authorities::add);
         SecurityContextHolder.getContext()
             .setAuthentication(
-                new UsernamePasswordAuthenticationToken(claims.getSubject(), null, roles));
+                new UsernamePasswordAuthenticationToken(claims.getSubject(), null, authorities));
       } catch (RuntimeException ignored) {
         SecurityContextHolder.clearContext();
       }

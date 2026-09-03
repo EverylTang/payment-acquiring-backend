@@ -8,12 +8,12 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/admin/v1/permission-catalog")
-@PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
 public class AdminPermissionCatalogController {
   private final AdminPermissionCatalogService service;
 
   @GetMapping
+  @PreAuthorize("hasAuthority('system:permission:list')")
   public PermissionCatalog catalog() {
     var c = service.catalog();
     return new PermissionCatalog(

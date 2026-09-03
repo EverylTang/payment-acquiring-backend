@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,6 +38,7 @@ public class AdminAuthController {
   }
 
   @GetMapping("/me")
+  @PreAuthorize("hasAuthority('auth:me')")
   public CurrentUser me(Authentication authentication) {
     try {
       var user = authService.current(authentication.getName());
@@ -47,6 +49,7 @@ public class AdminAuthController {
   }
 
   @PostMapping("/change-password")
+  @PreAuthorize("hasAuthority('auth:password:change')")
   public void changePassword(
       @Valid @RequestBody ChangePasswordRequest request, Authentication authentication) {
     try {

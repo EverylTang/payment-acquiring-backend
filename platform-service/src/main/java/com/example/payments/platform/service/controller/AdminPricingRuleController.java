@@ -14,25 +14,27 @@ public class AdminPricingRuleController {
   private final PricingRuleAdminService service;
 
   @GetMapping
+  @PreAuthorize("hasAuthority('pricing-rule:list')")
   public AdminPageResponse<PricingRuleAdminService.PricingRuleResponse> list(
       @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
     return service.list(page, pageSize);
   }
 
   @GetMapping("/{ruleId}")
+  @PreAuthorize("hasAuthority('pricing-rule:detail')")
   public PricingRuleAdminService.PricingRuleResponse detail(@PathVariable String ruleId) {
     return service.detail(ruleId);
   }
 
   @PostMapping
-  @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE')")
+  @PreAuthorize("hasAuthority('pricing-rule:create')")
   public PricingRuleAdminService.PricingRuleResponse create(
       @Valid @RequestBody PricingRuleAdminService.PricingRuleRequest request, Authentication auth) {
     return service.create(request, auth);
   }
 
   @PutMapping("/{ruleId}")
-  @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE')")
+  @PreAuthorize("hasAuthority('pricing-rule:update')")
   public PricingRuleAdminService.PricingRuleResponse update(
       @PathVariable String ruleId,
       @Valid @RequestBody PricingRuleAdminService.PricingRuleRequest request,
@@ -41,7 +43,7 @@ public class AdminPricingRuleController {
   }
 
   @PutMapping("/{ruleId}/status")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAuthority('pricing-rule:status')")
   public void updateStatus(
       @PathVariable String ruleId,
       @Valid @RequestBody PricingRuleAdminService.StatusRequest request,
@@ -50,7 +52,7 @@ public class AdminPricingRuleController {
   }
 
   @DeleteMapping("/{ruleId}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAuthority('pricing-rule:delete')")
   public void delete(@PathVariable String ruleId, Authentication auth) {
     service.delete(ruleId, auth);
   }

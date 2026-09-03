@@ -24,8 +24,8 @@ public class AdminPaymentEventController {
       @RequestParam(defaultValue = "50") int limit,
       @RequestHeader("X-Gateway-Token") String token,
       @RequestHeader("X-User-Id") String operator,
-      @RequestHeader("X-Roles") String roles) {
-    authorizer.authorize(token, operator, roles);
+      @RequestHeader("X-Permissions") String permissions) {
+    authorizer.authorize(token, operator, permissions, "payment-event:list");
     return Map.of("items", service.findFailed(limit));
   }
 
@@ -34,8 +34,8 @@ public class AdminPaymentEventController {
       @PathVariable long id,
       @RequestHeader("X-Gateway-Token") String token,
       @RequestHeader("X-User-Id") String operator,
-      @RequestHeader("X-Roles") String roles) {
-    authorizer.authorize(token, operator, roles);
+      @RequestHeader("X-Permissions") String permissions) {
+    authorizer.authorize(token, operator, permissions, "payment-event:detail");
     return service.find(id);
   }
 
@@ -45,9 +45,9 @@ public class AdminPaymentEventController {
       @RequestBody ReplayRequest request,
       @RequestHeader("X-Gateway-Token") String token,
       @RequestHeader("X-User-Id") String operator,
-      @RequestHeader("X-Roles") String roles,
+      @RequestHeader("X-Permissions") String permissions,
       @RequestHeader(value = "X-Request-Id", required = false) String requestId) {
-    authorizer.authorize(token, operator, roles);
+    authorizer.authorize(token, operator, permissions, "payment-event:replay");
     return service.replay(id, operator, request.reason(), requestId);
   }
 

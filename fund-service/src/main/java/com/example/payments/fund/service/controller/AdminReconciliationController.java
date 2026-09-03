@@ -19,7 +19,7 @@ public class AdminReconciliationController {
       @RequestBody BillRequest r,
       @RequestHeader("X-Gateway-Token") String t,
       @RequestHeader("X-User-Id") String u,
-      @RequestHeader("X-Roles") String roles) {
+      @RequestHeader("X-Permissions") String permissions) {
     var lines =
         r.lines() == null
             ? null
@@ -35,7 +35,7 @@ public class AdminReconciliationController {
                             x.amount(),
                             x.currency()))
                 .toList();
-    auth.authorize(t, u, roles);
+    auth.authorize(t, u, permissions, "reconciliation:bill:import");
     return service.importBill(
         new ReconciliationService.BillRequest(
             r.billId(),
@@ -51,8 +51,8 @@ public class AdminReconciliationController {
   public Map<String, Object> differences(
       @RequestHeader("X-Gateway-Token") String t,
       @RequestHeader("X-User-Id") String u,
-      @RequestHeader("X-Roles") String roles) {
-    auth.authorize(t, u, roles);
+      @RequestHeader("X-Permissions") String permissions) {
+    auth.authorize(t, u, permissions, "reconciliation:difference:list");
     return service.differences();
   }
 
@@ -61,8 +61,8 @@ public class AdminReconciliationController {
       @PathVariable String billId,
       @RequestHeader("X-Gateway-Token") String t,
       @RequestHeader("X-User-Id") String u,
-      @RequestHeader("X-Roles") String roles) {
-    auth.authorize(t, u, roles);
+      @RequestHeader("X-Permissions") String permissions) {
+    auth.authorize(t, u, permissions, "reconciliation:bill:reconcile");
     return service.reconcile(billId);
   }
 
@@ -72,8 +72,8 @@ public class AdminReconciliationController {
       @RequestBody ResolveRequest r,
       @RequestHeader("X-Gateway-Token") String t,
       @RequestHeader("X-User-Id") String u,
-      @RequestHeader("X-Roles") String roles) {
-    auth.authorize(t, u, roles);
+      @RequestHeader("X-Permissions") String permissions) {
+    auth.authorize(t, u, permissions, "reconciliation:difference:resolve");
     return service.resolve(differenceId, new ReconciliationService.ResolveRequest(r.reason()), u);
   }
 

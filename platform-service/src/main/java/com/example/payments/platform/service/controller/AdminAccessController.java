@@ -3,6 +3,7 @@ package com.example.payments.platform.service.controller;
 import com.example.payments.platform.service.service.AdminAccessService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,6 +16,7 @@ public class AdminAccessController {
   private final AdminAccessService accessService;
 
   @GetMapping
+  @PreAuthorize("hasAuthority('system:access:list')")
   public AccessResponse current(Authentication authentication) {
     var value = accessService.current(authentication.getName());
     return new AccessResponse(

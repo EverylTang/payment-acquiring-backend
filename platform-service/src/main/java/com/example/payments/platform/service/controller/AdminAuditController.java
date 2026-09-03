@@ -12,12 +12,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/admin/v1/audits")
-@PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY')")
 @RequiredArgsConstructor
 public class AdminAuditController {
   private final OperationAuditQueryService auditService;
 
   @GetMapping
+  @PreAuthorize("hasAuthority('audit:list')")
   public AdminPageResponse<AuditResponse> list(
       @RequestParam(required = false) String resourceType,
       @RequestParam(required = false) String operatorId,

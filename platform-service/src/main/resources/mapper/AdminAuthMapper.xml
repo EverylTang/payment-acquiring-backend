@@ -20,6 +20,15 @@
     WHERE ur.user_id = #{userId}
     ORDER BY r.role_code
   </select>
+  <select id="findPermissions" resultType="string">
+    SELECT DISTINCT p.permission_code
+    FROM admin_permission p
+    JOIN admin_role_permission rp ON rp.permission_id = p.id
+    JOIN admin_user_role ur ON ur.role_id = rp.role_id
+    WHERE ur.user_id = #{userId}
+    AND p.status = 'ACTIVE'
+    ORDER BY p.permission_code
+  </select>
   <update id="updatePassword">
     UPDATE admin_user
     SET password_hash = #{passwordHash}, updated_at = #{now}

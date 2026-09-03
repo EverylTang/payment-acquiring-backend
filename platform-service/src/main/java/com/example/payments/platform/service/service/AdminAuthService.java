@@ -21,7 +21,7 @@ public class AdminAuthService {
       throw new UnauthorizedException();
     var roles = mapper.findRoles(user.id());
     return new AuthResult(
-        jwtService.create(user.username(), roles),
+        jwtService.create(user.username(), mapper.findPermissions(user.id())),
         jwtService.expirationSeconds(),
         new CurrentUser(user.username(), user.displayName(), roles));
   }

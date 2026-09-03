@@ -14,20 +14,21 @@ public class ConfigReleaseController {
   private final ConfigReleaseService service;
 
   @GetMapping
+  @PreAuthorize("hasAuthority('config-release:list')")
   public AdminPageResponse<ConfigReleaseService.ReleaseResponse> list(
       @RequestParam(defaultValue = "1") int p, @RequestParam(defaultValue = "20") int s) {
     return service.list(p, s);
   }
 
   @PostMapping
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
+  @PreAuthorize("hasAuthority('config-release:create')")
   public ConfigReleaseService.ReleaseResponse create(
       @Valid @RequestBody ConfigReleaseService.CreateReleaseRequest r, Authentication a) {
     return service.create(r, a);
   }
 
   @PostMapping("/{id}/submit")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
+  @PreAuthorize("hasAuthority('config-release:submit')")
   public ConfigReleaseService.ReleaseResponse submit(
       @PathVariable("id") String id,
       @Valid @RequestBody ConfigReleaseService.ReasonRequest r,
@@ -36,7 +37,7 @@ public class ConfigReleaseController {
   }
 
   @PostMapping("/{id}/approve")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAuthority('config-release:approve')")
   public ConfigReleaseService.ReleaseResponse approve(
       @PathVariable("id") String id,
       @RequestBody ConfigReleaseService.ReasonRequest r,
@@ -45,7 +46,7 @@ public class ConfigReleaseController {
   }
 
   @PostMapping("/{id}/publish")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAuthority('config-release:publish')")
   public ConfigReleaseService.ReleaseResponse publish(
       @PathVariable("id") String id,
       @RequestBody ConfigReleaseService.ReasonRequest r,
@@ -54,12 +55,13 @@ public class ConfigReleaseController {
   }
 
   @GetMapping("/{id}/diff")
+  @PreAuthorize("hasAuthority('config-release:diff')")
   public java.util.Map<String, Object> diff(@PathVariable("id") String id) {
     return service.diff(id);
   }
 
   @PostMapping("/{id}/rollback")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAuthority('config-release:rollback')")
   public ConfigReleaseService.ReleaseResponse rollback(
       @PathVariable("id") String id,
       @Valid @RequestBody ConfigReleaseService.ReasonRequest r,

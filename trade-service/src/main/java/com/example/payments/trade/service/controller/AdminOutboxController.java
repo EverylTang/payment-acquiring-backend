@@ -24,8 +24,8 @@ public class AdminOutboxController {
       @RequestParam(defaultValue = "50") int limit,
       @RequestHeader("X-Gateway-Token") String gatewayToken,
       @RequestHeader("X-User-Id") String operator,
-      @RequestHeader("X-Roles") String roles) {
-    authorizer.authorize(gatewayToken, operator, roles);
+      @RequestHeader("X-Permissions") String permissions) {
+    authorizer.authorize(gatewayToken, operator, permissions, "outbox:list");
     return Map.of("items", service.findDead(limit));
   }
 
@@ -34,8 +34,8 @@ public class AdminOutboxController {
       @PathVariable String eventId,
       @RequestHeader("X-Gateway-Token") String gatewayToken,
       @RequestHeader("X-User-Id") String operator,
-      @RequestHeader("X-Roles") String roles) {
-    authorizer.authorize(gatewayToken, operator, roles);
+      @RequestHeader("X-Permissions") String permissions) {
+    authorizer.authorize(gatewayToken, operator, permissions, "outbox:detail");
     return service.find(eventId);
   }
 
@@ -45,9 +45,9 @@ public class AdminOutboxController {
       @RequestBody RedriveRequest request,
       @RequestHeader("X-Gateway-Token") String gatewayToken,
       @RequestHeader("X-User-Id") String operator,
-      @RequestHeader("X-Roles") String roles,
+      @RequestHeader("X-Permissions") String permissions,
       @RequestHeader(value = "X-Request-Id", required = false) String requestId) {
-    authorizer.authorize(gatewayToken, operator, roles);
+    authorizer.authorize(gatewayToken, operator, permissions, "outbox:redrive");
     return service.redrive(eventId, operator, request.reason(), requestId);
   }
 

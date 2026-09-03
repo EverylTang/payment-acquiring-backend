@@ -1,6 +1,8 @@
 package com.example.payments.fund.service.controller;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Base64;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -14,7 +16,8 @@ public class AdminRequestAuthorizer {
     this.gatewayToken = gatewayToken;
   }
 
-  public void authorize(String presentedToken, String userId, String roles) {
+  public void authorize(
+      String presentedToken, String userId, String permissions, String requiredPermission) {
     if (gatewayToken.isBlank() || !gatewayToken.equals(presentedToken)) {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "invalid gateway credential");
     }
@@ -23,11 +26,17 @@ public class AdminRequestAuthorizer {
           HttpStatus.UNAUTHORIZED, "administrator identity is required");
     }
     boolean allowed =
-        roles != null
-            && Arrays.stream(roles.split(","))
+        permissions != null
+            && Arrays.stream(permissions.split(","))
                 .map(String::trim)
-                .anyMatch(role -> role.equals("ADMIN") || role.equals("OPS"));
+                .anyMatch(encodePermission(requiredPermission)::equals);
     if (!allowed)
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "administrator role is required");
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "operation permission is required");
+  }
+
+  private String encodePermission(String permission) {
+    return Base64.getUrlEncoder()
+        .withoutPadding()
+        .encodeToString(permission.getBytes(StandardCharsets.UTF_8));
   }
 }

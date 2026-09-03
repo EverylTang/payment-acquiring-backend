@@ -22,11 +22,11 @@ public class JwtService {
     this.expirationSeconds = expirationSeconds;
   }
 
-  public String create(String username, List<String> roles) {
+  public String create(String username, List<String> permissions) {
     var now = Instant.now();
     return Jwts.builder()
         .subject(username)
-        .claim("roles", roles)
+        .claim("permissions", permissions)
         .issuedAt(Date.from(now))
         .expiration(Date.from(now.plusSeconds(expirationSeconds)))
         .signWith(key)

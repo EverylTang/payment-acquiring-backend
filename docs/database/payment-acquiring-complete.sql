@@ -454,6 +454,72 @@ SELECT r.id, p.id FROM admin_role r CROSS JOIN admin_permission p
 WHERE r.role_code IN ('ADMIN', 'OPS')
   AND (p.permission_code LIKE 'product-capability:%' OR p.permission_code LIKE 'merchant-product:%');
 
+-- SOURCE: consolidated platform-service V10
+-- Operation-level API permissions. Roles assign these permissions; they do not authorize APIs directly.
+INSERT IGNORE INTO admin_permission (permission_code, permission_name, resource_type, status, created_at, updated_at)
+SELECT permission_code, permission_name, resource_type, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
+FROM (
+  SELECT 'auth:me' permission_code, '查看当前用户' permission_name, 'AUTH' resource_type UNION ALL
+  SELECT 'auth:password:change', '修改本人密码', 'AUTH' UNION ALL
+  SELECT 'system:access:list', '查看当前访问权限', 'SYSTEM' UNION ALL
+  SELECT 'system:user:detail', '查看用户详情', 'USER' UNION ALL
+  SELECT 'system:user:password:reset', '重置用户密码', 'USER' UNION ALL
+  SELECT 'system:user:role:update', '配置用户角色', 'USER' UNION ALL
+  SELECT 'system:role:create', '创建角色', 'ROLE' UNION ALL
+  SELECT 'system:role:permission:list', '查看角色操作权限', 'ROLE' UNION ALL
+  SELECT 'system:role:permission:update', '配置角色操作权限', 'ROLE' UNION ALL
+  SELECT 'system:menu:list', '查看菜单', 'MENU' UNION ALL
+  SELECT 'system:menu:create', '创建菜单', 'MENU' UNION ALL
+  SELECT 'system:menu:update', '编辑菜单', 'MENU' UNION ALL
+  SELECT 'system:menu:status', '变更菜单状态', 'MENU' UNION ALL
+  SELECT 'system:menu:delete', '删除菜单', 'MENU' UNION ALL
+  SELECT 'system:menu:resource-type:list', '查看菜单资源类型', 'MENU' UNION ALL
+  SELECT 'system:menu:resource-type:create', '创建资源类型', 'MENU' UNION ALL
+  SELECT 'system:menu:permission:list', '查看菜单操作权限', 'MENU' UNION ALL
+  SELECT 'system:menu:permission:create', '创建菜单操作权限', 'MENU' UNION ALL
+  SELECT 'system:menu:permission:update', '编辑菜单操作权限', 'MENU' UNION ALL
+  SELECT 'system:menu:permission:delete', '删除菜单操作权限', 'MENU' UNION ALL
+  SELECT 'system:permission:list', '查看权限目录', 'SYSTEM' UNION ALL
+  SELECT 'system:data-scope:role:list', '查看角色数据范围', 'DATA_SCOPE' UNION ALL
+  SELECT 'system:data-scope:role:update', '配置角色数据范围', 'DATA_SCOPE' UNION ALL
+  SELECT 'system:data-scope:user:list', '查看用户数据范围', 'DATA_SCOPE' UNION ALL
+  SELECT 'system:data-scope:user:update', '配置用户数据范围', 'DATA_SCOPE' UNION ALL
+  SELECT 'dashboard:overview', '查看运营总览', 'DASHBOARD' UNION ALL
+  SELECT 'channel:list', '查看渠道', 'CHANNEL' UNION ALL SELECT 'channel:create', '创建渠道', 'CHANNEL' UNION ALL
+  SELECT 'channel:status', '变更渠道状态', 'CHANNEL' UNION ALL SELECT 'channel:health:list', '查看渠道健康状态', 'CHANNEL' UNION ALL
+  SELECT 'routing-rule:list', '查看路由规则', 'ROUTING_RULE' UNION ALL SELECT 'routing-rule:detail', '查看路由规则详情', 'ROUTING_RULE' UNION ALL
+  SELECT 'routing-rule:create', '创建路由规则', 'ROUTING_RULE' UNION ALL SELECT 'routing-rule:update', '编辑路由规则', 'ROUTING_RULE' UNION ALL
+  SELECT 'routing-rule:status', '变更路由规则状态', 'ROUTING_RULE' UNION ALL SELECT 'routing-rule:delete', '删除路由规则', 'ROUTING_RULE' UNION ALL
+  SELECT 'pricing-rule:list', '查看费率规则', 'PRICING_RULE' UNION ALL SELECT 'pricing-rule:detail', '查看费率规则详情', 'PRICING_RULE' UNION ALL
+  SELECT 'pricing-rule:create', '创建费率规则', 'PRICING_RULE' UNION ALL SELECT 'pricing-rule:update', '编辑费率规则', 'PRICING_RULE' UNION ALL
+  SELECT 'pricing-rule:status', '变更费率规则状态', 'PRICING_RULE' UNION ALL SELECT 'pricing-rule:delete', '删除费率规则', 'PRICING_RULE' UNION ALL
+  SELECT 'risk-policy:list', '查看风控策略', 'RISK_POLICY' UNION ALL SELECT 'risk-policy:create', '创建风控策略', 'RISK_POLICY' UNION ALL
+  SELECT 'risk-policy:status', '变更风控策略状态', 'RISK_POLICY' UNION ALL
+  SELECT 'configuration:snapshot:list', '查看配置快照', 'CONFIGURATION' UNION ALL
+  SELECT 'config-release:list', '查看配置发布单', 'CONFIG_RELEASE' UNION ALL SELECT 'config-release:create', '创建配置发布单', 'CONFIG_RELEASE' UNION ALL
+  SELECT 'config-release:submit', '提交配置发布单', 'CONFIG_RELEASE' UNION ALL SELECT 'config-release:approve', '审批配置发布单', 'CONFIG_RELEASE' UNION ALL
+  SELECT 'config-release:publish', '发布配置', 'CONFIG_RELEASE' UNION ALL SELECT 'config-release:diff', '查看配置差异', 'CONFIG_RELEASE' UNION ALL
+  SELECT 'config-release:rollback', '回滚配置', 'CONFIG_RELEASE' UNION ALL SELECT 'audit:list', '查看操作审计', 'AUDIT' UNION ALL
+  SELECT 'merchant:profile:update', '编辑商户资料', 'MERCHANT' UNION ALL SELECT 'merchant:contact:list', '查看商户联系人', 'MERCHANT' UNION ALL
+  SELECT 'merchant:callback:list', '查看商户回调配置', 'MERCHANT' UNION ALL SELECT 'merchant:credential:list', '查看商户凭证', 'MERCHANT' UNION ALL
+  SELECT 'order:list', '查看订单', 'ORDER' UNION ALL SELECT 'order:statistics', '查看订单统计', 'ORDER' UNION ALL
+  SELECT 'outbox:list', '查看失败事件', 'OUTBOX' UNION ALL SELECT 'outbox:detail', '查看事件详情', 'OUTBOX' UNION ALL SELECT 'outbox:redrive', '重放失败事件', 'OUTBOX' UNION ALL
+  SELECT 'payment-event:list', '查看失败支付事件', 'PAYMENT_EVENT' UNION ALL SELECT 'payment-event:detail', '查看支付事件详情', 'PAYMENT_EVENT' UNION ALL SELECT 'payment-event:replay', '重放支付事件', 'PAYMENT_EVENT' UNION ALL
+  SELECT 'reconciliation:bill:import', '导入对账单', 'RECONCILIATION' UNION ALL SELECT 'reconciliation:difference:list', '查看对账差异', 'RECONCILIATION' UNION ALL
+  SELECT 'reconciliation:bill:reconcile', '执行对账', 'RECONCILIATION' UNION ALL SELECT 'reconciliation:difference:resolve', '处理对账差异', 'RECONCILIATION'
+) AS permissions;
+
+INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM admin_role r CROSS JOIN admin_permission p WHERE r.role_code = 'ADMIN';
+INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('auth:me', 'auth:password:change', 'system:access:list', 'dashboard:overview', 'channel:list', 'channel:health:list', 'routing-rule:list', 'routing-rule:detail', 'pricing-rule:list', 'pricing-rule:detail', 'risk-policy:list', 'configuration:snapshot:list', 'config-release:list', 'config-release:diff', 'audit:list', 'merchant:profile', 'merchant:contact:list', 'merchant:callback:list', 'order:list', 'order:statistics') WHERE r.role_code IN ('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY');
+INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('merchant:profile:update', 'merchant:credential:list', 'channel:create', 'routing-rule:create', 'routing-rule:update', 'pricing-rule:create', 'config-release:create', 'config-release:submit', 'outbox:list', 'outbox:detail', 'outbox:redrive', 'payment-event:list', 'payment-event:detail', 'payment-event:replay', 'reconciliation:bill:import', 'reconciliation:difference:list', 'reconciliation:bill:reconcile', 'reconciliation:difference:resolve') WHERE r.role_code = 'OPS';
+INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('pricing-rule:create', 'pricing-rule:update') WHERE r.role_code = 'FINANCE';
+INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code = 'risk-policy:create' WHERE r.role_code = 'RISK';
+
 -- TRADE SERVICE
 USE pay_trade;
 

@@ -19,6 +19,7 @@ public class AdminProductCapabilityController {
   private final ProductCapabilityService capabilityService;
 
   @GetMapping
+  @PreAuthorize("hasAuthority('product-capability:list')")
   public AdminPageResponse<CapabilityResponse> list(
       @PathVariable String productCode,
       @RequestParam(defaultValue = "1") int page,

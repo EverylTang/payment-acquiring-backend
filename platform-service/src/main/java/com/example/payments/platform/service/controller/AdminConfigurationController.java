@@ -14,25 +14,27 @@ public class AdminConfigurationController {
   private final ConfigurationAdminService service;
 
   @GetMapping("/dashboard/overview")
+  @PreAuthorize("hasAuthority('dashboard:overview')")
   public java.util.Map<String, Object> overview() {
     return service.overview();
   }
 
   @GetMapping("/channels")
+  @PreAuthorize("hasAuthority('channel:list')")
   public AdminPageResponse<ConfigurationAdminService.ChannelResponse> channels(
       @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
     return service.channels(page, pageSize);
   }
 
   @PostMapping("/channels")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
+  @PreAuthorize("hasAuthority('channel:create')")
   public void createChannel(
       @Valid @RequestBody ConfigurationAdminService.ChannelRequest r, Authentication a) {
     service.createChannel(r, a);
   }
 
   @PutMapping("/channels/{id}/status")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAuthority('channel:status')")
   public void updateChannelStatus(
       @PathVariable("id") String id,
       @Valid @RequestBody ConfigurationAdminService.StatusRequest r,
@@ -41,20 +43,21 @@ public class AdminConfigurationController {
   }
 
   @GetMapping("/routing-rules")
+  @PreAuthorize("hasAuthority('routing-rule:list')")
   public AdminPageResponse<ConfigurationAdminService.RoutingRuleResponse> routingRules(
       @RequestParam(defaultValue = "1") int p, @RequestParam(defaultValue = "20") int s) {
     return service.routingRules(p, s);
   }
 
   @PostMapping("/routing-rules")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
+  @PreAuthorize("hasAuthority('routing-rule:create')")
   public void createRoutingRule(
       @Valid @RequestBody ConfigurationAdminService.RoutingRuleRequest r, Authentication a) {
     service.createRoutingRule(r, a);
   }
 
   @PutMapping("/routing-rules/{id}/status")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAuthority('routing-rule:status')")
   public void updateRoutingRuleStatus(
       @PathVariable("id") String id,
       @Valid @RequestBody ConfigurationAdminService.StatusRequest r,
@@ -63,20 +66,21 @@ public class AdminConfigurationController {
   }
 
   @GetMapping("/pricing-rules")
+  @PreAuthorize("hasAuthority('pricing-rule:list')")
   public AdminPageResponse<ConfigurationAdminService.PricingRuleResponse> pricingRules(
       @RequestParam(defaultValue = "1") int p, @RequestParam(defaultValue = "20") int s) {
     return service.pricingRules(p, s);
   }
 
   @PostMapping("/pricing-rules")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'FINANCE')")
+  @PreAuthorize("hasAuthority('pricing-rule:create')")
   public void createPricingRule(
       @Valid @RequestBody ConfigurationAdminService.PricingRuleRequest r, Authentication a) {
     service.createPricingRule(r, a);
   }
 
   @PutMapping("/pricing-rules/{id}/status")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAuthority('pricing-rule:status')")
   public void updatePricingRuleStatus(
       @PathVariable("id") String id,
       @Valid @RequestBody ConfigurationAdminService.StatusRequest r,
@@ -85,20 +89,21 @@ public class AdminConfigurationController {
   }
 
   @GetMapping("/risk-policies")
+  @PreAuthorize("hasAuthority('risk-policy:list')")
   public AdminPageResponse<ConfigurationAdminService.RiskPolicyResponse> riskPolicies(
       @RequestParam(defaultValue = "1") int p, @RequestParam(defaultValue = "20") int s) {
     return service.riskPolicies(p, s);
   }
 
   @PostMapping("/risk-policies")
-  @PreAuthorize("hasAnyRole('ADMIN', 'RISK')")
+  @PreAuthorize("hasAuthority('risk-policy:create')")
   public void createRiskPolicy(
       @Valid @RequestBody ConfigurationAdminService.RiskPolicyRequest r, Authentication a) {
     service.createRiskPolicy(r, a);
   }
 
   @PutMapping("/risk-policies/{id}/status")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAuthority('risk-policy:status')")
   public void updateRiskPolicyStatus(
       @PathVariable("id") String id,
       @Valid @RequestBody ConfigurationAdminService.StatusRequest r,

@@ -14,13 +14,13 @@ public class AdminMerchantProfileController {
   private final MerchantProfileAdminService service;
 
   @GetMapping("/profile")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY')")
+  @PreAuthorize("hasAuthority('merchant:profile')")
   public MerchantProfileAdminService.ProfileResponse profile(@PathVariable String merchantId) {
     return service.profile(merchantId);
   }
 
   @PutMapping("/profile")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
+  @PreAuthorize("hasAuthority('merchant:profile:update')")
   public MerchantProfileAdminService.ProfileResponse updateProfile(
       @PathVariable String merchantId,
       @Valid @RequestBody MerchantProfileAdminService.ProfileRequest r,
@@ -29,14 +29,14 @@ public class AdminMerchantProfileController {
   }
 
   @GetMapping("/contacts")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY')")
+  @PreAuthorize("hasAuthority('merchant:contact:list')")
   public java.util.List<MerchantProfileAdminService.ContactResponse> contacts(
       @PathVariable String merchantId) {
     return service.contacts(merchantId);
   }
 
   @PostMapping("/contacts")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
+  @PreAuthorize("hasAuthority('merchant:contact:update')")
   public MerchantProfileAdminService.ContactResponse createContact(
       @PathVariable String merchantId,
       @Valid @RequestBody MerchantProfileAdminService.ContactRequest r,
@@ -45,7 +45,7 @@ public class AdminMerchantProfileController {
   }
 
   @PutMapping("/contacts/{contactId}")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
+  @PreAuthorize("hasAuthority('merchant:contact:update')")
   public MerchantProfileAdminService.ContactResponse updateContact(
       @PathVariable String merchantId,
       @PathVariable long contactId,
@@ -55,7 +55,7 @@ public class AdminMerchantProfileController {
   }
 
   @PutMapping("/callback-config")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
+  @PreAuthorize("hasAuthority('merchant:callback:update')")
   public MerchantProfileAdminService.CallbackResponse updateCallback(
       @PathVariable String merchantId,
       @Valid @RequestBody MerchantProfileAdminService.CallbackRequest r,
@@ -64,20 +64,20 @@ public class AdminMerchantProfileController {
   }
 
   @GetMapping("/callback-config")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY')")
+  @PreAuthorize("hasAuthority('merchant:callback:list')")
   public MerchantProfileAdminService.CallbackResponse callback(@PathVariable String merchantId) {
     return service.callback(merchantId);
   }
 
   @GetMapping("/credentials")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
+  @PreAuthorize("hasAuthority('merchant:credential:list')")
   public java.util.List<MerchantProfileAdminService.CredentialResponse> credentials(
       @PathVariable String merchantId) {
     return service.credentials(merchantId);
   }
 
   @PostMapping("/credentials/rotate")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
+  @PreAuthorize("hasAuthority('merchant:credential:rotate')")
   public MerchantProfileAdminService.RotatedCredential rotateCredential(
       @PathVariable String merchantId,
       @Valid @RequestBody MerchantProfileAdminService.CredentialRequest r,
@@ -86,14 +86,14 @@ public class AdminMerchantProfileController {
   }
 
   @PostMapping("/credentials/{credentialId}/revoke")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
+  @PreAuthorize("hasAuthority('merchant:credential:revoke')")
   public void revokeCredential(
       @PathVariable String merchantId, @PathVariable String credentialId, Authentication a) {
     service.revokeCredential(merchantId, credentialId, a);
   }
 
   @DeleteMapping("/contacts/{contactId}")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
+  @PreAuthorize("hasAuthority('merchant:contact:update')")
   public void deleteContact(
       @PathVariable String merchantId, @PathVariable long contactId, Authentication a) {
     service.deleteContact(merchantId, contactId, a);

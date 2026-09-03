@@ -13,17 +13,18 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/admin/v1/data-scopes")
-@PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
 public class AdminDataScopeController {
   private final AdminDataScopeService service;
 
   @GetMapping("/roles/{roleCode}")
+  @PreAuthorize("hasAuthority('system:data-scope:role:list')")
   public RoleScopeResponse role(@PathVariable("roleCode") String roleCode) {
     return new RoleScopeResponse(roleCode, service.role(roleCode));
   }
 
   @PutMapping("/roles/{roleCode}")
+  @PreAuthorize("hasAuthority('system:data-scope:role:update')")
   public RoleScopeResponse updateRole(
       @PathVariable("roleCode") String roleCode,
       @Valid @RequestBody RoleScopeRequest request,
@@ -33,11 +34,13 @@ public class AdminDataScopeController {
   }
 
   @GetMapping("/users/{userId}")
+  @PreAuthorize("hasAuthority('system:data-scope:user:list')")
   public UserScopeResponse user(@PathVariable("userId") long userId) {
     return new UserScopeResponse(userId, service.user(userId));
   }
 
   @PutMapping("/users/{userId}")
+  @PreAuthorize("hasAuthority('system:data-scope:user:update')")
   public UserScopeResponse updateUser(
       @PathVariable("userId") long userId,
       @Valid @RequestBody UserScopeRequest request,

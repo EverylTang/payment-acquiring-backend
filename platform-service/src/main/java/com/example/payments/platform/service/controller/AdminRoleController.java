@@ -13,12 +13,12 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/admin/v1/roles")
-@PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
 public class AdminRoleController {
   private final AdminRoleService service;
 
   @GetMapping
+  @PreAuthorize("hasAuthority('system:role:list')")
   public AdminPageResponse<RoleResponse> list(
       @RequestParam(name = "page", defaultValue = "1") int page,
       @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
@@ -31,6 +31,7 @@ public class AdminRoleController {
   }
 
   @PostMapping
+  @PreAuthorize("hasAuthority('system:role:create')")
   public RoleResponse create(@Valid @RequestBody CreateRoleRequest request, Authentication a) {
     var role =
         service.create(
@@ -45,6 +46,7 @@ public class AdminRoleController {
   }
 
   @PutMapping("/{roleCode}")
+  @PreAuthorize("hasAuthority('system:role:update')")
   public RoleResponse updateName(
       @PathVariable("roleCode") String roleCode,
       @Valid @RequestBody UpdateRoleRequest request,
@@ -54,12 +56,14 @@ public class AdminRoleController {
   }
 
   @GetMapping("/{roleCode}/permissions")
+  @PreAuthorize("hasAuthority('system:role:permission:list')")
   public RolePermissions permissions(@PathVariable("roleCode") String roleCode) {
     var p = service.permissions(roleCode);
     return new RolePermissions(p.menuCodes(), p.permissionCodes());
   }
 
   @PutMapping("/{roleCode}/permissions")
+  @PreAuthorize("hasAuthority('system:role:permission:update')")
   public RolePermissions update(
       @PathVariable("roleCode") String roleCode,
       @Valid @RequestBody PermissionUpdateRequest r,

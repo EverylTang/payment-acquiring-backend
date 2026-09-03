@@ -3,6 +3,7 @@ package com.example.payments.gateway.service.filter;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,16 +42,17 @@ public class AdminAuthenticationFilter implements GlobalFilter, Ordered {
               .build()
               .parseSignedClaims(authorization.substring(7))
               .getPayload();
-      Object rolesClaim = claims.get("roles");
-      List<?> roleValues = rolesClaim instanceof List<?> values ? values : List.of();
-      var roles = roleValues.stream().map(String::valueOf).toList();
+      Object permissionsClaim = claims.get("permissions");
+      List<?> permissionValues = permissionsClaim instanceof List<?> values ? values : List.of();
+      var permissions =
+          permissionValues.stream().map(String::valueOf).map(this::encodePermission).toList();
       var authenticated =
           request
               .mutate()
               .headers(
                   headers -> {
                     headers.set("X-User-Id", claims.getSubject());
-                    headers.set("X-Roles", String.join(",", roles));
+                    headers.set("X-Permissions", String.join(",", permissions));
                   })
               .build();
       return chain.filter(exchange.mutate().request(authenticated).build());
@@ -62,6 +64,12 @@ public class AdminAuthenticationFilter implements GlobalFilter, Ordered {
   private Mono<Void> unauthorized(ServerWebExchange exchange) {
     exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
     return exchange.getResponse().setComplete();
+  }
+
+  private String encodePermission(String permission) {
+    return Base64.getUrlEncoder()
+        .withoutPadding()
+        .encodeToString(permission.getBytes(StandardCharsets.UTF_8));
   }
 
   @Override

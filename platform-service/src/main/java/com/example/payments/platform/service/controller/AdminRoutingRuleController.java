@@ -14,25 +14,27 @@ public class AdminRoutingRuleController {
   private final RoutingRuleAdminService service;
 
   @GetMapping
+  @PreAuthorize("hasAuthority('routing-rule:list')")
   public AdminPageResponse<RoutingRuleAdminService.RoutingRuleResponse> list(
       @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
     return service.list(page, pageSize);
   }
 
   @GetMapping("/{ruleId}")
+  @PreAuthorize("hasAuthority('routing-rule:detail')")
   public RoutingRuleAdminService.RoutingRuleResponse detail(@PathVariable String ruleId) {
     return service.detail(ruleId);
   }
 
   @PostMapping
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
+  @PreAuthorize("hasAuthority('routing-rule:create')")
   public RoutingRuleAdminService.RoutingRuleResponse create(
       @Valid @RequestBody RoutingRuleAdminService.RoutingRuleRequest request, Authentication auth) {
     return service.create(request, auth);
   }
 
   @PutMapping("/{ruleId}")
-  @PreAuthorize("hasAnyRole('ADMIN', 'OPS')")
+  @PreAuthorize("hasAuthority('routing-rule:update')")
   public RoutingRuleAdminService.RoutingRuleResponse update(
       @PathVariable String ruleId,
       @Valid @RequestBody RoutingRuleAdminService.RoutingRuleRequest request,
@@ -41,7 +43,7 @@ public class AdminRoutingRuleController {
   }
 
   @PutMapping("/{ruleId}/status")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAuthority('routing-rule:status')")
   public void updateStatus(
       @PathVariable String ruleId,
       @Valid @RequestBody RoutingRuleAdminService.StatusRequest request,
@@ -50,7 +52,7 @@ public class AdminRoutingRuleController {
   }
 
   @DeleteMapping("/{ruleId}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAuthority('routing-rule:delete')")
   public void delete(@PathVariable String ruleId, Authentication auth) {
     service.delete(ruleId, auth);
   }
