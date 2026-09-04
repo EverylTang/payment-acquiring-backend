@@ -80,7 +80,8 @@ public class AdminMasterDataController {
       @PathVariable String currencyCode,
       @Valid @RequestBody StatusRequest request,
       Authentication auth) {
-    service.changeCountryCurrencyStatus(countryCode, currencyCode, request.status(), auth.getName());
+    service.changeCountryCurrencyStatus(
+        countryCode, currencyCode, request.status(), auth.getName());
   }
 
   @PostMapping("/countries")
@@ -88,8 +89,7 @@ public class AdminMasterDataController {
   public MasterDataService.Country createCountry(
       @Valid @RequestBody CountryRequest request, Authentication auth) {
     return service.createCountry(
-        new MasterDataService.CountryRequest(
-            request.code(), request.name(), request.region()),
+        new MasterDataService.CountryRequest(request.code(), request.name(), request.region()),
         auth.getName());
   }
 
@@ -99,8 +99,7 @@ public class AdminMasterDataController {
       @PathVariable String code, @Valid @RequestBody CountryRequest request, Authentication auth) {
     return service.updateCountry(
         code,
-        new MasterDataService.CountryRequest(
-            code, request.name(), request.region()),
+        new MasterDataService.CountryRequest(code, request.name(), request.region()),
         auth.getName());
   }
 
@@ -153,9 +152,7 @@ public class AdminMasterDataController {
   }
 
   public record CountryRequest(
-      @NotBlank @Pattern(regexp = "[A-Z]{2}") String code,
-      @NotBlank String name,
-      String region) {}
+      @NotBlank @Pattern(regexp = "[A-Z]{2}") String code, @NotBlank String name, String region) {}
 
   public record CurrencyRequest(
       @NotBlank @Pattern(regexp = "[A-Z]{3}") String code,

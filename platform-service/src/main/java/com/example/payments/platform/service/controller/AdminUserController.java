@@ -27,8 +27,11 @@ public class AdminUserController {
       @RequestParam(required = false) String displayName,
       @RequestParam(required = false) @Pattern(regexp = "ACTIVE|DISABLED") String status,
       @RequestParam(required = false) String roleCode) {
-    var r = service.list(
-        page, pageSize, new AdminUserService.UserFilter(username, displayName, status, roleCode));
+    var r =
+        service.list(
+            page,
+            pageSize,
+            new AdminUserService.UserFilter(username, displayName, status, roleCode));
     return new AdminPageResponse<>(
         r.items().stream().map(AdminUserController::response).toList(),
         r.page(),

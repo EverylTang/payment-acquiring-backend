@@ -56,6 +56,27 @@ public class AdminReconciliationController {
     return service.differences();
   }
 
+  @GetMapping("/bills")
+  public Map<String, Object> bills(
+      @RequestParam(defaultValue = "1") int page,
+      @RequestParam(defaultValue = "20") int pageSize,
+      @RequestHeader("X-Gateway-Token") String t,
+      @RequestHeader("X-User-Id") String u,
+      @RequestHeader("X-Permissions") String permissions) {
+    auth.authorize(t, u, permissions, "reconciliation:bill:list");
+    return service.bills(page, pageSize);
+  }
+
+  @GetMapping("/bills/{billId}")
+  public Map<String, Object> bill(
+      @PathVariable String billId,
+      @RequestHeader("X-Gateway-Token") String t,
+      @RequestHeader("X-User-Id") String u,
+      @RequestHeader("X-Permissions") String permissions) {
+    auth.authorize(t, u, permissions, "reconciliation:bill:detail");
+    return service.bill(billId);
+  }
+
   @PostMapping("/bills/{billId}/reconcile")
   public Map<String, Object> reconcile(
       @PathVariable String billId,

@@ -14,12 +14,20 @@ public class MasterDataService {
 
   public Page<Country> countries(int page, int pageSize, String status) {
     int current = Math.max(page, 1), size = Math.min(Math.max(pageSize, 1), 100);
-    return new Page<>(mapper.selectCountries(status, size, (current - 1) * size), current, size, mapper.countCountries(status));
+    return new Page<>(
+        mapper.selectCountries(status, size, (current - 1) * size),
+        current,
+        size,
+        mapper.countCountries(status));
   }
 
   public Page<Currency> currencies(int page, int pageSize, String status) {
     int current = Math.max(page, 1), size = Math.min(Math.max(pageSize, 1), 100);
-    return new Page<>(mapper.selectCurrencies(status, size, (current - 1) * size), current, size, mapper.countCurrencies(status));
+    return new Page<>(
+        mapper.selectCurrencies(status, size, (current - 1) * size),
+        current,
+        size,
+        mapper.countCurrencies(status));
   }
 
   public Page<CountryCurrency> countryCurrencies(
@@ -62,7 +70,8 @@ public class MasterDataService {
 
   @Transactional
   public Currency createCurrency(CurrencyRequest value, String operator) {
-    mapper.insertCurrency(value.code(), value.name(), blank(value.symbol()), value.decimalPlaces(), Instant.now());
+    mapper.insertCurrency(
+        value.code(), value.name(), blank(value.symbol()), value.decimalPlaces(), Instant.now());
     audit.record(operator, "CREATE", "CURRENCY", value.code(), value);
     return currency(value.code());
   }
@@ -78,7 +87,10 @@ public class MasterDataService {
 
   @Transactional
   public Currency updateCurrency(String code, CurrencyRequest value, String operator) {
-    required(mapper.updateCurrency(code, value.name(), blank(value.symbol()), value.decimalPlaces(), Instant.now()), code);
+    required(
+        mapper.updateCurrency(
+            code, value.name(), blank(value.symbol()), value.decimalPlaces(), Instant.now()),
+        code);
     audit.record(operator, "UPDATE", "CURRENCY", code, value);
     return currency(code);
   }
@@ -98,13 +110,11 @@ public class MasterDataService {
   @Transactional
   public void changeCountryCurrencyStatus(
       String countryCode, String currencyCode, String status, String operator) {
-    required(mapper.updateCountryCurrencyStatus(countryCode, currencyCode, status, Instant.now()), countryCode + "/" + currencyCode);
+    required(
+        mapper.updateCountryCurrencyStatus(countryCode, currencyCode, status, Instant.now()),
+        countryCode + "/" + currencyCode);
     audit.record(
-        operator,
-        "CHANGE_STATUS",
-        "COUNTRY_CURRENCY",
-        countryCode + "/" + currencyCode,
-        status);
+        operator, "CHANGE_STATUS", "COUNTRY_CURRENCY", countryCode + "/" + currencyCode, status);
   }
 
   public void requireActive(String country, String currency) {

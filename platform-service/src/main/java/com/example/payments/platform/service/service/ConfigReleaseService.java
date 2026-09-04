@@ -37,7 +37,8 @@ public class ConfigReleaseService {
   public ReleaseResponse create(CreateReleaseRequest request, Authentication authentication) {
     var version = mapper.nextVersionForUpdate();
     var releaseId = "release-" + UUID.randomUUID();
-    mapper.insert(releaseId, version, json(request.configuration()), authentication.getName(), Instant.now());
+    mapper.insert(
+        releaseId, version, json(request.configuration()), authentication.getName(), Instant.now());
     audit(authentication.getName(), "CREATE", releaseId, request.reason(), request.configuration());
     return find(releaseId);
   }
@@ -91,7 +92,8 @@ public class ConfigReleaseService {
 
   public Map<String, Object> diff(String releaseId) {
     var release = rawConfig(releaseId);
-    var previous = java.util.Optional.ofNullable(mapper.selectPreviousConfig(release.version())).orElse("{}");
+    var previous =
+        java.util.Optional.ofNullable(mapper.selectPreviousConfig(release.version())).orElse("{}");
     var currentMap = readObject(release.config());
     var previousMap = readObject(previous);
     var changed = new java.util.LinkedHashMap<String, Map<String, Object>>();
@@ -157,7 +159,14 @@ public class ConfigReleaseService {
   private void audit(
       String operator, String action, String releaseId, String reason, Object after) {
     auditMapper.insertAuditWithReason(
-        UUID.randomUUID().toString(), operator, action, "CONFIG_RELEASE", releaseId, reason, json(after), Instant.now());
+        UUID.randomUUID().toString(),
+        operator,
+        action,
+        "CONFIG_RELEASE",
+        releaseId,
+        reason,
+        json(after),
+        Instant.now());
   }
 
   private String json(Object value) {

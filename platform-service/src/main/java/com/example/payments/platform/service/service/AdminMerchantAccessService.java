@@ -16,5 +16,4 @@ public class AdminMerchantAccessService {
   public void assertAllowed(Authentication authentication, String merchantId) {
     dataScopeService.assertAllowed(authentication.getName(), merchantId);
   }
-
 }

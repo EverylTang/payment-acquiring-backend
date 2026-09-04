@@ -33,6 +33,12 @@ public interface ReconciliationMapper {
 
   List<Map<String, Object>> selectOpenDifferences();
 
+  long countBills();
+
+  List<SettlementBillRow> selectBills(@Param("offset") int offset, @Param("limit") int limit);
+
+  SettlementBillRow selectSettlementBill(@Param("billId") String billId);
+
   BillRow selectBill(@Param("id") String billId);
 
   List<Map<String, Object>> selectBillLines(@Param("bill") String billId);
@@ -65,4 +71,14 @@ public interface ReconciliationMapper {
       @Param("id") String differenceId);
 
   record BillRow(String currency, BigDecimal totalAmount, int totalCount, LocalDate billDate) {}
+
+  record SettlementBillRow(
+      String billId,
+      String channelId,
+      LocalDate billDate,
+      String currency,
+      BigDecimal totalAmount,
+      int totalCount,
+      String status,
+      Instant importedAt) {}
 }

@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.payments.fund.service.mapper.ReconciliationMapper">
+  <resultMap id="bill" type="com.example.payments.fund.service.mapper.ReconciliationMapper$BillRow">
+    <constructor><arg column="currency" javaType="string"/><arg column="totalAmount" javaType="java.math.BigDecimal"/><arg column="totalCount" javaType="_int"/><arg column="billDate" javaType="java.time.LocalDate"/></constructor>
+  </resultMap>
+  <resultMap id="settlementBill" type="com.example.payments.fund.service.mapper.ReconciliationMapper$SettlementBillRow">
+    <constructor><arg column="bill_id" javaType="string"/><arg column="channel_id" javaType="string"/><arg column="bill_date" javaType="java.time.LocalDate"/><arg column="currency" javaType="string"/><arg column="total_amount" javaType="java.math.BigDecimal"/><arg column="total_count" javaType="_int"/><arg column="status" javaType="string"/><arg column="imported_at" javaType="java.time.Instant"/></constructor>
+  </resultMap>
   <insert id="upsertBill">
     INSERT INTO settlement_bill (bill_id, channel_id, bill_date, currency, total_amount, total_count, status, imported_at)
     VALUES (#{id}, #{channel}, #{date}, #{currency}, #{amount}, #{count}, 'IMPORTED', #{now})
@@ -14,7 +20,16 @@
   <select id="selectOpenDifferences" resultType="map">
     SELECT * FROM reconciliation_difference WHERE status = 'OPEN' ORDER BY created_at DESC LIMIT 200
   </select>
-  <select id="selectBill" resultType="com.example.payments.fund.service.mapper.ReconciliationMapper$BillRow">
+  <select id="countBills" resultType="long">SELECT COUNT(*) FROM settlement_bill</select>
+  <select id="selectBills" resultMap="settlementBill">
+    SELECT bill_id,channel_id,bill_date,currency,total_amount,total_count,status,imported_at
+    FROM settlement_bill ORDER BY bill_date DESC,imported_at DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+  <select id="selectSettlementBill" resultMap="settlementBill">
+    SELECT bill_id,channel_id,bill_date,currency,total_amount,total_count,status,imported_at
+    FROM settlement_bill WHERE bill_id = #{billId}
+  </select>
+  <select id="selectBill" resultMap="bill">
     SELECT currency, total_amount AS totalAmount, total_count AS totalCount, bill_date AS billDate
     FROM settlement_bill WHERE bill_id = #{id}
   </select>

@@ -21,13 +21,25 @@ public class MerchantService {
     boolean all = access.hasAllScope(username);
     return new Page(
         mapper.selectVisible(
-            username, all, filter.merchantName(), filter.merchantId(), filter.status(),
-            filter.createdFrom(), filter.createdTo(), safeSize, (safePage - 1) * safeSize),
+            username,
+            all,
+            filter.merchantName(),
+            filter.merchantId(),
+            filter.status(),
+            filter.createdFrom(),
+            filter.createdTo(),
+            safeSize,
+            (safePage - 1) * safeSize),
         safePage,
         safeSize,
         mapper.countVisible(
-            username, all, filter.merchantName(), filter.merchantId(), filter.status(),
-            filter.createdFrom(), filter.createdTo()));
+            username,
+            all,
+            filter.merchantName(),
+            filter.merchantId(),
+            filter.status(),
+            filter.createdFrom(),
+            filter.createdTo()));
   }
 
   public MerchantModel detail(String id, Authentication auth) {
@@ -69,7 +81,11 @@ public class MerchantService {
   public record Page(java.util.List<MerchantModel> items, int page, int pageSize, long total) {}
 
   public record MerchantFilter(
-      String merchantName, String merchantId, String status, LocalDate createdFrom, LocalDate createdTo) {
+      String merchantName,
+      String merchantId,
+      String status,
+      LocalDate createdFrom,
+      LocalDate createdTo) {
     public MerchantFilter {
       merchantName = normalize(merchantName);
       merchantId = normalize(merchantId);

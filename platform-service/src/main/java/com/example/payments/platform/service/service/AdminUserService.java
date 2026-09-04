@@ -21,10 +21,17 @@ public class AdminUserService {
   public Page list(int page, int size, UserFilter filter) {
     int p = Math.max(page, 1), s = Math.min(Math.max(size, 1), 100);
     return new Page(
-        mapper.selectUsers(
-                filter.username(), filter.displayName(), filter.status(), filter.roleCode(),
-                s, (p - 1) * s)
-            .stream().map(this::normalize).toList(),
+        mapper
+            .selectUsers(
+                filter.username(),
+                filter.displayName(),
+                filter.status(),
+                filter.roleCode(),
+                s,
+                (p - 1) * s)
+            .stream()
+            .map(this::normalize)
+            .toList(),
         p,
         s,
         mapper.countUsers(

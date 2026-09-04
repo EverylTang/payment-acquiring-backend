@@ -35,13 +35,18 @@ public class AdminMerchantController {
       @RequestParam(required = false) String merchantName,
       @RequestParam(required = false) String merchantId,
       @RequestParam(required = false) @Pattern(regexp = "ACTIVE|DISABLED") String status,
-      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdFrom,
-      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdTo,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          LocalDate createdFrom,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          LocalDate createdTo,
       Authentication authentication) {
-    var result = merchantService.list(
-        page, pageSize,
-        new MerchantService.MerchantFilter(merchantName, merchantId, status, createdFrom, createdTo),
-        authentication);
+    var result =
+        merchantService.list(
+            page,
+            pageSize,
+            new MerchantService.MerchantFilter(
+                merchantName, merchantId, status, createdFrom, createdTo),
+            authentication);
     return new AdminPageResponse<>(
         result.items().stream().map(AdminMerchantController::response).toList(),
         result.page(),

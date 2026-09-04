@@ -71,7 +71,8 @@ public class MerchantProductAdminService {
     ensureActiveMerchant(request.merchantId());
     ensureActiveProduct(request.productCode());
     var duplicate =
-        mapper.countOtherByMerchantAndProduct(request.merchantId(), request.productCode(), bindingId);
+        mapper.countOtherByMerchantAndProduct(
+            request.merchantId(), request.productCode(), bindingId);
     if (duplicate > 0) throw duplicateBinding();
     var changed =
         mapper.update(bindingId, request.merchantId(), request.productCode(), Instant.now());
@@ -124,7 +125,11 @@ public class MerchantProductAdminService {
   public record StatusRequest(@NotBlank String status) {}
 
   public record MerchantProductFilter(
-      String merchantName, String merchantId, String productName, String productCode, String status) {
+      String merchantName,
+      String merchantId,
+      String productName,
+      String productCode,
+      String status) {
     public MerchantProductFilter {
       merchantName = normalize(merchantName);
       merchantId = normalize(merchantId);

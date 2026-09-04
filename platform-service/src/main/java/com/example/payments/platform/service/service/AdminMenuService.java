@@ -21,8 +21,16 @@ public class AdminMenuService {
   public AdminPageResponse<MenuResponse> list(int page, int pageSize, MenuFilter filter) {
     int currentPage = Math.max(page, 1);
     int size = Math.min(Math.max(pageSize, 1), 100);
-    long total = mapper.count(filter.menuName(), filter.menuCode(), filter.menuType(), filter.status());
-    var items = mapper.selectPage(filter.menuName(), filter.menuCode(), filter.menuType(), filter.status(), size, (currentPage - 1) * size);
+    long total =
+        mapper.count(filter.menuName(), filter.menuCode(), filter.menuType(), filter.status());
+    var items =
+        mapper.selectPage(
+            filter.menuName(),
+            filter.menuCode(),
+            filter.menuType(),
+            filter.status(),
+            size,
+            (currentPage - 1) * size);
     return new AdminPageResponse<>(items, currentPage, size, total);
   }
 
@@ -30,7 +38,17 @@ public class AdminMenuService {
   public MenuResponse create(CreateRequest request, String operator) {
     long parentId = parentId(request.parentMenuCode());
     var now = Instant.now();
-    mapper.insertMenu(parentId, request.menuCode(), request.menuName(), request.menuType(), blankToNull(request.routePath()), blankToNull(request.componentKey()), blankToNull(request.icon()), request.sortOrder(), request.visible(), now);
+    mapper.insertMenu(
+        parentId,
+        request.menuCode(),
+        request.menuName(),
+        request.menuType(),
+        blankToNull(request.routePath()),
+        blankToNull(request.componentKey()),
+        blankToNull(request.icon()),
+        request.sortOrder(),
+        request.visible(),
+        now);
     replaceResourceTypes(find(request.menuCode()).id(), request.resourceTypes());
     auditService.record(operator, "CREATE", "ADMIN_MENU", request.menuCode(), request);
     return find(request.menuCode());
@@ -48,7 +66,17 @@ public class AdminMenuService {
     var current = find(menuCode);
     long parentId = parentId(request.parentMenuCode());
     if (parentId == current.id()) throw new IllegalArgumentException("父级菜单不能是自身");
-    mapper.updateMenu(parentId, request.menuName(), request.menuType(), blankToNull(request.routePath()), blankToNull(request.componentKey()), blankToNull(request.icon()), request.sortOrder(), request.visible(), Instant.now(), menuCode);
+    mapper.updateMenu(
+        parentId,
+        request.menuName(),
+        request.menuType(),
+        blankToNull(request.routePath()),
+        blankToNull(request.componentKey()),
+        blankToNull(request.icon()),
+        request.sortOrder(),
+        request.visible(),
+        Instant.now(),
+        menuCode);
     replaceResourceTypes(current.id(), request.resourceTypes());
     auditService.record(operator, "UPDATE", "ADMIN_MENU", menuCode, request);
     return find(menuCode);
@@ -106,7 +134,8 @@ public class AdminMenuService {
     find(menuCode);
     validateResourceType(menuCode, request.resourceType());
     var code = permissionCode(menuCode, actionCode);
-    mapper.updatePermission(request.permissionName(), request.resourceType(), request.status(), Instant.now(), code);
+    mapper.updatePermission(
+        request.permissionName(), request.resourceType(), request.status(), Instant.now(), code);
     auditService.record(operator, "UPDATE", "ADMIN_PERMISSION", code, request);
     return permission(code);
   }

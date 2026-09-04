@@ -39,6 +39,46 @@ public class ReconciliationService {
         mapper.selectOpenDifferences());
   }
 
+  public Map<String, Object> bills(int page, int pageSize) {
+    int currentPage = Math.max(page, 1);
+    int size = Math.clamp(pageSize, 1, 100);
+    int offset = (currentPage - 1) * size;
+    var items =
+        mapper.selectBills(offset, size).stream()
+            .map(
+                bill ->
+                    Map.<String, Object>of(
+                        "billId", bill.billId(),
+                        "channelId", bill.channelId(),
+                        "billDate", bill.billDate(),
+                        "currency", bill.currency(),
+                        "totalAmount", bill.totalAmount(),
+                        "totalCount", bill.totalCount(),
+                        "status", bill.status(),
+                        "importedAt", bill.importedAt()))
+            .toList();
+    return Map.of(
+        "items", items,
+        "page", currentPage,
+        "pageSize", size,
+        "total", mapper.countBills());
+  }
+
+  public Map<String, Object> bill(String billId) {
+    var bill = mapper.selectSettlementBill(billId);
+    if (bill == null) throw new IllegalArgumentException("账单不存在");
+    return Map.of(
+        "billId", bill.billId(),
+        "channelId", bill.channelId(),
+        "currency", bill.currency(),
+        "totalAmount", bill.totalAmount(),
+        "totalCount", bill.totalCount(),
+        "billDate", bill.billDate(),
+        "status", bill.status(),
+        "importedAt", bill.importedAt(),
+        "lines", mapper.selectBillLines(billId));
+  }
+
   public Map<String, Object> reconcile(String billId) {
     var bill = mapper.selectBill(billId);
     if (bill == null) throw new IllegalArgumentException("账单不存在");
