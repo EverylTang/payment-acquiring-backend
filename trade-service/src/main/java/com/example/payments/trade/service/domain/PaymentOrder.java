@@ -14,7 +14,9 @@ public record PaymentOrder(
     String currency,
     BigDecimal amount,
     BigDecimal feeAmount,
+    BigDecimal payerPayableAmount,
     BigDecimal netAmount,
+    String feeBearer,
     OrderStatus status,
     String idempotencyKey,
     String routeSnapshot,
@@ -22,7 +24,16 @@ public record PaymentOrder(
     Instant expireAt,
     Instant createdAt,
     Instant paidAt,
-    String paymentToken) {
+    String paymentToken,
+    String notifyUrl,
+    String returnUrl,
+    String customerReference,
+    String description,
+    String callbackStatus,
+    String callbackEventId,
+    Integer callbackAttemptCount,
+    Instant callbackLastNotifiedAt,
+    String callbackLastError) {
 
   public static PaymentOrder create(
       String merchantId,
@@ -33,7 +44,11 @@ public record PaymentOrder(
       String currency,
       BigDecimal amount,
       String idempotencyKey,
-      Instant expireAt) {
+      Instant expireAt,
+      String notifyUrl,
+      String returnUrl,
+      String customerReference,
+      String description) {
     BigDecimal fee = amount.multiply(new BigDecimal("0.0200")).setScale(2);
     return new PaymentOrder(
         UUID.randomUUID().toString(),
@@ -45,7 +60,9 @@ public record PaymentOrder(
         currency,
         amount,
         fee,
+        amount,
         amount.subtract(fee),
+        "MERCHANT",
         OrderStatus.CREATED,
         idempotencyKey,
         "{\"route\":\"simulated-channel\",\"version\":1}",
@@ -53,7 +70,16 @@ public record PaymentOrder(
         expireAt,
         Instant.now(),
         null,
-        "simulated-token-" + UUID.randomUUID());
+        "simulated-token-" + UUID.randomUUID(),
+        notifyUrl,
+        returnUrl,
+        customerReference,
+        description,
+        notifyUrl == null ? "NOT_CONFIGURED" : "READY",
+        null,
+        0,
+        null,
+        null);
   }
 
   public PaymentOrder withStatus(OrderStatus nextStatus, Instant paymentTime) {
@@ -70,7 +96,9 @@ public record PaymentOrder(
         currency,
         amount,
         feeAmount,
+        payerPayableAmount,
         netAmount,
+        feeBearer,
         nextStatus,
         idempotencyKey,
         routeSnapshot,
@@ -78,11 +106,25 @@ public record PaymentOrder(
         expireAt,
         createdAt,
         nextStatus == OrderStatus.SUCCESS ? paymentTime : paidAt,
-        paymentToken);
+        paymentToken,
+        notifyUrl,
+        returnUrl,
+        customerReference,
+        description,
+        callbackStatus,
+        callbackEventId,
+        callbackAttemptCount,
+        callbackLastNotifiedAt,
+        callbackLastError);
   }
 
   public PaymentOrder withPricing(
-      BigDecimal fee, BigDecimal net, String routeSnapshot, String pricingSnapshot) {
+      BigDecimal fee,
+      BigDecimal payerPayable,
+      BigDecimal net,
+      String feeBearer,
+      String routeSnapshot,
+      String pricingSnapshot) {
     return new PaymentOrder(
         orderId,
         merchantId,
@@ -93,7 +135,9 @@ public record PaymentOrder(
         currency,
         amount,
         fee,
+        payerPayable,
         net,
+        feeBearer,
         status,
         idempotencyKey,
         routeSnapshot,
@@ -101,6 +145,15 @@ public record PaymentOrder(
         expireAt,
         createdAt,
         paidAt,
-        paymentToken);
+        paymentToken,
+        notifyUrl,
+        returnUrl,
+        customerReference,
+        description,
+        callbackStatus,
+        callbackEventId,
+        callbackAttemptCount,
+        callbackLastNotifiedAt,
+        callbackLastError);
   }
 }

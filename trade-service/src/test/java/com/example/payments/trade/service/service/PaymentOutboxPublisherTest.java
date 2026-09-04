@@ -17,9 +17,11 @@ class PaymentOutboxPublisherTest {
   private final PaymentOutboxEventRepository repository =
       org.mockito.Mockito.mock(PaymentOutboxEventRepository.class);
   private final RocketMQTemplate template = org.mockito.Mockito.mock(RocketMQTemplate.class);
+  private final MerchantNotificationOutboxService notificationOutbox =
+      org.mockito.Mockito.mock(MerchantNotificationOutboxService.class);
   private final OutboxProperties properties = new OutboxProperties(50, 10, 5, 1800, 120);
   private final PaymentOutboxPublisher publisher =
-      new PaymentOutboxPublisher(repository, template, properties);
+      new PaymentOutboxPublisher(repository, template, properties, notificationOutbox);
 
   @Test
   void publishedMessageIsMarked() {
@@ -30,10 +32,30 @@ class PaymentOutboxPublisherTest {
             ArgumentMatchers.eq(120L)))
         .thenReturn(List.of(event));
     when(template.syncSend("PAYMENT_SUCCEEDED", event.getPayload())).thenReturn(new SendResult());
+    when(repository.markPublished("event-1", "claim-1")).thenReturn(true);
 
     publisher.publish();
 
     verify(repository).markPublished("event-1", "claim-1");
+  }
+
+  @Test
+  void publishedMerchantNotificationUpdatesOnlyTheNotificationState() {
+    var event = event();
+    event.setEventType(MerchantNotificationOutboxService.EVENT_TYPE);
+    event.setAggregateId("order-1");
+    when(repository.claimPending(
+            ArgumentMatchers.any(Instant.class),
+            ArgumentMatchers.eq(50),
+            ArgumentMatchers.eq(120L)))
+        .thenReturn(List.of(event));
+    when(template.syncSend(MerchantNotificationOutboxService.EVENT_TYPE, event.getPayload()))
+        .thenReturn(new SendResult());
+    when(repository.markPublished("event-1", "claim-1")).thenReturn(true);
+
+    publisher.publish();
+
+    verify(notificationOutbox).published(event);
   }
 
   @Test
@@ -46,6 +68,14 @@ class PaymentOutboxPublisherTest {
         .thenReturn(List.of(event));
     when(template.syncSend("PAYMENT_SUCCEEDED", event.getPayload()))
         .thenThrow(new IllegalStateException("broker unavailable"));
+    when(repository.markFailed(
+            ArgumentMatchers.eq("event-1"),
+            ArgumentMatchers.eq("claim-1"),
+            ArgumentMatchers.any(Instant.class),
+            ArgumentMatchers.eq("broker unavailable"),
+            ArgumentMatchers.eq("IllegalStateException"),
+            ArgumentMatchers.eq(10)))
+        .thenReturn(true);
 
     publisher.publish();
 
@@ -57,6 +87,8 @@ class PaymentOutboxPublisherTest {
             ArgumentMatchers.eq("broker unavailable"),
             ArgumentMatchers.eq("IllegalStateException"),
             ArgumentMatchers.eq(10));
+    verify(notificationOutbox).failed(
+        ArgumentMatchers.eq(event), ArgumentMatchers.eq("broker unavailable"), ArgumentMatchers.eq(10));
   }
 
   private static PaymentOutboxEventEntity event() {

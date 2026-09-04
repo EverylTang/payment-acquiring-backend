@@ -1,7 +1,6 @@
 package com.example.payments.trade.service.service;
 
 import java.util.Map;
-import java.util.Optional;
 
 public record ChannelRuntimeContext(
     String channelId,
@@ -9,10 +8,8 @@ public record ChannelRuntimeContext(
     String requestUrl,
     String signatureProfile,
     Map<String, Object> settings,
-    Map<String, ChannelCredentialReference> credentialReferences,
-    ChannelSecretResolver secretResolver) {
-  public Optional<String> secret(String credentialRole) {
-    var reference = credentialReferences.get(credentialRole);
-    return reference == null ? Optional.empty() : Optional.of(secretResolver.resolve(reference));
+    Map<String, String> credentials) {
+  public java.util.Optional<String> secret(String credentialRole) {
+    return java.util.Optional.ofNullable(credentials.get(credentialRole)).filter(value -> !value.isBlank());
   }
 }

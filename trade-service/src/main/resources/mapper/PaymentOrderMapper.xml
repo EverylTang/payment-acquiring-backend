@@ -12,7 +12,9 @@
     <result property="currency" column="currency" />
     <result property="amount" column="amount" />
     <result property="feeAmount" column="fee_amount" />
+    <result property="payerPayableAmount" column="payer_payable_amount" />
     <result property="netAmount" column="net_amount" />
+    <result property="feeBearer" column="fee_bearer" />
     <result property="status" column="status" />
     <result property="idempotencyKey" column="idempotency_key" />
     <result property="routeSnapshotJson" column="route_snapshot_json" />
@@ -21,10 +23,19 @@
     <result property="createdAt" column="created_at" />
     <result property="paidAt" column="paid_at" />
     <result property="paymentToken" column="payment_token" />
+    <result property="notifyUrl" column="notify_url" />
+    <result property="returnUrl" column="return_url" />
+    <result property="customerReference" column="customer_reference" />
+    <result property="description" column="description" />
+    <result property="callbackStatus" column="callback_status" />
+    <result property="callbackEventId" column="callback_event_id" />
+    <result property="callbackAttemptCount" column="callback_attempt_count" />
+    <result property="callbackLastNotifiedAt" column="callback_last_notified_at" />
+    <result property="callbackLastError" column="callback_last_error" />
     <result property="version" column="version" />
   </resultMap>
   <sql id="allColumns">
-    id, order_id, merchant_id, merchant_order_no, product_code, payment_method, country, currency, amount, fee_amount, net_amount, status, idempotency_key, route_snapshot_json, pricing_snapshot_json, expire_at, created_at, paid_at, payment_token, version
+    id, order_id, merchant_id, merchant_order_no, product_code, payment_method, country, currency, amount, fee_amount, payer_payable_amount, net_amount, fee_bearer, status, idempotency_key, route_snapshot_json, pricing_snapshot_json, expire_at, created_at, paid_at, payment_token, notify_url, return_url, customer_reference, description, callback_status, callback_event_id, callback_attempt_count, callback_last_notified_at, callback_last_error, version
   </sql>
   <select id="findByMerchantOrder" resultMap="PaymentOrderResultMap">
     SELECT
@@ -48,4 +59,19 @@
     WHERE order_id = #{orderId}
     AND status = #{expected}
   </update>
+  <update id="updateCallbackState">
+    UPDATE payment_order
+    SET callback_status = #{callbackStatus}, callback_event_id = #{callbackEventId},
+      callback_attempt_count = #{callbackAttemptCount},
+      callback_last_notified_at = #{callbackLastNotifiedAt}, callback_last_error = #{callbackLastError},
+      version = version + 1
+    WHERE order_id = #{orderId}
+  </update>
+  <select id="aggregateStatistics" resultType="map">
+    SELECT COUNT(*) AS total,
+      COALESCE(SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END), 0) AS successful,
+      COALESCE(SUM(amount), 0) AS volume,
+      COUNT(DISTINCT merchant_id) AS merchants
+    FROM payment_order
+  </select>
 </mapper>

@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.server.ResponseStatusException;
 
 class OrderServiceTest {
   private final PaymentOrderRepository repository =
@@ -23,7 +24,7 @@ class OrderServiceTest {
   void duplicateMerchantOrderReturnsExistingOrder() {
     var command =
         new OrderService.CreateOrderCommand(
-            "m1", "o1", "p1", "CARD", "US", "USD", new BigDecimal("10.00"), "key-1", null);
+            "m1", "o1", "p1", "CARD", "US", "USD", new BigDecimal("10.00"), "key-1", null, null, null, null, null);
     var existing =
         PaymentOrder.create(
             "m1",
@@ -34,7 +35,7 @@ class OrderServiceTest {
             "USD",
             new BigDecimal("10.00"),
             "key-1",
-            command.expireAt());
+            command.expireAt(), null, null, null, null);
     when(repository.findByIdempotency("m1", "key-1")).thenReturn(Optional.of(existing));
     assertThat(service.create(command).orderId()).isEqualTo(existing.orderId());
   }
@@ -51,7 +52,7 @@ class OrderServiceTest {
                 "USD",
                 new BigDecimal("10.00"),
                 "key-2",
-                java.time.Instant.now().plusSeconds(1800))
+                java.time.Instant.now().plusSeconds(1800), null, null, null, null)
             .withStatus(OrderStatus.SUCCESS, java.time.Instant.now());
     when(repository.findById("o2")).thenReturn(Optional.of(success));
     assertThat(service.callback("o2", OrderStatus.FAILED).status()).isEqualTo(OrderStatus.SUCCESS);
@@ -63,7 +64,7 @@ class OrderServiceTest {
     var configuredService = new OrderService(repository, channelConfiguration, new ObjectMapper());
     var command =
         new OrderService.CreateOrderCommand(
-            "m2", "o3", "p1", "CARD", "US", "USD", new BigDecimal("10.00"), "key-3", null);
+            "m2", "o3", "p1", "CARD", "US", "USD", new BigDecimal("10.00"), "key-3", null, null, null, null, null);
     var runtime =
         new ChannelRuntimeContext(
             "payermax-card-us",
@@ -71,8 +72,7 @@ class OrderServiceTest {
             "https://payments.example.test",
             "HMAC_SHA256_V1",
             Map.of(),
-            Map.of(),
-            reference -> "unused");
+            Map.of());
     var configuration =
         new PlatformChannelConfigurationClient.ResolvedPaymentConfiguration(
             runtime,
@@ -100,10 +100,10 @@ class OrderServiceTest {
     var configuredService = new OrderService(repository, channelConfiguration, new ObjectMapper());
     var command =
         new OrderService.CreateOrderCommand(
-            "m3", "o4", "p1", "CARD", "US", "USD", new BigDecimal("150.00"), "key-4", null);
+            "m3", "o4", "p1", "CARD", "US", "USD", new BigDecimal("150.00"), "key-4", null, null, null, null, null);
     var runtime =
         new ChannelRuntimeContext(
-            "antom-card-us", "ANTOM", "https://payments.example.test", "HMAC_SHA256_V1", Map.of(), Map.of(), reference -> "unused");
+            "antom-card-us", "ANTOM", "https://payments.example.test", "HMAC_SHA256_V1", Map.of(), Map.of());
     var configuration =
         new PlatformChannelConfigurationClient.ResolvedPaymentConfiguration(
             runtime,
@@ -127,7 +127,38 @@ class OrderServiceTest {
     var order = configuredService.create(command);
 
     assertThat(order.feeAmount()).isEqualByComparingTo("2.50");
+    assertThat(order.payerPayableAmount()).isEqualByComparingTo("152.50");
     assertThat(order.netAmount()).isEqualByComparingTo("150.00");
     assertThat(order.pricingSnapshot()).contains("TIERED");
+  }
+
+  @Test
+  void returnsStatisticsFromTheRepositoryAggregate() {
+    when(repository.statistics())
+        .thenReturn(
+            new PaymentOrderRepository.OrderStatistics(
+                3, 2, new BigDecimal("125.50"), 2));
+
+    var statistics = service.statistics();
+
+    assertThat(statistics)
+        .containsEntry("totalOrders", 3L)
+        .containsEntry("successfulOrders", 2L)
+        .containsEntry("paymentSuccessRate", new BigDecimal("66.67"))
+        .containsEntry("paymentVolume", new BigDecimal("125.50"))
+        .containsEntry("activeMerchants", 2L);
+  }
+
+  @Test
+  void rejectsMalformedNotificationUrlBeforePersistingTheOrder() {
+    var command =
+        new OrderService.CreateOrderCommand(
+            "m4", "o5", "p1", "CARD", "US", "USD", new BigDecimal("10.00"), "key-5", null,
+            "javascript:alert(1)", null, null, null);
+    when(repository.findByIdempotency("m4", "key-5")).thenReturn(Optional.empty());
+    when(repository.findByMerchantOrder("m4", "o5")).thenReturn(Optional.empty());
+
+    org.junit.jupiter.api.Assertions.assertThrows(
+        ResponseStatusException.class, () -> service.create(command));
   }
 }

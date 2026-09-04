@@ -47,7 +47,6 @@ class ChannelRequestSignerTest {
         "https://example.test/pay",
         profile,
         Map.of("signatureFields", "amount,orderId"),
-        Map.of("requestSigningKey", new ChannelCredentialReference("test://request", "")),
-        reference -> secret);
+        Map.of("requestSigningKey", secret));
   }
 }

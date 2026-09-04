@@ -18,6 +18,9 @@ trade:
     retry-base-seconds: ${TRADE_OUTBOX_RETRY_BASE_SECONDS:5}
     retry-max-seconds: ${TRADE_OUTBOX_RETRY_MAX_SECONDS:300}
     claim-timeout-seconds: ${TRADE_OUTBOX_CLAIM_TIMEOUT_SECONDS:60}
+  merchant-notification:
+    consumer-group: ${TRADE_MERCHANT_NOTIFICATION_CONSUMER_GROUP:trade-merchant-notification}
+    retry-interval-ms: ${TRADE_MERCHANT_NOTIFICATION_RETRY_INTERVAL_MS:1000}
   attempt:
     query:
       batch-size: ${TRADE_ATTEMPT_QUERY_BATCH_SIZE:50}

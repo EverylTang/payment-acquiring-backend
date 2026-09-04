@@ -26,6 +26,7 @@ public class PaymentAttemptService {
   private final OrderService orderService;
   private final com.example.payments.trade.service.mapper.PaymentOutboxEventRepository
       outboxRepository;
+  private final MerchantNotificationOutboxService merchantNotificationOutboxService;
   private final ObjectMapper objectMapper;
 
   @Transactional
@@ -40,7 +41,7 @@ public class PaymentAttemptService {
             order.merchantId(),
             order.currency(),
             order.paymentMethod(),
-            order.amount().toPlainString(),
+            order.payerPayableAmount().toPlainString(),
             behavior,
             runtime,
             channelRequestSigner.sign(runtime, requestFields(order, runtime, attemptId, behavior)));
@@ -218,7 +219,7 @@ public class PaymentAttemptService {
             order.merchantId(),
             order.currency(),
             order.paymentMethod(),
-            order.amount().toPlainString(),
+            order.payerPayableAmount().toPlainString(),
             behavior,
             runtime,
             channelRequestSigner.sign(runtime, requestFields(order, runtime, attemptId, behavior)));
@@ -303,41 +304,23 @@ public class PaymentAttemptService {
       return objectMapper.writeValueAsString(
           java.util.Map.of(
               "amount", order.amount().toPlainString(),
+              "payerPayableAmount", order.payerPayableAmount().toPlainString(),
+              "feeAmount", order.feeAmount().toPlainString(),
+              "feeBearer", order.feeBearer(),
               "currency", order.currency(),
               "channelId", runtime.channelId(),
               "provider", runtime.provider(),
               "requestUrl", runtime.requestUrl(),
               "signatureProfile", runtime.signatureProfile(),
-              "settings", runtime.settings(),
-              "credentialBindings", credentialBindings(runtime)));
+              "settings", runtime.settings()));
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("无法记录渠道运行配置", exception);
     }
   }
 
-  private java.util.List<java.util.Map<String, String>> credentialBindings(
-      ChannelRuntimeContext runtime) {
-    return runtime.credentialReferences().entrySet().stream()
-        .map(
-            entry ->
-                java.util.Map.of(
-                    "role", entry.getKey(),
-                    "secretRef", entry.getValue().secretReference(),
-                    "keyVersion", entry.getValue().keyVersion()))
-        .toList();
-  }
-
   private ChannelRuntimeContext callbackRuntime(
       PaymentAttempt attempt, ChannelRuntimeContext currentRuntime) {
-    try {
-      var snapshot = objectMapper.readValue(attempt.requestSnapshot(), java.util.Map.class);
-      if (!(snapshot.get("credentialBindings") instanceof java.util.List<?>)) {
-        return currentRuntime;
-      }
-      return channelConfiguration.fromSnapshot(snapshot);
-    } catch (JsonProcessingException | IllegalArgumentException exception) {
-      throw new IllegalStateException("支付尝试缺少渠道凭证快照", exception);
-    }
+    return currentRuntime;
   }
 
   private String callbackResponseSnapshot(String rawPayload) {
@@ -356,7 +339,12 @@ public class PaymentAttemptService {
     fields.put("merchantId", order.merchantId());
     fields.put("currency", order.currency());
     fields.put("paymentMethod", order.paymentMethod());
-    fields.put("amount", order.amount().toPlainString());
+    // Channel-facing amount is the amount the payer must actually complete.
+    fields.put("amount", order.payerPayableAmount().toPlainString());
+    fields.put("orderAmount", order.amount().toPlainString());
+    fields.put("payerPayableAmount", order.payerPayableAmount().toPlainString());
+    fields.put("feeAmount", order.feeAmount().toPlainString());
+    fields.put("feeBearer", order.feeBearer());
     fields.put("behavior", behavior);
     runtime
         .settings()
@@ -406,6 +394,7 @@ public class PaymentAttemptService {
                     order.amount(),
                     order.currency()));
         outboxRepository.insert(eventId, attempt.orderId(), "PAYMENT_SUCCEEDED", payload);
+        merchantNotificationOutboxService.enqueuePaymentSuccess(order);
       } catch (JsonProcessingException exception) {
         throw new IllegalStateException("payment success event serialization failed", exception);
       }

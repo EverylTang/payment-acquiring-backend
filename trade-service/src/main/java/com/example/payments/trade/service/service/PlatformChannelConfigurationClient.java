@@ -18,15 +18,12 @@ import org.springframework.web.server.ResponseStatusException;
 public class PlatformChannelConfigurationClient {
   private final RestClient client;
   private final String internalToken;
-  private final ChannelSecretResolver secretResolver;
 
   public PlatformChannelConfigurationClient(
       @Value("${trade.routing.platform-base-url:http://127.0.0.1:8081}") String platformBaseUrl,
-      @Value("${trade.routing.internal-token:${GATEWAY_INTERNAL_TOKEN:}}") String internalToken,
-      ChannelSecretResolver secretResolver) {
+      @Value("${trade.routing.internal-token:${GATEWAY_INTERNAL_TOKEN:}}") String internalToken) {
     this.client = RestClient.builder().baseUrl(platformBaseUrl).build();
     this.internalToken = internalToken;
-    this.secretResolver = secretResolver;
   }
 
   public ChannelRuntimeContext resolve(PaymentOrder order) {
@@ -79,7 +76,9 @@ public class PlatformChannelConfigurationClient {
           text(pricing.get("feeType")),
           tiers(pricing.get("tiers")),
           text(pricing.get("mode")),
-          text(snapshot.get("configVersion")));
+          text(snapshot.get("configVersion")),
+          text(map(snapshot.get("risk")).get("policyId")),
+          text(map(snapshot.get("risk")).get("decision")));
     } catch (RestClientException exception) {
       throw unavailable("无法读取渠道运行配置");
     }
@@ -99,6 +98,16 @@ public class PlatformChannelConfigurationClient {
     } catch (RestClientException exception) {
       throw unavailable("无法读取渠道运行配置");
     }
+  }
+
+  public void recordRiskDecision(PaymentOrder order, ResolvedPaymentConfiguration config) {
+    if ("PASS".equals(config.riskDecision())) return;
+    try {
+      client.post().uri("/api/internal/v1/configurations/risk-events")
+          .headers(headers -> headers.set("X-Internal-Token", internalToken))
+          .body(Map.of("orderId", order.orderId(), "merchantId", order.merchantId(), "policyId", config.riskPolicyId(), "policyName", config.riskPolicyId(), "decision", config.riskDecision(), "reason", "策略命中：" + config.riskPolicyId()))
+          .retrieve().toBodilessEntity();
+    } catch (RestClientException exception) { throw unavailable("无法记录风险决策"); }
   }
 
   ChannelRuntimeContext fromSnapshot(Map<?, ?> snapshot) {
@@ -122,23 +131,18 @@ public class PlatformChannelConfigurationClient {
         requestUrl,
         signatureProfile,
         map(route.get("settings")),
-        credentialReferences(route.get("credentialBindings")),
-        secretResolver);
+        credentials(route.get("credentials")));
   }
 
-  private Map<String, ChannelCredentialReference> credentialReferences(Object value) {
-    if (!(value instanceof List<?> bindings)) return Map.of();
-    var references = new LinkedHashMap<String, ChannelCredentialReference>();
-    for (var binding : bindings) {
-      if (!(binding instanceof Map<?, ?> item)) continue;
-      var role = text(item.get("role"));
-      var reference = text(item.get("secretRef"));
-      var keyVersion = text(item.get("keyVersion"));
-      if (!role.isBlank() && !reference.isBlank()) {
-        references.put(role, new ChannelCredentialReference(reference, keyVersion));
-      }
-    }
-    return Map.copyOf(references);
+  private Map<String, String> credentials(Object value) {
+    if (!(value instanceof Map<?, ?> source)) return Map.of();
+    var credentials = new java.util.LinkedHashMap<String, String>();
+    source.forEach((key, item) -> {
+      var role = text(key);
+      var secret = text(item);
+      if (!role.isBlank() && !secret.isBlank()) credentials.put(role, secret);
+    });
+    return Map.copyOf(credentials);
   }
 
   private Map<String, Object> map(Object value) {
@@ -211,7 +215,9 @@ public class PlatformChannelConfigurationClient {
       String feeType,
       List<FeeTier> tiers,
       String feeMode,
-      String configVersion) {
+      String configVersion,
+      String riskPolicyId,
+      String riskDecision) {
     public ResolvedPaymentConfiguration {
       if (feeType == null || feeType.isBlank()) feeType = "COMBINED";
       if (!List.of("FIXED", "PERCENTAGE", "TIERED", "COMBINED").contains(feeType)) {
@@ -231,6 +237,22 @@ public class PlatformChannelConfigurationClient {
       if (!List.of("PAYER_BEAR", "MERCHANT_BEAR", "INCLUSIVE", "EXCLUSIVE").contains(feeMode)) {
         throw new IllegalArgumentException("渠道运行配置中的费率模式无效");
       }
+      if (!List.of("PASS", "REVIEW", "REJECT").contains(riskDecision)) riskDecision = "PASS";
+    }
+
+    public ResolvedPaymentConfiguration(
+        ChannelRuntimeContext runtime,
+        String pricingRuleId,
+        BigDecimal feeRate,
+        BigDecimal fixedFee,
+        BigDecimal extraFee,
+        BigDecimal minFee,
+        BigDecimal maxFee,
+        String feeType,
+        List<FeeTier> tiers,
+        String feeMode,
+        String configVersion) {
+      this(runtime, pricingRuleId, feeRate, fixedFee, extraFee, minFee, maxFee, feeType, tiers, feeMode, configVersion, null, "PASS");
     }
 
     public ResolvedPaymentConfiguration(
@@ -251,7 +273,7 @@ public class PlatformChannelConfigurationClient {
           "COMBINED",
           List.of(),
           feeMode,
-          configVersion);
+          configVersion, null, "PASS");
     }
 
     public ResolvedPaymentConfiguration(
@@ -274,7 +296,7 @@ public class PlatformChannelConfigurationClient {
           feeType,
           tiers,
           feeMode,
-          configVersion);
+          configVersion, null, "PASS");
     }
   }
 

@@ -2,7 +2,6 @@ package com.example.payments.platform.service.mapper;
 
 import com.example.payments.platform.service.service.ConfigurationSnapshotService.ChannelCandidate;
 import com.example.payments.platform.service.service.ConfigurationSnapshotService.ChannelRuntime;
-import com.example.payments.platform.service.service.ConfigurationSnapshotService.CredentialBinding;
 import com.example.payments.platform.service.service.ConfigurationSnapshotService.Pricing;
 import com.example.payments.platform.service.service.ConfigurationSnapshotService.ProductCapability;
 import com.example.payments.platform.service.service.ConfigurationSnapshotService.RiskPolicy;
@@ -38,9 +37,6 @@ public interface ConfigurationSnapshotMapper {
 
   ChannelRuntime selectChannelRuntime(@Param("channelId") String channelId);
 
-  List<CredentialBinding> selectActiveChannelCredentialBindings(
-      @Param("channelId") String channelId);
-
   Pricing selectPricing(
       @Param("version") long version,
       @Param("productCode") String productCode,
@@ -51,8 +47,11 @@ public interface ConfigurationSnapshotMapper {
 
   RiskPolicy selectRiskPolicy(
       @Param("version") long version,
+      @Param("merchantId") String merchantId,
       @Param("productCode") String productCode,
-      @Param("currency") String currency);
+      @Param("country") String country,
+      @Param("currency") String currency,
+      @Param("amount") BigDecimal amount);
 
   long countActiveRoutingRules(@Param("version") long version);
 

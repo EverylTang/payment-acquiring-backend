@@ -80,8 +80,8 @@ public class ConfigurationAdminService {
                         channel.requestUrl(),
                         channel.signatureProfile(),
                         channel.status(),
-                        readMap(channel.configuration()),
-                        channelSecretBindingSummaries(channel.channelId())))
+                        channelSettings(channel.configuration()),
+                        channelCredentials(channel.configuration())))
             .toList();
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
@@ -96,7 +96,7 @@ public class ConfigurationAdminService {
         request.provider(),
         request.requestUrl(),
         request.signatureProfile(),
-        json(request.configuration()),
+        json(channelDocument(request.configuration(), request.credentials())),
         now);
     mapper.insertChannelCapability(
         java.util.UUID.randomUUID().toString(),
@@ -106,7 +106,6 @@ public class ConfigurationAdminService {
         request.paymentMethod(),
         request.minAmount(),
         request.maxAmount());
-    replaceChannelSecretBindings(request.channelId(), request.credentialBindings(), now);
     audit(
         authentication.getName(),
         "CREATE",
@@ -118,7 +117,7 @@ public class ConfigurationAdminService {
             request.requestUrl(),
             request.signatureProfile(),
             request.configuration(),
-            request.credentialBindings()));
+            request.credentials()));
   }
 
   @Transactional
@@ -131,7 +130,7 @@ public class ConfigurationAdminService {
             request.provider(),
             request.requestUrl(),
             request.signatureProfile(),
-            json(request.configuration()),
+            json(channelDocument(request.configuration(), request.credentials())),
             Instant.now())
         != 1) {
       throw new IllegalArgumentException("渠道不存在: " + channelId);
@@ -147,22 +146,7 @@ public class ConfigurationAdminService {
             request.requestUrl(),
             request.signatureProfile(),
             request.configuration(),
-            request.credentialBindings()));
-    if (request.credentialBindings() != null) {
-      replaceChannelSecretBindings(channelId, request.credentialBindings(), Instant.now());
-    }
-  }
-
-  public List<ChannelSecretBindingResponse> channelSecretBindings(String channelId) {
-    return mapper.selectChannelSecretBindings(channelId).stream()
-        .map(
-            binding ->
-                new ChannelSecretBindingResponse(
-                    binding.credentialRole(),
-                    binding.secretRef(),
-                    binding.keyVersion(),
-                    binding.status()))
-        .toList();
+            request.credentials()));
   }
 
   @Transactional
@@ -366,6 +350,21 @@ public class ConfigurationAdminService {
     audit(authentication.getName(), "CHANGE_STATUS", "RISK_POLICY", policyId, request);
   }
 
+  @Transactional
+  public void updateRiskPolicy(
+      String policyId, RiskPolicyUpdateRequest request, Authentication authentication) {
+    if (mapper.updateRiskPolicy(
+            policyId,
+            request.name(),
+            request.priority(),
+            request.decision(),
+            json(request.condition()))
+        == 0) {
+      throw new IllegalArgumentException("策略不存在，或所属版本不是可编辑草稿: " + policyId);
+    }
+    audit(authentication.getName(), "UPDATE", "RISK_POLICY", policyId, request);
+  }
+
   private long draftVersion(String releaseId) {
     return java.util.Optional.ofNullable(mapper.selectDraftVersion(releaseId))
         .orElseThrow(() -> new IllegalArgumentException("草稿版本不存在或当前不可编辑: " + releaseId));
@@ -390,75 +389,13 @@ public class ConfigurationAdminService {
     auditService.record(operator, action, type, id, after);
   }
 
-  private List<ChannelSecretBindingSummary> channelSecretBindingSummaries(String channelId) {
-    return mapper.selectChannelSecretBindings(channelId).stream()
-        .map(
-            binding ->
-                new ChannelSecretBindingSummary(
-                    binding.credentialRole(), binding.keyVersion(), binding.status()))
-        .toList();
-  }
-
-  private void replaceChannelSecretBindings(
-      String channelId, List<ChannelSecretBindingRequest> bindings, Instant now) {
-    var roles = new java.util.HashSet<String>();
-    for (var binding : bindings) {
-      if (!roles.add(binding.credentialRole())) {
-        throw new IllegalArgumentException("渠道凭据角色重复: " + binding.credentialRole());
-      }
-      validateSecretReference(binding);
-    }
-    mapper.deleteChannelSecretBindings(channelId);
-    for (var binding : bindings) {
-      mapper.insertChannelSecretBinding(
-          java.util.UUID.randomUUID().toString(),
-          channelId,
-          binding.credentialRole(),
-          binding.secretRef(),
-          binding.keyVersion(),
-          now);
-    }
-  }
-
-  private void validateSecretReference(ChannelSecretBindingRequest binding) {
-    var reference = binding.secretRef();
-    if (reference.startsWith("env://")) {
-      if (!reference.substring("env://".length()).matches("[A-Z][A-Z0-9_]*")) {
-        throw new IllegalArgumentException("环境变量密钥引用格式无效");
-      }
-      return;
-    }
-    try {
-      var uri = java.net.URI.create(reference);
-      var validVaultReference =
-          "vault".equals(uri.getScheme())
-              && uri.getUserInfo() == null
-              && uri.getQuery() == null
-              && uri.getHost() != null
-              && uri.getHost().matches("[A-Za-z0-9][A-Za-z0-9_-]{0,127}")
-              && uri.getPath() != null
-              && uri.getPath().matches("/data/[A-Za-z0-9][A-Za-z0-9_./-]*")
-              && !uri.getPath().contains("..")
-              && uri.getFragment() != null
-              && uri.getFragment().matches("[A-Za-z][A-Za-z0-9_-]{0,63}");
-      if (!validVaultReference
-          || (binding.keyVersion() != null
-              && !binding.keyVersion().isBlank()
-              && !binding.keyVersion().matches("v?[1-9][0-9]*"))) {
-        throw new IllegalArgumentException("Vault 密钥引用或版本格式无效");
-      }
-    } catch (IllegalArgumentException exception) {
-      throw new IllegalArgumentException("Vault 密钥引用或版本格式无效", exception);
-    }
-  }
-
   private Map<String, Object> channelAudit(
       String name,
       String provider,
       String requestUrl,
       String signatureProfile,
       Map<String, Object> configuration,
-      List<ChannelSecretBindingRequest> credentialBindings) {
+      Map<String, Object> credentials) {
     return Map.of(
         "name",
         name,
@@ -470,12 +407,23 @@ public class ConfigurationAdminService {
         signatureProfile,
         "configurationKeys",
         configuration.keySet(),
-        "credentialRoles",
-        credentialBindings == null
-            ? List.of()
-            : credentialBindings.stream()
-                .map(ChannelSecretBindingRequest::credentialRole)
-                .toList());
+        "credentialKeys", credentials.keySet());
+  }
+
+  private Map<String, Object> channelDocument(
+      Map<String, Object> configuration, Map<String, Object> credentials) {
+    return Map.of("settings", configuration, "credentials", credentials);
+  }
+
+  private Map<String, Object> channelSettings(String configuration) {
+    var document = readMap(configuration);
+    var settings = document.get("settings");
+    return settings instanceof Map<?, ?> ? castMap(settings) : document;
+  }
+
+  private Map<String, Object> channelCredentials(String configuration) {
+    var value = readMap(configuration).get("credentials");
+    return value instanceof Map<?, ?> ? castMap(value) : Map.of();
   }
 
   private void validateSignatureProfile(String signatureProfile) {
@@ -499,6 +447,12 @@ public class ConfigurationAdminService {
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("数据库 JSON 无法解析", exception);
     }
+  }
+
+  private Map<String, Object> castMap(Object value) {
+    var result = new java.util.LinkedHashMap<String, Object>();
+    ((Map<?, ?>) value).forEach((key, item) -> result.put(String.valueOf(key), item));
+    return result;
   }
 
   private List<PricingFeeRules.FeeTier> readTiers(String value) {
@@ -557,7 +511,7 @@ public class ConfigurationAdminService {
       @NotBlank @Pattern(regexp = "https?://[^\\s]+") String requestUrl,
       @NotBlank String signatureProfile,
       @NotNull Map<String, Object> configuration,
-      @NotNull List<@Valid ChannelSecretBindingRequest> credentialBindings,
+      @NotNull Map<String, Object> credentials,
       @NotBlank String country,
       @Pattern(regexp = "[A-Z]{3}") String currency,
       @NotBlank String paymentMethod,
@@ -570,7 +524,7 @@ public class ConfigurationAdminService {
       @NotBlank @Pattern(regexp = "https?://[^\\s]+") String requestUrl,
       @NotBlank String signatureProfile,
       @NotNull Map<String, Object> configuration,
-      List<@Valid ChannelSecretBindingRequest> credentialBindings) {}
+      @NotNull Map<String, Object> credentials) {}
 
   public record ChannelResponse(
       String channelId,
@@ -580,7 +534,7 @@ public class ConfigurationAdminService {
       String signatureProfile,
       String status,
       Map<String, Object> configuration,
-      List<ChannelSecretBindingSummary> credentialBindings) {}
+      Map<String, Object> credentials) {}
 
   public record ChannelRow(
       String channelId,
@@ -591,19 +545,6 @@ public class ConfigurationAdminService {
       String status,
       String configuration) {}
 
-  public record ChannelSecretBindingRequest(
-      @NotBlank @Pattern(regexp = "[A-Za-z][A-Za-z0-9_]{0,63}") String credentialRole,
-      @NotBlank @Pattern(regexp = "[a-z][a-z0-9+.-]*://[^\\s]+") String secretRef,
-      @Pattern(regexp = "[A-Za-z0-9._-]{1,64}") String keyVersion) {}
-
-  public record ChannelSecretBindingResponse(
-      String credentialRole, String secretRef, String keyVersion, String status) {}
-
-  public record ChannelSecretBindingSummary(
-      String credentialRole, String keyVersion, String status) {}
-
-  public record ChannelSecretBindingRow(
-      String credentialRole, String secretRef, String keyVersion, String status) {}
 
   public record RoutingRuleRequest(
       @NotBlank String ruleId,
@@ -709,6 +650,12 @@ public class ConfigurationAdminService {
       String decision,
       Map<String, Object> condition,
       String status) {}
+
+  public record RiskPolicyUpdateRequest(
+      @NotBlank String name,
+      @Positive int priority,
+      @Pattern(regexp = "PASS|REJECT|REVIEW") String decision,
+      @NotNull Map<String, Object> condition) {}
 
   public record RiskPolicyRow(
       String policyId,

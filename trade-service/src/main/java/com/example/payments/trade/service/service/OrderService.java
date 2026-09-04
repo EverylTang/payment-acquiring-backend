@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
+import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,9 +61,15 @@ public class OrderService {
             command.currency(),
             command.amount(),
             command.idempotencyKey(),
-            command.expireAt());
+            command.expireAt(),
+            validatedUrl(command.notifyUrl(), "notifyUrl"),
+            validatedUrl(command.returnUrl(), "returnUrl"),
+            command.customerReference(),
+            command.description());
     if (channelConfiguration != null) {
-      order = applyPricing(order, channelConfiguration.resolveConfiguration(order));
+      var configuration = channelConfiguration.resolveConfiguration(order);
+      order = applyPricing(order, configuration);
+      channelConfiguration.recordRiskDecision(order, configuration);
     }
     try {
       return repository.insert(order);
@@ -171,12 +178,19 @@ public class OrderService {
     if (config.minFee() != null && fee.compareTo(config.minFee()) < 0) fee = config.minFee();
     if (config.maxFee() != null && fee.compareTo(config.maxFee()) > 0) fee = config.maxFee();
     fee = fee.setScale(2, RoundingMode.HALF_UP);
+    var normalizedBearer =
+        "MERCHANT_BEAR".equals(config.feeMode()) || "INCLUSIVE".equals(config.feeMode())
+            ? "MERCHANT"
+            : "PAYER";
+    var payerPayable = order.amount();
     var net = order.amount();
-    if ("MERCHANT_BEAR".equals(config.feeMode()) || "INCLUSIVE".equals(config.feeMode())) {
+    if ("MERCHANT".equals(normalizedBearer)) {
       if (fee.compareTo(order.amount()) > 0) {
         throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "内含手续费不能超过交易金额");
       }
       net = order.amount().subtract(fee);
+    } else {
+      payerPayable = order.amount().add(fee);
     }
     try {
       var routeSnapshot =
@@ -196,13 +210,30 @@ public class OrderService {
       pricing.put("feeType", config.feeType());
       pricing.put("tiers", config.tiers());
       pricing.put("mode", config.feeMode());
+      pricing.put("feeBearer", normalizedBearer);
       pricing.put("feeAmount", fee);
+      pricing.put("payerPayableAmount", payerPayable);
       pricing.put("netAmount", net);
       pricing.put("configVersion", config.configVersion());
       var pricingSnapshot = objectMapper.writeValueAsString(pricing);
-      return order.withPricing(fee, net, routeSnapshot, pricingSnapshot);
+      return order.withPricing(fee, payerPayable, net, normalizedBearer, routeSnapshot, pricingSnapshot);
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("无法记录订单费率快照", exception);
+    }
+  }
+
+  private String validatedUrl(String value, String field) {
+    if (value == null || value.isBlank()) return null;
+    try {
+      URI uri = URI.create(value);
+      if (!uri.isAbsolute()
+          || !("https".equalsIgnoreCase(uri.getScheme()) || "http".equalsIgnoreCase(uri.getScheme()))
+          || uri.getHost() == null) {
+        throw new IllegalArgumentException();
+      }
+      return uri.toASCIIString();
+    } catch (IllegalArgumentException exception) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, field + " must be an absolute HTTP(S) URL");
     }
   }
 
@@ -236,7 +267,11 @@ public class OrderService {
       String currency,
       java.math.BigDecimal amount,
       String idempotencyKey,
-      Instant expireAt) {
+      Instant expireAt,
+      String notifyUrl,
+      String returnUrl,
+      String customerReference,
+      String description) {
     public CreateOrderCommand {
       if (expireAt == null) expireAt = Instant.now().plus(Duration.ofMinutes(30));
     }

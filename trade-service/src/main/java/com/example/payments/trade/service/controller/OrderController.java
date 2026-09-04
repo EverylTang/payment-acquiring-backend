@@ -1,6 +1,5 @@
 package com.example.payments.trade.service.controller;
 
-import com.example.payments.trade.service.domain.OrderStatus;
 import com.example.payments.trade.service.service.OrderService;
 import com.example.payments.trade.service.service.PaymentAttemptService;
 import jakarta.validation.Valid;
@@ -49,7 +48,11 @@ public class OrderController {
                 request.currency(),
                 request.amount(),
                 idempotencyKey,
-                request.expireAt()));
+                request.expireAt(),
+                request.notifyUrl(),
+                request.returnUrl(),
+                request.customerReference(),
+                request.description()));
     return OrderDtos.OrderResponse.from(order);
   }
 
@@ -87,18 +90,6 @@ public class OrderController {
         attempt.status().name(),
         "responseSnapshot",
         attempt.responseSnapshot());
-  }
-
-  @PostMapping("/{orderId}/callback")
-  public OrderDtos.OrderResponse callback(
-      @PathVariable(name = "orderId") String orderId,
-      @RequestParam(name = "status") @NotBlank String status) {
-    try {
-      return OrderDtos.OrderResponse.from(
-          orderService.callback(orderId, OrderStatus.valueOf(status.toUpperCase())));
-    } catch (IllegalArgumentException exception) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unsupported status", exception);
-    }
   }
 
   @GetMapping("/{orderId}/attempts/{attemptId}")

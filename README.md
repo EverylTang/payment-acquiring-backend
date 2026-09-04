@@ -151,7 +151,6 @@ curl -X POST http://127.0.0.1:8082/api/v1/payments/orders \\
 
 ```bash
 curl http://127.0.0.1:8082/api/v1/payments/orders/{orderId}
-curl -X POST 'http://127.0.0.1:8082/api/v1/payments/orders/{orderId}/callback?status=SUCCESS'
 ```
 
 资金成功入账示例：

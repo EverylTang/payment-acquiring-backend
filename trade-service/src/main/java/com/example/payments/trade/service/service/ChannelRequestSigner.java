@@ -28,7 +28,7 @@ public class ChannelRequestSigner {
     if (profile == SignatureProfile.NONE) {
       return new ChannelRequestSignature(fields, signatureField(runtime), "");
     }
-    var secretRole = setting(runtime, "signatureSecretRole", "requestSigningKey");
+    var secretRole = credentialSetting(runtime, "signatureSecretRole", "requestSigningKey");
     var secret = runtime.secret(secretRole).orElseThrow(() -> missingSecret(secretRole));
     return new ChannelRequestSignature(
         fields, signatureField(runtime), profile.sign(canonical(fields), secret));
@@ -66,6 +66,11 @@ public class ChannelRequestSigner {
     return value == null || String.valueOf(value).isBlank()
         ? defaultValue
         : String.valueOf(value).trim();
+  }
+
+  private String credentialSetting(ChannelRuntimeContext runtime, String key, String defaultValue) {
+    var value = runtime.credentials().get(key);
+    return value == null || value.isBlank() ? defaultValue : value.trim();
   }
 
   private String canonical(Map<String, String> fields) {

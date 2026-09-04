@@ -7,6 +7,8 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ConfigurationController {
   private final ConfigurationSnapshotService snapshotService;
   private final ConfigurationHealthService healthService;
+  private final com.example.payments.platform.service.service.RiskAdminService riskAdminService;
 
   @GetMapping("/snapshot")
   public Map<String, Object> snapshot(
@@ -38,5 +41,12 @@ public class ConfigurationController {
   @GetMapping("/channels/{channelId}/runtime")
   public Map<String, Object> channelRuntime(@PathVariable String channelId) {
     return snapshotService.channelRuntime(channelId);
+  }
+
+  @PostMapping("/risk-events")
+  public void riskEvent(
+      @jakarta.validation.Valid @RequestBody
+          com.example.payments.platform.service.service.RiskAdminService.RiskDecisionRequest request) {
+    riskAdminService.recordDecision(request);
   }
 }

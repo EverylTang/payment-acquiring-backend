@@ -29,7 +29,9 @@ public class PaymentOrderRepository {
     entity.setCurrency(order.currency());
     entity.setAmount(order.amount());
     entity.setFeeAmount(order.feeAmount());
+    entity.setPayerPayableAmount(order.payerPayableAmount());
     entity.setNetAmount(order.netAmount());
+    entity.setFeeBearer(order.feeBearer());
     entity.setStatus(order.status().name());
     entity.setIdempotencyKey(order.idempotencyKey());
     entity.setRouteSnapshotJson(order.routeSnapshot());
@@ -37,6 +39,15 @@ public class PaymentOrderRepository {
     entity.setExpireAt(toLocal(order.expireAt()));
     entity.setCreatedAt(toLocal(order.createdAt()));
     entity.setPaymentToken(order.paymentToken());
+    entity.setNotifyUrl(order.notifyUrl());
+    entity.setReturnUrl(order.returnUrl());
+    entity.setCustomerReference(order.customerReference());
+    entity.setDescription(order.description());
+    entity.setCallbackStatus(order.callbackStatus());
+    entity.setCallbackEventId(order.callbackEventId());
+    entity.setCallbackAttemptCount(order.callbackAttemptCount());
+    entity.setCallbackLastNotifiedAt(toLocal(order.callbackLastNotifiedAt()));
+    entity.setCallbackLastError(order.callbackLastError());
     entity.setVersion(0L);
     mapper.insert(entity);
     return order;
@@ -63,6 +74,23 @@ public class PaymentOrderRepository {
   public boolean updateStatus(
       String orderId, OrderStatus expected, OrderStatus next, Instant paidAt) {
     return mapper.updateStatus(orderId, expected, next, paidAt == null ? null : toLocal(paidAt))
+        == 1;
+  }
+
+  public boolean updateCallbackState(
+      String orderId,
+      String callbackStatus,
+      String callbackEventId,
+      int callbackAttemptCount,
+      Instant callbackLastNotifiedAt,
+      String callbackLastError) {
+    return mapper.updateCallbackState(
+            orderId,
+            callbackStatus,
+            callbackEventId,
+            callbackAttemptCount,
+            callbackLastNotifiedAt == null ? null : toLocal(callbackLastNotifiedAt),
+            callbackLastError)
         == 1;
   }
 
@@ -94,15 +122,12 @@ public class PaymentOrderRepository {
   }
 
   public OrderStatistics statistics() {
-    var orders = mapper.selectList(new LambdaQueryWrapper<PaymentOrderEntity>());
-    long successful =
-        orders.stream()
-            .filter(order -> OrderStatus.SUCCESS.name().equals(order.getStatus()))
-            .count();
-    BigDecimal volume =
-        orders.stream().map(PaymentOrderEntity::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-    long merchants = orders.stream().map(PaymentOrderEntity::getMerchantId).distinct().count();
-    return new OrderStatistics(orders.size(), successful, volume, merchants);
+    var aggregate = mapper.aggregateStatistics();
+    return new OrderStatistics(
+        ((Number) aggregate.get("total")).longValue(),
+        ((Number) aggregate.get("successful")).longValue(),
+        (BigDecimal) aggregate.get("volume"),
+        ((Number) aggregate.get("merchants")).longValue());
   }
 
   private PaymentOrder toDomain(PaymentOrderEntity e) {
@@ -116,7 +141,9 @@ public class PaymentOrderRepository {
         e.getCurrency(),
         e.getAmount(),
         e.getFeeAmount(),
+        e.getPayerPayableAmount(),
         e.getNetAmount(),
+        e.getFeeBearer(),
         OrderStatus.valueOf(e.getStatus()),
         e.getIdempotencyKey(),
         e.getRouteSnapshotJson(),
@@ -124,10 +151,22 @@ public class PaymentOrderRepository {
         e.getExpireAt().toInstant(ZoneOffset.UTC),
         e.getCreatedAt().toInstant(ZoneOffset.UTC),
         e.getPaidAt() == null ? null : e.getPaidAt().toInstant(ZoneOffset.UTC),
-        e.getPaymentToken());
+        e.getPaymentToken(),
+        e.getNotifyUrl(),
+        e.getReturnUrl(),
+        e.getCustomerReference(),
+        e.getDescription(),
+        e.getCallbackStatus(),
+        e.getCallbackEventId(),
+        e.getCallbackAttemptCount(),
+        e.getCallbackLastNotifiedAt() == null
+            ? null
+            : e.getCallbackLastNotifiedAt().toInstant(ZoneOffset.UTC),
+        e.getCallbackLastError());
   }
 
   private static LocalDateTime toLocal(Instant value) {
+    if (value == null) return null;
     return LocalDateTime.ofInstant(value, ZoneOffset.UTC);
   }
 

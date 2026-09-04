@@ -1,7 +1,6 @@
 package com.example.payments.platform.service.mapper;
 
 import com.example.payments.platform.service.service.ConfigurationAdminService.ChannelRow;
-import com.example.payments.platform.service.service.ConfigurationAdminService.ChannelSecretBindingRow;
 import com.example.payments.platform.service.service.ConfigurationAdminService.RiskPolicyRow;
 import com.example.payments.platform.service.service.ConfigurationAdminService.RoutingRuleResponse;
 import java.math.BigDecimal;
@@ -53,18 +52,6 @@ public interface ConfigurationAdminMapper {
       @Param("config") String configuration,
       @Param("now") Instant now);
 
-  List<ChannelSecretBindingRow> selectChannelSecretBindings(@Param("channelId") String channelId);
-
-  int deleteChannelSecretBindings(@Param("channelId") String channelId);
-
-  int insertChannelSecretBinding(
-      @Param("id") String bindingId,
-      @Param("channelId") String channelId,
-      @Param("role") String credentialRole,
-      @Param("secretRef") String secretRef,
-      @Param("keyVersion") String keyVersion,
-      @Param("now") Instant now);
-
   int updateChannelStatus(
       @Param("id") String id, @Param("status") String status, @Param("now") Instant now);
 
@@ -109,6 +96,13 @@ public interface ConfigurationAdminMapper {
 
   int updateRiskPolicyStatus(
       @Param("id") String id, @Param("status") String status, @Param("now") Instant now);
+
+  int updateRiskPolicy(
+      @Param("id") String id,
+      @Param("name") String name,
+      @Param("priority") int priority,
+      @Param("decision") String decision,
+      @Param("condition") String condition);
 
   Long selectDraftVersion(@Param("releaseId") String releaseId);
 }

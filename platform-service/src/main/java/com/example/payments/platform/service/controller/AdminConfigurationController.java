@@ -42,13 +42,6 @@ public class AdminConfigurationController {
     service.updateChannel(id, r, a);
   }
 
-  @GetMapping("/channels/{id}/credentials")
-  @PreAuthorize("hasAuthority('channel:update')")
-  public java.util.List<ConfigurationAdminService.ChannelSecretBindingResponse> channelCredentials(
-      @PathVariable("id") String id) {
-    return service.channelSecretBindings(id);
-  }
-
   @PutMapping("/channels/{id}/status")
   @PreAuthorize("hasAuthority('channel:status')")
   public void updateChannelStatus(
@@ -134,6 +127,15 @@ public class AdminConfigurationController {
   public void createRiskPolicy(
       @Valid @RequestBody ConfigurationAdminService.RiskPolicyRequest r, Authentication a) {
     service.createRiskPolicy(r, a);
+  }
+
+  @PutMapping("/risk-policies/{id}")
+  @PreAuthorize("hasAuthority('risk-policy:create')")
+  public void updateRiskPolicy(
+      @PathVariable("id") String id,
+      @Valid @RequestBody ConfigurationAdminService.RiskPolicyUpdateRequest r,
+      Authentication a) {
+    service.updateRiskPolicy(id, r, a);
   }
 
   @PutMapping("/risk-policies/{id}/status")

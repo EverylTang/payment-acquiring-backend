@@ -249,6 +249,59 @@ CREATE TABLE IF NOT EXISTS risk_policy (
   UNIQUE KEY uk_risk_policy_id (policy_id)
 );
 
+CREATE TABLE IF NOT EXISTS risk_event (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  event_id VARCHAR(64) NOT NULL,
+  order_id VARCHAR(64) NULL,
+  merchant_id VARCHAR(64) NOT NULL,
+  policy_id VARCHAR(64) NULL,
+  policy_name VARCHAR(128) NULL,
+  decision VARCHAR(16) NOT NULL,
+  risk_level VARCHAR(16) NOT NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'OPEN',
+  reason VARCHAR(512) NOT NULL,
+  subject_type VARCHAR(32) NULL,
+  subject_masked VARCHAR(128) NULL,
+  reviewer VARCHAR(64) NULL,
+  review_decision VARCHAR(16) NULL,
+  review_note VARCHAR(512) NULL,
+  created_at DATETIME(3) NOT NULL,
+  resolved_at DATETIME(3) NULL,
+  UNIQUE KEY uk_risk_event_id (event_id),
+  KEY idx_risk_event_queue (status, risk_level, created_at),
+  KEY idx_risk_event_merchant (merchant_id, created_at)
+);
+
+CREATE TABLE IF NOT EXISTS risk_case (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  case_id VARCHAR(80) NOT NULL,
+  event_id VARCHAR(64) NOT NULL,
+  status VARCHAR(16) NOT NULL,
+  assignee VARCHAR(64) NULL,
+  decision VARCHAR(16) NULL,
+  note VARCHAR(512) NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  UNIQUE KEY uk_risk_case_id (case_id),
+  UNIQUE KEY uk_risk_case_event (event_id)
+);
+
+CREATE TABLE IF NOT EXISTS risk_list_entry (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  entry_id VARCHAR(64) NOT NULL,
+  list_type VARCHAR(16) NOT NULL,
+  subject_type VARCHAR(32) NOT NULL,
+  subject_hash CHAR(64) NOT NULL,
+  label VARCHAR(128) NOT NULL,
+  expires_at DATETIME(3) NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
+  created_by VARCHAR(64) NOT NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  UNIQUE KEY uk_risk_list_entry_id (entry_id),
+  KEY idx_risk_list_lookup (list_type, subject_type, subject_hash, status)
+);
+
 INSERT IGNORE INTO admin_role (role_code, role_name) VALUES
   ('ADMIN', '系统管理员'), ('OPS', '运营'), ('RISK', '风控'), ('FINANCE', '财务'), ('READONLY', '只读');
 
@@ -658,7 +711,7 @@ FROM (
   SELECT 'config-release:rollback', '回滚配置', 'CONFIG_RELEASE' UNION ALL SELECT 'audit:list', '查看操作审计', 'AUDIT' UNION ALL
   SELECT 'merchant:profile:update', '编辑商户资料', 'MERCHANT' UNION ALL SELECT 'merchant:contact:list', '查看商户联系人', 'MERCHANT' UNION ALL
   SELECT 'merchant:credential:list', '查看商户凭证', 'MERCHANT' UNION ALL
-  SELECT 'order:list', '查看订单', 'ORDER' UNION ALL SELECT 'order:statistics', '查看订单统计', 'ORDER' UNION ALL
+  SELECT 'order:list', '查看订单', 'ORDER' UNION ALL SELECT 'order:manage', '处置订单', 'ORDER' UNION ALL SELECT 'order:notify', '再次通知商户', 'ORDER' UNION ALL SELECT 'order:statistics', '查看订单统计', 'ORDER' UNION ALL
   SELECT 'outbox:list', '查看失败事件', 'OUTBOX' UNION ALL SELECT 'outbox:detail', '查看事件详情', 'OUTBOX' UNION ALL SELECT 'outbox:redrive', '重放失败事件', 'OUTBOX' UNION ALL
   SELECT 'payment-event:list', '查看失败支付事件', 'PAYMENT_EVENT' UNION ALL SELECT 'payment-event:detail', '查看支付事件详情', 'PAYMENT_EVENT' UNION ALL SELECT 'payment-event:replay', '重放支付事件', 'PAYMENT_EVENT' UNION ALL
   SELECT 'reconciliation:bill:import', '导入对账单', 'RECONCILIATION' UNION ALL SELECT 'reconciliation:bill:list', '查看渠道结算账单', 'RECONCILIATION' UNION ALL SELECT 'reconciliation:bill:detail', '查看渠道结算账单明细', 'RECONCILIATION' UNION ALL SELECT 'reconciliation:difference:list', '查看对账差异', 'RECONCILIATION' UNION ALL
@@ -670,7 +723,7 @@ SELECT r.id, p.id FROM admin_role r CROSS JOIN admin_permission p WHERE r.role_c
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('auth:me', 'auth:password:change', 'system:access:list', 'dashboard:overview', 'channel:list', 'channel:health:list', 'routing-rule:list', 'routing-rule:detail', 'pricing-rule:list', 'pricing-rule:detail', 'risk-policy:list', 'configuration:snapshot:list', 'config-release:list', 'config-release:diff', 'audit:list', 'merchant:profile', 'merchant:contact:list', 'order:list', 'order:statistics', 'reconciliation:bill:list', 'reconciliation:bill:detail') WHERE r.role_code IN ('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY');
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
-SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('merchant:profile:update', 'merchant:credential:list', 'channel:create', 'channel:update', 'routing-rule:create', 'routing-rule:update', 'pricing-rule:create', 'config-release:create', 'config-release:submit', 'outbox:list', 'outbox:detail', 'outbox:redrive', 'payment-event:list', 'payment-event:detail', 'payment-event:replay', 'reconciliation:bill:import', 'reconciliation:bill:list', 'reconciliation:bill:detail', 'reconciliation:difference:list', 'reconciliation:bill:reconcile', 'reconciliation:difference:resolve') WHERE r.role_code = 'OPS';
+SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('merchant:profile:update', 'merchant:credential:list', 'channel:create', 'channel:update', 'routing-rule:create', 'routing-rule:update', 'pricing-rule:create', 'config-release:create', 'config-release:submit', 'order:manage', 'order:notify', 'outbox:list', 'outbox:detail', 'outbox:redrive', 'payment-event:list', 'payment-event:detail', 'payment-event:replay', 'reconciliation:bill:import', 'reconciliation:bill:list', 'reconciliation:bill:detail', 'reconciliation:difference:list', 'reconciliation:bill:reconcile', 'reconciliation:difference:resolve') WHERE r.role_code = 'OPS';
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('pricing-rule:create', 'pricing-rule:update') WHERE r.role_code = 'FINANCE';
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
@@ -680,6 +733,61 @@ SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code
 USE pay_trade;
 
 -- SOURCE: consolidated trade-service V1
+CREATE TABLE IF NOT EXISTS payment_order (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  order_id VARCHAR(64) NOT NULL COMMENT '平台订单号',
+  merchant_id VARCHAR(64) NOT NULL COMMENT '商户ID',
+  merchant_order_no VARCHAR(128) NOT NULL COMMENT '商户订单号',
+  product_code VARCHAR(64) NOT NULL COMMENT '产品编码',
+  payment_method VARCHAR(64) NOT NULL COMMENT '对客支付方式',
+  country VARCHAR(8) COMMENT '支付国家或地区',
+  currency VARCHAR(3) NOT NULL COMMENT '交易币种',
+  amount DECIMAL(20, 2) NOT NULL COMMENT '商户订单基础金额',
+  fee_amount DECIMAL(20, 2) NOT NULL DEFAULT 0 COMMENT '匹配费率后的手续费',
+  payer_payable_amount DECIMAL(20, 2) NOT NULL COMMENT '付款方实际支付金额',
+  net_amount DECIMAL(20, 2) NOT NULL COMMENT '商户应结算净额',
+  fee_bearer VARCHAR(16) NOT NULL COMMENT '费用承担方：PAYER/MERCHANT',
+  status VARCHAR(32) NOT NULL COMMENT '订单状态',
+  idempotency_key VARCHAR(128) NOT NULL COMMENT '请求幂等键',
+  route_snapshot_json JSON NOT NULL COMMENT '路由配置快照',
+  pricing_snapshot_json JSON NOT NULL COMMENT '费率及金额计算快照',
+  expire_at DATETIME(3) NOT NULL COMMENT '订单过期时间',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  paid_at DATETIME(3) COMMENT '支付成功时间',
+  payment_token VARCHAR(256) COMMENT '支付令牌',
+  notify_url VARCHAR(1024) COMMENT '商户异步通知地址快照',
+  return_url VARCHAR(1024) COMMENT '支付完成跳转地址快照',
+  customer_reference VARCHAR(128) COMMENT '付款人脱敏引用',
+  description VARCHAR(1000) COMMENT '订单描述',
+  callback_status VARCHAR(32) NOT NULL DEFAULT 'NOT_CONFIGURED' COMMENT '商户通知状态',
+  callback_event_id VARCHAR(128) NULL COMMENT '最近一次商户通知事件',
+  callback_attempt_count INT NOT NULL DEFAULT 0 COMMENT '最近一次商户通知投递次数',
+  callback_last_notified_at DATETIME(3) NULL COMMENT '最近一次商户通知投递时间',
+  callback_last_error VARCHAR(512) NULL COMMENT '最近一次商户通知错误',
+  version BIGINT NOT NULL DEFAULT 0 COMMENT '乐观锁版本',
+  UNIQUE KEY uk_payment_order_id (order_id),
+  UNIQUE KEY uk_payment_order_merchant_order (merchant_id, merchant_order_no),
+  UNIQUE KEY uk_payment_order_idempotency (merchant_id, idempotency_key),
+  KEY idx_payment_order_merchant_status_created (merchant_id, status, created_at),
+  KEY idx_payment_order_created (created_at)
+);
+
+-- Existing environments created before the consolidated order table must retain their data.
+ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS payer_payable_amount DECIMAL(20, 2) NULL COMMENT '付款方实际支付金额' AFTER fee_amount;
+ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS fee_bearer VARCHAR(16) NULL COMMENT '费用承担方：PAYER/MERCHANT' AFTER net_amount;
+ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS notify_url VARCHAR(1024) NULL COMMENT '商户异步通知地址快照' AFTER payment_token;
+ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS return_url VARCHAR(1024) NULL COMMENT '支付完成跳转地址快照' AFTER notify_url;
+ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS customer_reference VARCHAR(128) NULL COMMENT '付款人脱敏引用' AFTER return_url;
+ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS description VARCHAR(1000) NULL COMMENT '订单描述' AFTER customer_reference;
+ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS callback_status VARCHAR(32) NOT NULL DEFAULT 'NOT_CONFIGURED' COMMENT '商户通知状态' AFTER description;
+ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS callback_event_id VARCHAR(128) NULL COMMENT '最近一次商户通知事件' AFTER callback_status;
+ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS callback_attempt_count INT NOT NULL DEFAULT 0 COMMENT '最近一次商户通知投递次数' AFTER callback_event_id;
+ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS callback_last_notified_at DATETIME(3) NULL COMMENT '最近一次商户通知投递时间' AFTER callback_attempt_count;
+ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS callback_last_error VARCHAR(512) NULL COMMENT '最近一次商户通知错误' AFTER callback_last_notified_at;
+UPDATE payment_order
+SET payer_payable_amount = amount, fee_bearer = 'MERCHANT'
+WHERE payer_payable_amount IS NULL OR fee_bearer IS NULL;
+
 CREATE TABLE IF NOT EXISTS payment_attempt (
   id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
   attempt_id VARCHAR(64) NOT NULL COMMENT '尝试ID',
@@ -1057,3 +1165,14 @@ WHERE menu_code IN (
   'system:user', 'system:role', 'system:menu'
 );
 UPDATE admin_menu SET menu_name = '费率管理', updated_at = CURRENT_TIMESTAMP(3) WHERE menu_code = 'pricing';
+
+-- SOURCE: consolidated platform-service V11 risk workspace
+INSERT IGNORE INTO admin_permission(permission_code,permission_name,resource_type,status,created_at,updated_at) VALUES
+  ('risk:event:list','查看风险事件','RISK_EVENT','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)),
+  ('risk:event:review','审核风险事件','RISK_EVENT','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)),
+  ('risk:list:list','查看风控名单','RISK_LIST','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)),
+  ('risk:list:manage','维护风控名单','RISK_LIST','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3));
+INSERT IGNORE INTO admin_role_permission(role_id,permission_id)
+SELECT r.id,p.id FROM admin_role r JOIN admin_permission p
+  ON p.permission_code IN ('risk:event:list','risk:event:review','risk:list:list','risk:list:manage')
+WHERE r.role_code IN ('ADMIN','RISK');

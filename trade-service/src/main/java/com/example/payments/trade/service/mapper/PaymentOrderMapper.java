@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.example.payments.trade.service.domain.OrderStatus;
 import com.example.payments.trade.service.model.*;
 import java.time.LocalDateTime;
+import java.util.Map;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -20,6 +21,16 @@ public interface PaymentOrderMapper extends BaseMapper<PaymentOrderEntity> {
       @Param("expected") String expected,
       @Param("next") String next,
       @Param("paidAt") LocalDateTime paidAt);
+
+  int updateCallbackState(
+      @Param("orderId") String orderId,
+      @Param("callbackStatus") String callbackStatus,
+      @Param("callbackEventId") String callbackEventId,
+      @Param("callbackAttemptCount") int callbackAttemptCount,
+      @Param("callbackLastNotifiedAt") LocalDateTime callbackLastNotifiedAt,
+      @Param("callbackLastError") String callbackLastError);
+
+  Map<String, Object> aggregateStatistics();
 
   default int updateStatus(
       String orderId, OrderStatus expected, OrderStatus next, LocalDateTime paidAt) {

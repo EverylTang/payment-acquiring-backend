@@ -21,7 +21,9 @@ public class PaymentOrderEntity {
   private String currency;
   private BigDecimal amount;
   private BigDecimal feeAmount;
+  private BigDecimal payerPayableAmount;
   private BigDecimal netAmount;
+  private String feeBearer;
   private String status;
   private String idempotencyKey;
 
@@ -35,6 +37,15 @@ public class PaymentOrderEntity {
   private LocalDateTime createdAt;
   private LocalDateTime paidAt;
   private String paymentToken;
+  private String notifyUrl;
+  private String returnUrl;
+  private String customerReference;
+  private String description;
+  private String callbackStatus;
+  private String callbackEventId;
+  private Integer callbackAttemptCount;
+  private LocalDateTime callbackLastNotifiedAt;
+  private String callbackLastError;
   private Long version;
 
   public Long getId() {
@@ -121,6 +132,11 @@ public class PaymentOrderEntity {
     return netAmount;
   }
 
+  public BigDecimal getPayerPayableAmount() { return payerPayableAmount; }
+  public void setPayerPayableAmount(BigDecimal value) { payerPayableAmount = value; }
+  public String getFeeBearer() { return feeBearer; }
+  public void setFeeBearer(String value) { feeBearer = value; }
+
   public void setNetAmount(BigDecimal netAmount) {
     this.netAmount = netAmount;
   }
@@ -188,6 +204,25 @@ public class PaymentOrderEntity {
   public void setPaymentToken(String paymentToken) {
     this.paymentToken = paymentToken;
   }
+
+  public String getNotifyUrl() { return notifyUrl; }
+  public void setNotifyUrl(String value) { notifyUrl = value; }
+  public String getReturnUrl() { return returnUrl; }
+  public void setReturnUrl(String value) { returnUrl = value; }
+  public String getCustomerReference() { return customerReference; }
+  public void setCustomerReference(String value) { customerReference = value; }
+  public String getDescription() { return description; }
+  public void setDescription(String value) { description = value; }
+  public String getCallbackStatus() { return callbackStatus; }
+  public void setCallbackStatus(String value) { callbackStatus = value; }
+  public String getCallbackEventId() { return callbackEventId; }
+  public void setCallbackEventId(String value) { callbackEventId = value; }
+  public Integer getCallbackAttemptCount() { return callbackAttemptCount; }
+  public void setCallbackAttemptCount(Integer value) { callbackAttemptCount = value; }
+  public LocalDateTime getCallbackLastNotifiedAt() { return callbackLastNotifiedAt; }
+  public void setCallbackLastNotifiedAt(LocalDateTime value) { callbackLastNotifiedAt = value; }
+  public String getCallbackLastError() { return callbackLastError; }
+  public void setCallbackLastError(String value) { callbackLastError = value; }
 
   public Long getVersion() {
     return version;
