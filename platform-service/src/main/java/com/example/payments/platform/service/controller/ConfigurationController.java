@@ -38,6 +38,11 @@ public class ConfigurationController {
     return healthService.health(channelId);
   }
 
+  @GetMapping("/products/{productCode}/type")
+  public Map<String, String> productType(@PathVariable String productCode) {
+    return Map.of("productCode", productCode, "productType", snapshotService.productType(productCode));
+  }
+
   @GetMapping("/channels/{channelId}/runtime")
   public Map<String, Object> channelRuntime(@PathVariable String channelId) {
     return snapshotService.channelRuntime(channelId);

@@ -1,6 +1,7 @@
 package com.example.payments.trade.service.controller;
 
 import com.example.payments.trade.service.domain.PaymentOrder;
+import com.example.payments.trade.service.domain.PaymentAttempt;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -22,6 +23,7 @@ public final class OrderDtos {
       String notifyUrl,
       String returnUrl,
       String customerReference,
+      String payoutDestinationRef,
       String description) {}
 
   public record OrderResponse(
@@ -29,6 +31,7 @@ public final class OrderDtos {
       String merchantId,
       String merchantOrderNo,
       String productCode,
+      String orderType,
       String paymentMethod,
       String country,
       String currency,
@@ -39,6 +42,11 @@ public final class OrderDtos {
       String feeBearer,
       String status,
       String paymentToken,
+      String channelId,
+      String channelOrderId,
+      String channelStatus,
+      String channelResponseSnapshot,
+      String merchantRequestSnapshot,
       String routeSnapshot,
       String pricingSnapshot,
       Instant expireAt,
@@ -47,18 +55,24 @@ public final class OrderDtos {
       String notifyUrl,
       String returnUrl,
       String customerReference,
+      String payoutDestinationRef,
       String description,
       String callbackStatus,
       String callbackEventId,
       Integer callbackAttemptCount,
       Instant callbackLastNotifiedAt,
       String callbackLastError) {
-    public static OrderResponse from(PaymentOrder order) {
+  public static OrderResponse from(PaymentOrder order) {
+      return from(order, null);
+    }
+
+    public static OrderResponse from(PaymentOrder order, PaymentAttempt channel) {
       return new OrderResponse(
           order.orderId(),
           order.merchantId(),
           order.merchantOrderNo(),
           order.productCode(),
+          order.orderType().name(),
           order.paymentMethod(),
           order.country(),
           order.currency(),
@@ -69,6 +83,11 @@ public final class OrderDtos {
           order.feeBearer(),
           order.status().name(),
           order.paymentToken(),
+          channel == null ? null : channel.channelId(),
+          channel == null ? null : channel.channelRequestNo(),
+          channel == null ? null : channel.status().name(),
+          channel == null ? null : channel.responseSnapshot(),
+          order.merchantRequestSnapshot(),
           order.routeSnapshot(),
           order.pricingSnapshot(),
           order.expireAt(),
@@ -77,6 +96,7 @@ public final class OrderDtos {
           order.notifyUrl(),
           order.returnUrl(),
           order.customerReference(),
+          order.payoutDestinationRef(),
           order.description(),
           order.callbackStatus(),
           order.callbackEventId(),

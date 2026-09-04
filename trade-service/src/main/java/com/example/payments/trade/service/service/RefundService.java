@@ -43,6 +43,9 @@ public class RefundService {
   public PaymentRefundEntity create(
       String orderId, String idempotencyKey, BigDecimal amount, String reason) {
     var order = orderService.get(orderId);
+    if (order.orderType() == com.example.payments.trade.service.domain.OrderType.PAYOUT) {
+      throw new IllegalStateException("出款订单不支持退款，请走出款冲正流程");
+    }
     if (!"SUCCESS".equals(order.status().name())) throw new IllegalStateException("只有支付成功订单允许退款");
     if (amount.signum() <= 0) throw new IllegalArgumentException("退款金额必须大于 0");
     if (mapper.lockOrder(orderId) == null) throw new IllegalArgumentException("订单不存在: " + orderId);
@@ -103,6 +106,10 @@ public class RefundService {
   @Transactional
   public PaymentRefundEntity execute(String refundId) {
     var refund = get(refundId);
+    if (orderService.get(refund.getOrderId()).orderType()
+        == com.example.payments.trade.service.domain.OrderType.PAYOUT) {
+      throw new IllegalStateException("出款订单不支持退款，请走出款冲正流程");
+    }
     if (RefundStatus.SUCCESS.name().equals(refund.getStatus())
         || RefundStatus.CANCELED.name().equals(refund.getStatus())) return refund;
     var now = LocalDateTime.now(ZoneOffset.UTC);

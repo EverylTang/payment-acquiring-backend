@@ -31,13 +31,14 @@ public class AdminOrderController {
       @RequestParam(required = false) String merchantId,
       @RequestParam(required = false) String status,
       @RequestParam(required = false) String currency,
+      @RequestParam(required = false) String orderType,
       @RequestParam(defaultValue = "1") int page,
       @RequestParam(defaultValue = "20") int pageSize,
       @RequestHeader("X-Gateway-Token") String gatewayToken,
       @RequestHeader("X-User-Id") String operator,
       @RequestHeader("X-Permissions") String permissions) {
     authorizer.authorize(gatewayToken, operator, permissions, "order:list");
-    return orderService.list(merchantId, status, currency, page, pageSize);
+    return orderService.list(merchantId, status, currency, orderType, page, pageSize);
   }
 
   @GetMapping("/statistics")
@@ -56,7 +57,9 @@ public class AdminOrderController {
       @RequestHeader("X-User-Id") String operator,
       @RequestHeader("X-Permissions") String permissions) {
     authorizer.authorize(gatewayToken, operator, permissions, "order:list");
-    return OrderDtos.OrderResponse.from(orderService.get(orderId));
+    var order = orderService.get(orderId);
+    return OrderDtos.OrderResponse.from(
+        order, paymentAttemptService.latestForOrder(order.orderId()).orElse(null));
   }
 
   @PostMapping
@@ -76,7 +79,7 @@ public class AdminOrderController {
                 request.merchantId(), request.merchantOrderNo(), request.productCode(),
                 request.paymentMethod(), request.country(), request.currency(), request.amount(),
                 idempotencyKey, request.expireAt(), request.notifyUrl(), request.returnUrl(),
-                request.customerReference(), request.description())));
+                request.customerReference(), request.payoutDestinationRef(), request.description())));
   }
 
   @PostMapping("/{orderId}/cancel")
@@ -150,6 +153,7 @@ public class AdminOrderController {
     return Map.of("attemptId", attempt.attemptId(), "orderId", attempt.orderId(),
         "channelId", attempt.channelId(), "channelOrderId", attempt.channelRequestNo(),
         "attemptNo", attempt.attemptNo(), "status", attempt.status().name(),
+        "requestSnapshot", attempt.requestSnapshot() == null ? "" : attempt.requestSnapshot(),
         "responseSnapshot", attempt.responseSnapshot() == null ? "" : attempt.responseSnapshot());
   }
 

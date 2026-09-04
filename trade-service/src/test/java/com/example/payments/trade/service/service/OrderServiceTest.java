@@ -24,7 +24,7 @@ class OrderServiceTest {
   void duplicateMerchantOrderReturnsExistingOrder() {
     var command =
         new OrderService.CreateOrderCommand(
-            "m1", "o1", "p1", "CARD", "US", "USD", new BigDecimal("10.00"), "key-1", null, null, null, null, null);
+            "m1", "o1", "p1", "CARD", "US", "USD", new BigDecimal("10.00"), "key-1", null, null, null, null, null, null);
     var existing =
         PaymentOrder.create(
             "m1",
@@ -35,8 +35,8 @@ class OrderServiceTest {
             "USD",
             new BigDecimal("10.00"),
             "key-1",
-            command.expireAt(), null, null, null, null);
-    when(repository.findByIdempotency("m1", "key-1")).thenReturn(Optional.of(existing));
+            command.expireAt(), null, null, null, null, null);
+    when(repository.findByIdempotency("m1", "key-1", "PAYIN")).thenReturn(Optional.of(existing));
     assertThat(service.create(command).orderId()).isEqualTo(existing.orderId());
   }
 
@@ -52,7 +52,7 @@ class OrderServiceTest {
                 "USD",
                 new BigDecimal("10.00"),
                 "key-2",
-                java.time.Instant.now().plusSeconds(1800), null, null, null, null)
+                java.time.Instant.now().plusSeconds(1800), null, null, null, null, null)
             .withStatus(OrderStatus.SUCCESS, java.time.Instant.now());
     when(repository.findById("o2")).thenReturn(Optional.of(success));
     assertThat(service.callback("o2", OrderStatus.FAILED).status()).isEqualTo(OrderStatus.SUCCESS);
@@ -64,7 +64,7 @@ class OrderServiceTest {
     var configuredService = new OrderService(repository, channelConfiguration, new ObjectMapper());
     var command =
         new OrderService.CreateOrderCommand(
-            "m2", "o3", "p1", "CARD", "US", "USD", new BigDecimal("10.00"), "key-3", null, null, null, null, null);
+            "m2", "o3", "p1", "CARD", "US", "USD", new BigDecimal("10.00"), "key-3", null, null, null, null, null, null);
     var runtime =
         new ChannelRuntimeContext(
             "payermax-card-us",
@@ -81,8 +81,9 @@ class OrderServiceTest {
             new BigDecimal("0.30"),
             "INCLUSIVE",
             "12");
-    when(repository.findByIdempotency("m2", "key-3")).thenReturn(Optional.empty());
-    when(repository.findByMerchantOrder("m2", "o3")).thenReturn(Optional.empty());
+    when(repository.findByIdempotency("m2", "key-3", "PAYIN")).thenReturn(Optional.empty());
+    when(repository.findByMerchantOrder("m2", "o3", "PAYIN")).thenReturn(Optional.empty());
+    when(channelConfiguration.productType("p1")).thenReturn("PAYIN");
     when(channelConfiguration.resolveConfiguration(any())).thenReturn(configuration);
     when(repository.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -95,12 +96,51 @@ class OrderServiceTest {
   }
 
   @Test
+  void createsPayoutWithAnIndependentIdempotencyNamespace() {
+    var channelConfiguration = org.mockito.Mockito.mock(PlatformChannelConfigurationClient.class);
+    var configuredService = new OrderService(repository, channelConfiguration, new ObjectMapper());
+    var command = new OrderService.CreateOrderCommand(
+        "m2", "shared-order", "payout-usd", "BANK", "US", "USD", new BigDecimal("10.00"),
+        "shared-key", null, null, null, null, "beneficiary-ref", null);
+    var runtime = new ChannelRuntimeContext(
+        "payout-bank-us", "SIMULATED", "https://payments.example.test", "HMAC_SHA256_V1", Map.of(), Map.of());
+    var configuration = new PlatformChannelConfigurationClient.ResolvedPaymentConfiguration(
+        runtime, "price-payout-usd", BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, null, null,
+        "COMBINED", List.of(), "EXCLUSIVE", "14", null, "PASS", "PAYOUT");
+    when(repository.findByIdempotency("m2", "shared-key", "PAYOUT")).thenReturn(Optional.empty());
+    when(repository.findByMerchantOrder("m2", "shared-order", "PAYOUT")).thenReturn(Optional.empty());
+    when(channelConfiguration.productType("payout-usd")).thenReturn("PAYOUT");
+    when(channelConfiguration.resolveConfiguration(any())).thenReturn(configuration);
+    when(repository.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var order = configuredService.create(command);
+
+    assertThat(order.orderType().name()).isEqualTo("PAYOUT");
+    assertThat(order.orderId()).startsWith("PO");
+  }
+
+  @Test
+  void rejectsPayoutWithoutDestinationReference() {
+    var channelConfiguration = org.mockito.Mockito.mock(PlatformChannelConfigurationClient.class);
+    var configuredService = new OrderService(repository, channelConfiguration, new ObjectMapper());
+    var command = new OrderService.CreateOrderCommand(
+        "m2", "payout-missing-destination", "payout-usd", "BANK", "US", "USD",
+        new BigDecimal("10.00"), "missing-destination-key", null, null, null, null, null, null);
+    when(channelConfiguration.productType("payout-usd")).thenReturn("PAYOUT");
+    when(repository.findByIdempotency("m2", "missing-destination-key", "PAYOUT")).thenReturn(Optional.empty());
+    when(repository.findByMerchantOrder("m2", "payout-missing-destination", "PAYOUT")).thenReturn(Optional.empty());
+
+    org.junit.jupiter.api.Assertions.assertThrows(
+        ResponseStatusException.class, () -> configuredService.create(command));
+  }
+
+  @Test
   void calculatesTheFeeFromTheMatchedTier() {
     var channelConfiguration = org.mockito.Mockito.mock(PlatformChannelConfigurationClient.class);
     var configuredService = new OrderService(repository, channelConfiguration, new ObjectMapper());
     var command =
         new OrderService.CreateOrderCommand(
-            "m3", "o4", "p1", "CARD", "US", "USD", new BigDecimal("150.00"), "key-4", null, null, null, null, null);
+            "m3", "o4", "p1", "CARD", "US", "USD", new BigDecimal("150.00"), "key-4", null, null, null, null, null, null);
     var runtime =
         new ChannelRuntimeContext(
             "antom-card-us", "ANTOM", "https://payments.example.test", "HMAC_SHA256_V1", Map.of(), Map.of());
@@ -119,8 +159,9 @@ class OrderServiceTest {
                 new PlatformChannelConfigurationClient.FeeTier(new BigDecimal("100.01"), new BigDecimal("1000.00"), new BigDecimal("0.01"), new BigDecimal("0.50"))),
             "EXCLUSIVE",
             "13");
-    when(repository.findByIdempotency("m3", "key-4")).thenReturn(Optional.empty());
-    when(repository.findByMerchantOrder("m3", "o4")).thenReturn(Optional.empty());
+    when(repository.findByIdempotency("m3", "key-4", "PAYIN")).thenReturn(Optional.empty());
+    when(repository.findByMerchantOrder("m3", "o4", "PAYIN")).thenReturn(Optional.empty());
+    when(channelConfiguration.productType("p1")).thenReturn("PAYIN");
     when(channelConfiguration.resolveConfiguration(any())).thenReturn(configuration);
     when(repository.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -154,9 +195,9 @@ class OrderServiceTest {
     var command =
         new OrderService.CreateOrderCommand(
             "m4", "o5", "p1", "CARD", "US", "USD", new BigDecimal("10.00"), "key-5", null,
-            "javascript:alert(1)", null, null, null);
-    when(repository.findByIdempotency("m4", "key-5")).thenReturn(Optional.empty());
-    when(repository.findByMerchantOrder("m4", "o5")).thenReturn(Optional.empty());
+            "javascript:alert(1)", null, null, null, null);
+    when(repository.findByIdempotency("m4", "key-5", "PAYIN")).thenReturn(Optional.empty());
+    when(repository.findByMerchantOrder("m4", "o5", "PAYIN")).thenReturn(Optional.empty());
 
     org.junit.jupiter.api.Assertions.assertThrows(
         ResponseStatusException.class, () -> service.create(command));

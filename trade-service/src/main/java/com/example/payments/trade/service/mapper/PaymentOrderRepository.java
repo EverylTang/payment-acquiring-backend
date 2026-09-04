@@ -24,6 +24,7 @@ public class PaymentOrderRepository {
     entity.setMerchantId(order.merchantId());
     entity.setMerchantOrderNo(order.merchantOrderNo());
     entity.setProductCode(order.productCode());
+    entity.setOrderType(order.orderType().name());
     entity.setPaymentMethod(order.paymentMethod());
     entity.setCountry(order.country());
     entity.setCurrency(order.currency());
@@ -34,6 +35,7 @@ public class PaymentOrderRepository {
     entity.setFeeBearer(order.feeBearer());
     entity.setStatus(order.status().name());
     entity.setIdempotencyKey(order.idempotencyKey());
+    entity.setMerchantRequestSnapshot(order.merchantRequestSnapshot());
     entity.setRouteSnapshotJson(order.routeSnapshot());
     entity.setPricingSnapshotJson(order.pricingSnapshot());
     entity.setExpireAt(toLocal(order.expireAt()));
@@ -42,6 +44,7 @@ public class PaymentOrderRepository {
     entity.setNotifyUrl(order.notifyUrl());
     entity.setReturnUrl(order.returnUrl());
     entity.setCustomerReference(order.customerReference());
+    entity.setPayoutDestinationRef(order.payoutDestinationRef());
     entity.setDescription(order.description());
     entity.setCallbackStatus(order.callbackStatus());
     entity.setCallbackEventId(order.callbackEventId());
@@ -62,13 +65,14 @@ public class PaymentOrderRepository {
         .map(this::toDomain);
   }
 
-  public Optional<PaymentOrder> findByMerchantOrder(String merchantId, String merchantOrderNo) {
-    return Optional.ofNullable(mapper.findByMerchantOrder(merchantId, merchantOrderNo))
+  public Optional<PaymentOrder> findByMerchantOrder(
+      String merchantId, String merchantOrderNo, String orderType) {
+    return Optional.ofNullable(mapper.findByMerchantOrder(merchantId, merchantOrderNo, orderType))
         .map(this::toDomain);
   }
 
-  public Optional<PaymentOrder> findByIdempotency(String merchantId, String key) {
-    return Optional.ofNullable(mapper.findByIdempotency(merchantId, key)).map(this::toDomain);
+  public Optional<PaymentOrder> findByIdempotency(String merchantId, String key, String orderType) {
+    return Optional.ofNullable(mapper.findByIdempotency(merchantId, key, orderType)).map(this::toDomain);
   }
 
   public boolean updateStatus(
@@ -95,7 +99,7 @@ public class PaymentOrderRepository {
   }
 
   public List<PaymentOrder> search(
-      String merchantId, String status, String currency, int page, int pageSize) {
+      String merchantId, String status, String currency, String orderType, int page, int pageSize) {
     var wrapper =
         new LambdaQueryWrapper<PaymentOrderEntity>()
             .eq(
@@ -104,12 +108,13 @@ public class PaymentOrderRepository {
                 merchantId)
             .eq(status != null && !status.isBlank(), PaymentOrderEntity::getStatus, status)
             .eq(currency != null && !currency.isBlank(), PaymentOrderEntity::getCurrency, currency)
+            .eq(orderType != null && !orderType.isBlank(), PaymentOrderEntity::getOrderType, orderType)
             .orderByDesc(PaymentOrderEntity::getCreatedAt)
             .last("LIMIT " + pageSize + " OFFSET " + ((page - 1) * pageSize));
     return mapper.selectList(wrapper).stream().map(this::toDomain).toList();
   }
 
-  public long count(String merchantId, String status, String currency) {
+  public long count(String merchantId, String status, String currency, String orderType) {
     var wrapper =
         new LambdaQueryWrapper<PaymentOrderEntity>()
             .eq(
@@ -117,7 +122,8 @@ public class PaymentOrderRepository {
                 PaymentOrderEntity::getMerchantId,
                 merchantId)
             .eq(status != null && !status.isBlank(), PaymentOrderEntity::getStatus, status)
-            .eq(currency != null && !currency.isBlank(), PaymentOrderEntity::getCurrency, currency);
+            .eq(currency != null && !currency.isBlank(), PaymentOrderEntity::getCurrency, currency)
+            .eq(orderType != null && !orderType.isBlank(), PaymentOrderEntity::getOrderType, orderType);
     return mapper.selectCount(wrapper);
   }
 
@@ -136,6 +142,7 @@ public class PaymentOrderRepository {
         e.getMerchantId(),
         e.getMerchantOrderNo(),
         e.getProductCode(),
+        com.example.payments.trade.service.domain.OrderType.valueOf(e.getOrderType()),
         e.getPaymentMethod(),
         e.getCountry(),
         e.getCurrency(),
@@ -146,6 +153,7 @@ public class PaymentOrderRepository {
         e.getFeeBearer(),
         OrderStatus.valueOf(e.getStatus()),
         e.getIdempotencyKey(),
+        e.getMerchantRequestSnapshot(),
         e.getRouteSnapshotJson(),
         e.getPricingSnapshotJson(),
         e.getExpireAt().toInstant(ZoneOffset.UTC),
@@ -155,6 +163,7 @@ public class PaymentOrderRepository {
         e.getNotifyUrl(),
         e.getReturnUrl(),
         e.getCustomerReference(),
+        e.getPayoutDestinationRef(),
         e.getDescription(),
         e.getCallbackStatus(),
         e.getCallbackEventId(),

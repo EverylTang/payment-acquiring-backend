@@ -1,6 +1,7 @@
 package com.example.payments.trade.service.service;
 
 import com.example.payments.trade.service.domain.OrderStatus;
+import com.example.payments.trade.service.domain.OrderType;
 import com.example.payments.trade.service.domain.PaymentOrder;
 import com.example.payments.trade.service.mapper.PaymentOrderRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -24,61 +25,83 @@ public class OrderService {
   private final PaymentOrderRepository repository;
   private final PlatformChannelConfigurationClient channelConfiguration;
   private final ObjectMapper objectMapper;
+  private final OrderNumberGenerator orderNumberGenerator;
 
   @Autowired
   public OrderService(
       PaymentOrderRepository repository,
       PlatformChannelConfigurationClient channelConfiguration,
-      ObjectMapper objectMapper) {
+      ObjectMapper objectMapper,
+      OrderNumberGenerator orderNumberGenerator) {
     this.repository = repository;
     this.channelConfiguration = channelConfiguration;
     this.objectMapper = objectMapper;
+    this.orderNumberGenerator = orderNumberGenerator;
   }
 
   OrderService(PaymentOrderRepository repository) {
-    this(repository, null, null);
+    this(repository, null, null, new OrderNumberGenerator(0, System::currentTimeMillis));
+  }
+
+  OrderService(
+      PaymentOrderRepository repository,
+      PlatformChannelConfigurationClient channelConfiguration,
+      ObjectMapper objectMapper) {
+    this(repository, channelConfiguration, objectMapper, new OrderNumberGenerator(0, System::currentTimeMillis));
   }
 
   @Transactional
   public PaymentOrder create(CreateOrderCommand command) {
+    final var resolvedOrderType = channelConfiguration == null
+        ? OrderType.PAYIN
+        : OrderType.fromProductType(channelConfiguration.productType(command.productCode()));
     var existing =
         repository
-            .findByIdempotency(command.merchantId(), command.idempotencyKey())
+            .findByIdempotency(command.merchantId(), command.idempotencyKey(), resolvedOrderType.name())
             .or(
                 () ->
                     repository.findByMerchantOrder(
-                        command.merchantId(), command.merchantOrderNo()));
+                        command.merchantId(), command.merchantOrderNo(), resolvedOrderType.name()));
     if (existing.isPresent()) {
       return existing.get();
     }
-    PaymentOrder order =
-        PaymentOrder.create(
-            command.merchantId(),
-            command.merchantOrderNo(),
-            command.productCode(),
-            command.paymentMethod(),
-            command.country(),
-            command.currency(),
-            command.amount(),
-            command.idempotencyKey(),
-            command.expireAt(),
-            validatedUrl(command.notifyUrl(), "notifyUrl"),
-            validatedUrl(command.returnUrl(), "returnUrl"),
-            command.customerReference(),
-            command.description());
+    if (resolvedOrderType == OrderType.PAYOUT
+        && (command.payoutDestinationRef() == null || command.payoutDestinationRef().isBlank())) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "出款订单必须提供收款方引用");
+    }
+    PaymentOrder order = draft(command);
+    PlatformChannelConfigurationClient.ResolvedPaymentConfiguration configuration = null;
     if (channelConfiguration != null) {
-      var configuration = channelConfiguration.resolveConfiguration(order);
-      order = applyPricing(order, configuration);
-      channelConfiguration.recordRiskDecision(order, configuration);
+      configuration = channelConfiguration.resolveConfiguration(order);
+      if (resolvedOrderType != OrderType.fromProductType(configuration.productType())) {
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "产品类型与路由配置不一致");
+      }
     }
-    try {
-      return repository.insert(order);
-    } catch (DuplicateKeyException duplicate) {
-      return repository
-          .findByIdempotency(command.merchantId(), command.idempotencyKey())
-          .or(() -> repository.findByMerchantOrder(command.merchantId(), command.merchantOrderNo()))
-          .orElseThrow(() -> duplicate);
+    for (int attempt = 0; attempt < 3; attempt++) {
+      var candidate = order.withIdentity(orderNumberGenerator.next(resolvedOrderType), resolvedOrderType);
+      if (configuration != null) candidate = applyPricing(candidate, configuration);
+      try {
+        var inserted = repository.insert(candidate);
+        if (configuration != null) channelConfiguration.recordRiskDecision(inserted, configuration);
+        return inserted;
+      } catch (DuplicateKeyException duplicate) {
+        var raced = repository
+            .findByIdempotency(command.merchantId(), command.idempotencyKey(), resolvedOrderType.name())
+            .or(() -> repository.findByMerchantOrder(command.merchantId(), command.merchantOrderNo(), resolvedOrderType.name()));
+        if (raced.isPresent()) return raced.get();
+      }
     }
+    throw new IllegalStateException("平台订单号冲突，请重试");
+  }
+
+  private PaymentOrder draft(CreateOrderCommand command) {
+    return PaymentOrder.create(
+        "draft", OrderType.PAYIN, command.merchantId(), command.merchantOrderNo(), command.productCode(),
+        command.paymentMethod(), command.country(), command.currency(), command.amount(),
+        command.idempotencyKey(), merchantRequestSnapshot(command), command.expireAt(),
+        validatedUrl(command.notifyUrl(), "notifyUrl"), validatedUrl(command.returnUrl(), "returnUrl"),
+        command.customerReference(), command.payoutDestinationRef(), command.description());
   }
 
   public PaymentOrder get(String orderId) {
@@ -88,11 +111,11 @@ public class OrderService {
   }
 
   public Map<String, Object> list(
-      String merchantId, String status, String currency, int page, int pageSize) {
+      String merchantId, String status, String currency, String orderType, int page, int pageSize) {
     if (page < 1 || pageSize < 1 || pageSize > 100)
       throw new IllegalArgumentException("invalid pagination");
     var items =
-        repository.search(merchantId, status, currency, page, pageSize).stream()
+        repository.search(merchantId, status, currency, orderType, page, pageSize).stream()
             .map(com.example.payments.trade.service.controller.OrderDtos.OrderResponse::from)
             .toList();
     return Map.of(
@@ -103,7 +126,7 @@ public class OrderService {
         "pageSize",
         pageSize,
         "total",
-        repository.count(merchantId, status, currency));
+        repository.count(merchantId, status, currency, orderType));
   }
 
   public Map<String, Object> statistics() {
@@ -170,6 +193,27 @@ public class OrderService {
       repository.updateStatus(orderId, current.status(), next, null);
     }
     return get(orderId);
+  }
+
+  private String merchantRequestSnapshot(CreateOrderCommand command) {
+    try {
+      var fields = new LinkedHashMap<String, Object>();
+      fields.put("merchantId", command.merchantId());
+      fields.put("merchantOrderNo", command.merchantOrderNo());
+      fields.put("productCode", command.productCode());
+      fields.put("paymentMethod", command.paymentMethod());
+      fields.put("country", command.country());
+      fields.put("currency", command.currency());
+      fields.put("amount", command.amount());
+      fields.put("expireAt", command.expireAt() == null ? null : command.expireAt().toString());
+      fields.put("notifyUrl", command.notifyUrl());
+      fields.put("returnUrl", command.returnUrl());
+      fields.put("customerReference", command.customerReference());
+      fields.put("description", command.description());
+      return (objectMapper == null ? new ObjectMapper() : objectMapper).writeValueAsString(fields);
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("无法记录商户请求参数", exception);
+    }
   }
 
   private PaymentOrder applyPricing(
@@ -271,6 +315,7 @@ public class OrderService {
       String notifyUrl,
       String returnUrl,
       String customerReference,
+      String payoutDestinationRef,
       String description) {
     public CreateOrderCommand {
       if (expireAt == null) expireAt = Instant.now().plus(Duration.ofMinutes(30));

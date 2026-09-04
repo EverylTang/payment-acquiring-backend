@@ -53,6 +53,10 @@ public class ProductService {
   @Transactional
   public ProductModel update(String code, Command command, String operator, Object payload) {
     validate(command);
+    var existing = detail(code);
+    if (!existing.productType().equals(command.productType())) {
+      throw new IllegalArgumentException("产品类型创建后不可修改，请新建产品编码完成迁移");
+    }
     requireUpdated(
         mapper.updateProduct(
             code,

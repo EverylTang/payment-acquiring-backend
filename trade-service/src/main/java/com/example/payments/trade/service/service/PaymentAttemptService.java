@@ -31,9 +31,14 @@ public class PaymentAttemptService {
 
   @Transactional
   public PaymentAttempt create(PaymentOrder order, String behavior) {
+    if (order.orderType() == com.example.payments.trade.service.domain.OrderType.PAYOUT) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "出款订单必须通过已配置的出款渠道执行");
+    }
     String attemptId = UUID.randomUUID().toString();
     var runtime = channelConfiguration.resolve(order);
     var channel = channelAdapters.required(runtime.provider(), runtime.signatureProfile());
+    var fields = requestFields(order, runtime, attemptId, behavior);
     var request =
         new PaymentChannelAdapter.PaymentChannelRequest(
             attemptId,
@@ -44,7 +49,7 @@ public class PaymentAttemptService {
             order.payerPayableAmount().toPlainString(),
             behavior,
             runtime,
-            channelRequestSigner.sign(runtime, requestFields(order, runtime, attemptId, behavior)));
+            channelRequestSigner.sign(runtime, fields));
     var result = channel.createPayment(request);
     PaymentAttemptStatus status = statusOf(result.status());
     Instant now = Instant.now();
@@ -57,7 +62,7 @@ public class PaymentAttemptService {
                 result.channelOrderId(),
                 1,
                 status,
-                requestSnapshot(order, runtime),
+                requestSnapshot(order, runtime, fields),
                 result.responseSnapshot(),
                 result.failureCode(),
                 now,
@@ -80,6 +85,11 @@ public class PaymentAttemptService {
             .orElseThrow(
                 () ->
                     new ResponseStatusException(HttpStatus.NOT_FOUND, "payment attempt not found"));
+    if (orderService.get(attempt.orderId()).orderType()
+        == com.example.payments.trade.service.domain.OrderType.PAYOUT) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "遗留出款尝试已隔离，需通过出款渠道迁移处理");
+    }
     var runtime = callbackRuntime(attempt, currentRuntime);
     var callback =
         channelAdapters
@@ -155,6 +165,10 @@ public class PaymentAttemptService {
     return attempt;
   }
 
+  public java.util.Optional<PaymentAttempt> latestForOrder(String orderId) {
+    return repository.findLatestByOrderId(orderId);
+  }
+
   @Transactional
   public PaymentAttempt query(String attemptId) {
     var attempt =
@@ -193,6 +207,10 @@ public class PaymentAttemptService {
 
   @Transactional
   public PaymentAttempt retry(String attemptId, PaymentOrder order) {
+    if (order.orderType() == com.example.payments.trade.service.domain.OrderType.PAYOUT) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "出款订单必须通过已配置的出款渠道执行");
+    }
     var previous =
         repository
             .findByAttemptId(attemptId)
@@ -212,6 +230,7 @@ public class PaymentAttemptService {
     String attemptId = UUID.randomUUID().toString();
     var runtime = channelConfiguration.resolve(order);
     var channel = channelAdapters.required(runtime.provider(), runtime.signatureProfile());
+    var fields = requestFields(order, runtime, attemptId, behavior);
     var request =
         new PaymentChannelAdapter.PaymentChannelRequest(
             attemptId,
@@ -222,7 +241,7 @@ public class PaymentAttemptService {
             order.payerPayableAmount().toPlainString(),
             behavior,
             runtime,
-            channelRequestSigner.sign(runtime, requestFields(order, runtime, attemptId, behavior)));
+            channelRequestSigner.sign(runtime, fields));
     var result = channel.createPayment(request);
     var status = statusOf(result.status());
     Instant now = Instant.now();
@@ -235,7 +254,7 @@ public class PaymentAttemptService {
                 result.channelOrderId(),
                 attemptNo,
                 status,
-                requestSnapshot(order, runtime),
+                requestSnapshot(order, runtime, fields),
                 result.responseSnapshot(),
                 result.failureCode(),
                 now,
@@ -299,8 +318,12 @@ public class PaymentAttemptService {
     }
   }
 
-  private String requestSnapshot(PaymentOrder order, ChannelRuntimeContext runtime) {
+  private String requestSnapshot(
+      PaymentOrder order, ChannelRuntimeContext runtime, java.util.Map<String, String> fields) {
     try {
+      var redactedFields = new java.util.LinkedHashMap<String, String>();
+      fields.forEach(
+          (key, value) -> redactedFields.put(key, isSensitive(key) ? "[REDACTED]" : value));
       return objectMapper.writeValueAsString(
           java.util.Map.of(
               "amount", order.amount().toPlainString(),
@@ -312,7 +335,7 @@ public class PaymentAttemptService {
               "provider", runtime.provider(),
               "requestUrl", runtime.requestUrl(),
               "signatureProfile", runtime.signatureProfile(),
-              "settings", runtime.settings()));
+              "channelRequest", redactedFields));
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("无法记录渠道运行配置", exception);
     }
@@ -363,6 +386,16 @@ public class PaymentAttemptService {
         || "signatureSecretRole".equals(key);
   }
 
+  private boolean isSensitive(String key) {
+    String normalized = key.toLowerCase(java.util.Locale.ROOT);
+    return normalized.contains("secret")
+        || normalized.contains("password")
+        || normalized.contains("token")
+        || normalized.contains("signature")
+        || normalized.contains("apikey")
+        || normalized.contains("api_key");
+  }
+
   private void coordinateOrder(PaymentAttempt attempt) {
     var orderStatus =
         switch (attempt.status()) {
@@ -375,6 +408,9 @@ public class PaymentAttemptService {
     orderService.callback(attempt.orderId(), orderStatus);
     if (attempt.status() == PaymentAttemptStatus.SUCCESS) {
       var order = orderService.get(attempt.orderId());
+      if (order.orderType() == com.example.payments.trade.service.domain.OrderType.PAYOUT) {
+        return;
+      }
       String eventId = "PAYMENT_SUCCEEDED:" + attempt.orderId() + ":" + attempt.attemptId();
       try {
         String payload =

@@ -9,6 +9,7 @@ public record PaymentOrder(
     String merchantId,
     String merchantOrderNo,
     String productCode,
+    OrderType orderType,
     String paymentMethod,
     String country,
     String currency,
@@ -19,6 +20,7 @@ public record PaymentOrder(
     String feeBearer,
     OrderStatus status,
     String idempotencyKey,
+    String merchantRequestSnapshot,
     String routeSnapshot,
     String pricingSnapshot,
     Instant expireAt,
@@ -28,6 +30,7 @@ public record PaymentOrder(
     String notifyUrl,
     String returnUrl,
     String customerReference,
+    String payoutDestinationRef,
     String description,
     String callbackStatus,
     String callbackEventId,
@@ -48,13 +51,61 @@ public record PaymentOrder(
       String notifyUrl,
       String returnUrl,
       String customerReference,
+      String payoutDestinationRef,
+      String description) {
+    return create(
+        UUID.randomUUID().toString(), OrderType.PAYIN, merchantId, merchantOrderNo, productCode,
+        paymentMethod, country, currency, amount, idempotencyKey, null, expireAt, notifyUrl,
+        returnUrl, customerReference, payoutDestinationRef, description);
+  }
+
+  public static PaymentOrder create(
+      String merchantId,
+      String merchantOrderNo,
+      String productCode,
+      String paymentMethod,
+      String country,
+      String currency,
+      BigDecimal amount,
+      String idempotencyKey,
+      String merchantRequestSnapshot,
+      Instant expireAt,
+      String notifyUrl,
+      String returnUrl,
+      String customerReference,
+      String payoutDestinationRef,
+      String description) {
+    return create(
+        UUID.randomUUID().toString(), OrderType.PAYIN, merchantId, merchantOrderNo, productCode,
+        paymentMethod, country, currency, amount, idempotencyKey, merchantRequestSnapshot, expireAt,
+        notifyUrl, returnUrl, customerReference, payoutDestinationRef, description);
+  }
+
+  public static PaymentOrder create(
+      String orderId,
+      OrderType orderType,
+      String merchantId,
+      String merchantOrderNo,
+      String productCode,
+      String paymentMethod,
+      String country,
+      String currency,
+      BigDecimal amount,
+      String idempotencyKey,
+      String merchantRequestSnapshot,
+      Instant expireAt,
+      String notifyUrl,
+      String returnUrl,
+      String customerReference,
+      String payoutDestinationRef,
       String description) {
     BigDecimal fee = amount.multiply(new BigDecimal("0.0200")).setScale(2);
     return new PaymentOrder(
-        UUID.randomUUID().toString(),
+        orderId,
         merchantId,
         merchantOrderNo,
         productCode,
+        orderType,
         paymentMethod,
         country,
         currency,
@@ -65,6 +116,7 @@ public record PaymentOrder(
         "MERCHANT",
         OrderStatus.CREATED,
         idempotencyKey,
+        merchantRequestSnapshot,
         "{\"route\":\"simulated-channel\",\"version\":1}",
         "{\"feeRate\":\"0.0200\",\"mode\":\"INCLUSIVE\",\"version\":1}",
         expireAt,
@@ -74,12 +126,22 @@ public record PaymentOrder(
         notifyUrl,
         returnUrl,
         customerReference,
+        payoutDestinationRef,
         description,
         notifyUrl == null ? "NOT_CONFIGURED" : "READY",
         null,
         0,
         null,
         null);
+  }
+
+  public PaymentOrder withIdentity(String nextOrderId, OrderType nextOrderType) {
+    return new PaymentOrder(
+        nextOrderId, merchantId, merchantOrderNo, productCode, nextOrderType, paymentMethod, country,
+        currency, amount, feeAmount, payerPayableAmount, netAmount, feeBearer, status, idempotencyKey,
+        merchantRequestSnapshot, routeSnapshot, pricingSnapshot, expireAt, createdAt, paidAt, paymentToken,
+        notifyUrl, returnUrl, customerReference, payoutDestinationRef, description, callbackStatus, callbackEventId,
+        callbackAttemptCount, callbackLastNotifiedAt, callbackLastError);
   }
 
   public PaymentOrder withStatus(OrderStatus nextStatus, Instant paymentTime) {
@@ -91,6 +153,7 @@ public record PaymentOrder(
         merchantId,
         merchantOrderNo,
         productCode,
+        orderType,
         paymentMethod,
         country,
         currency,
@@ -101,6 +164,7 @@ public record PaymentOrder(
         feeBearer,
         nextStatus,
         idempotencyKey,
+        merchantRequestSnapshot,
         routeSnapshot,
         pricingSnapshot,
         expireAt,
@@ -110,6 +174,7 @@ public record PaymentOrder(
         notifyUrl,
         returnUrl,
         customerReference,
+        payoutDestinationRef,
         description,
         callbackStatus,
         callbackEventId,
@@ -130,6 +195,7 @@ public record PaymentOrder(
         merchantId,
         merchantOrderNo,
         productCode,
+        orderType,
         paymentMethod,
         country,
         currency,
@@ -140,6 +206,7 @@ public record PaymentOrder(
         feeBearer,
         status,
         idempotencyKey,
+        merchantRequestSnapshot,
         routeSnapshot,
         pricingSnapshot,
         expireAt,
@@ -149,6 +216,7 @@ public record PaymentOrder(
         notifyUrl,
         returnUrl,
         customerReference,
+        payoutDestinationRef,
         description,
         callbackStatus,
         callbackEventId,

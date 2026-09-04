@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
@@ -18,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class PlatformChannelConfigurationClient {
   private final RestClient client;
   private final String internalToken;
+  private final ConcurrentHashMap<String, CachedProductType> productTypes = new ConcurrentHashMap<>();
 
   public PlatformChannelConfigurationClient(
       @Value("${trade.routing.platform-base-url:http://127.0.0.1:8081}") String platformBaseUrl,
@@ -38,6 +40,25 @@ public class PlatformChannelConfigurationClient {
       // lookup.
     }
     return resolveConfiguration(order).runtime();
+  }
+
+  public String productType(String productCode) {
+    var cached = productTypes.get(productCode);
+    var now = System.currentTimeMillis();
+    if (cached != null && cached.expiresAtMillis() > now) return cached.productType();
+    try {
+      var response = client.get()
+          .uri("/api/internal/v1/configurations/products/{productCode}/type", productCode)
+          .headers(headers -> headers.set("X-Internal-Token", internalToken))
+          .retrieve()
+          .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+      var productType = response == null ? "" : text(response.get("productType"));
+      if (!List.of("PAYIN", "PAYOUT").contains(productType)) throw unavailable("平台未返回有效产品类型");
+      productTypes.put(productCode, new CachedProductType(productType, now + 60_000));
+      return productType;
+    } catch (RestClientException exception) {
+      throw unavailable("无法读取产品类型");
+    }
   }
 
   public ResolvedPaymentConfiguration resolveConfiguration(PaymentOrder order) {
@@ -78,7 +99,8 @@ public class PlatformChannelConfigurationClient {
           text(pricing.get("mode")),
           text(snapshot.get("configVersion")),
           text(map(snapshot.get("risk")).get("policyId")),
-          text(map(snapshot.get("risk")).get("decision")));
+          text(map(snapshot.get("risk")).get("decision")),
+          text(snapshot.get("productType")));
     } catch (RestClientException exception) {
       throw unavailable("无法读取渠道运行配置");
     }
@@ -217,7 +239,8 @@ public class PlatformChannelConfigurationClient {
       String feeMode,
       String configVersion,
       String riskPolicyId,
-      String riskDecision) {
+      String riskDecision,
+      String productType) {
     public ResolvedPaymentConfiguration {
       if (feeType == null || feeType.isBlank()) feeType = "COMBINED";
       if (!List.of("FIXED", "PERCENTAGE", "TIERED", "COMBINED").contains(feeType)) {
@@ -238,6 +261,7 @@ public class PlatformChannelConfigurationClient {
         throw new IllegalArgumentException("渠道运行配置中的费率模式无效");
       }
       if (!List.of("PASS", "REVIEW", "REJECT").contains(riskDecision)) riskDecision = "PASS";
+      if (!List.of("PAYIN", "PAYOUT").contains(productType)) productType = "PAYIN";
     }
 
     public ResolvedPaymentConfiguration(
@@ -252,7 +276,7 @@ public class PlatformChannelConfigurationClient {
         List<FeeTier> tiers,
         String feeMode,
         String configVersion) {
-      this(runtime, pricingRuleId, feeRate, fixedFee, extraFee, minFee, maxFee, feeType, tiers, feeMode, configVersion, null, "PASS");
+      this(runtime, pricingRuleId, feeRate, fixedFee, extraFee, minFee, maxFee, feeType, tiers, feeMode, configVersion, null, "PASS", "PAYIN");
     }
 
     public ResolvedPaymentConfiguration(
@@ -273,7 +297,7 @@ public class PlatformChannelConfigurationClient {
           "COMBINED",
           List.of(),
           feeMode,
-          configVersion, null, "PASS");
+          configVersion, null, "PASS", "PAYIN");
     }
 
     public ResolvedPaymentConfiguration(
@@ -296,10 +320,12 @@ public class PlatformChannelConfigurationClient {
           feeType,
           tiers,
           feeMode,
-          configVersion, null, "PASS");
+          configVersion, null, "PASS", "PAYIN");
     }
   }
 
   public record FeeTier(
       BigDecimal minAmount, BigDecimal maxAmount, BigDecimal feeRate, BigDecimal fixedFee) {}
+
+  private record CachedProductType(String productType, long expiresAtMillis) {}
 }

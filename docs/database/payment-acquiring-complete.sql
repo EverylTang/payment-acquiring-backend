@@ -493,9 +493,13 @@ VALUES
   (0, 'pricing', '费率管理', 'PAGE', '/pricing', 'pricing', 'CircleDollarSign', 70, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'releases', '版本发布', 'PAGE', '/releases', 'releases', 'Layers3', 80, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'risk', '风控工作台', 'PAGE', '/risk', 'risk', 'ShieldCheck', 90, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  (0, 'trade', '订单与支付', 'PAGE', '/orders', 'orders', 'WalletCards', 100, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  (0, 'trade', '订单管理', 'PAGE', '/orders', 'orders', 'WalletCards', 100, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'operations', '运营处置', 'PAGE', '/operations', 'operations', 'ShieldCheck', 110, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'system', '系统管理', 'DIRECTORY', NULL, NULL, 'Settings2', 120, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
+
+UPDATE admin_menu
+SET menu_name = '订单管理', updated_at = CURRENT_TIMESTAMP(3)
+WHERE menu_code = 'trade' AND menu_name = '订单与支付';
 
 INSERT IGNORE INTO admin_menu (parent_id, menu_code, menu_name, menu_type, route_path, component_key, icon, sort_order, visible, status, created_at, updated_at)
 SELECT id, 'system:user', '用户管理', 'PAGE', '/users', 'users', 'Users', 111, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
@@ -739,6 +743,7 @@ CREATE TABLE IF NOT EXISTS payment_order (
   merchant_id VARCHAR(64) NOT NULL COMMENT '商户ID',
   merchant_order_no VARCHAR(128) NOT NULL COMMENT '商户订单号',
   product_code VARCHAR(64) NOT NULL COMMENT '产品编码',
+  order_type VARCHAR(16) NOT NULL COMMENT '订单类型：PAYIN/PAYOUT',
   payment_method VARCHAR(64) NOT NULL COMMENT '对客支付方式',
   country VARCHAR(8) COMMENT '支付国家或地区',
   currency VARCHAR(3) NOT NULL COMMENT '交易币种',
@@ -749,6 +754,7 @@ CREATE TABLE IF NOT EXISTS payment_order (
   fee_bearer VARCHAR(16) NOT NULL COMMENT '费用承担方：PAYER/MERCHANT',
   status VARCHAR(32) NOT NULL COMMENT '订单状态',
   idempotency_key VARCHAR(128) NOT NULL COMMENT '请求幂等键',
+  merchant_request_snapshot JSON NULL COMMENT '商户创建订单请求快照（已脱敏）',
   route_snapshot_json JSON NOT NULL COMMENT '路由配置快照',
   pricing_snapshot_json JSON NOT NULL COMMENT '费率及金额计算快照',
   expire_at DATETIME(3) NOT NULL COMMENT '订单过期时间',
@@ -758,6 +764,7 @@ CREATE TABLE IF NOT EXISTS payment_order (
   notify_url VARCHAR(1024) COMMENT '商户异步通知地址快照',
   return_url VARCHAR(1024) COMMENT '支付完成跳转地址快照',
   customer_reference VARCHAR(128) COMMENT '付款人脱敏引用',
+  payout_destination_ref VARCHAR(128) COMMENT '出款收款方脱敏引用',
   description VARCHAR(1000) COMMENT '订单描述',
   callback_status VARCHAR(32) NOT NULL DEFAULT 'NOT_CONFIGURED' COMMENT '商户通知状态',
   callback_event_id VARCHAR(128) NULL COMMENT '最近一次商户通知事件',
@@ -766,18 +773,21 @@ CREATE TABLE IF NOT EXISTS payment_order (
   callback_last_error VARCHAR(512) NULL COMMENT '最近一次商户通知错误',
   version BIGINT NOT NULL DEFAULT 0 COMMENT '乐观锁版本',
   UNIQUE KEY uk_payment_order_id (order_id),
-  UNIQUE KEY uk_payment_order_merchant_order (merchant_id, merchant_order_no),
-  UNIQUE KEY uk_payment_order_idempotency (merchant_id, idempotency_key),
+  UNIQUE KEY uk_payment_order_merchant_order (merchant_id, order_type, merchant_order_no),
+  UNIQUE KEY uk_payment_order_idempotency (merchant_id, order_type, idempotency_key),
   KEY idx_payment_order_merchant_status_created (merchant_id, status, created_at),
   KEY idx_payment_order_created (created_at)
 );
 
 -- Existing environments created before the consolidated order table must retain their data.
 ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS payer_payable_amount DECIMAL(20, 2) NULL COMMENT '付款方实际支付金额' AFTER fee_amount;
+ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS order_type VARCHAR(16) NOT NULL DEFAULT 'PAYIN' COMMENT '订单类型：PAYIN/PAYOUT' AFTER product_code;
+ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS merchant_request_snapshot JSON NULL COMMENT '商户创建订单请求快照（已脱敏）' AFTER idempotency_key;
 ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS fee_bearer VARCHAR(16) NULL COMMENT '费用承担方：PAYER/MERCHANT' AFTER net_amount;
 ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS notify_url VARCHAR(1024) NULL COMMENT '商户异步通知地址快照' AFTER payment_token;
 ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS return_url VARCHAR(1024) NULL COMMENT '支付完成跳转地址快照' AFTER notify_url;
 ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS customer_reference VARCHAR(128) NULL COMMENT '付款人脱敏引用' AFTER return_url;
+ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS payout_destination_ref VARCHAR(128) NULL COMMENT '出款收款方脱敏引用' AFTER customer_reference;
 ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS description VARCHAR(1000) NULL COMMENT '订单描述' AFTER customer_reference;
 ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS callback_status VARCHAR(32) NOT NULL DEFAULT 'NOT_CONFIGURED' COMMENT '商户通知状态' AFTER description;
 ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS callback_event_id VARCHAR(128) NULL COMMENT '最近一次商户通知事件' AFTER callback_status;
@@ -787,6 +797,14 @@ ALTER TABLE payment_order ADD COLUMN IF NOT EXISTS callback_last_error VARCHAR(5
 UPDATE payment_order
 SET payer_payable_amount = amount, fee_bearer = 'MERCHANT'
 WHERE payer_payable_amount IS NULL OR fee_bearer IS NULL;
+UPDATE payment_order o
+JOIN pay_platform.logical_product p ON p.product_code = o.product_code
+SET o.order_type = p.product_type
+WHERE o.order_type = 'PAYIN' AND p.product_type IN ('PAYIN', 'PAYOUT');
+ALTER TABLE payment_order DROP INDEX IF EXISTS uk_payment_order_merchant_order;
+ALTER TABLE payment_order DROP INDEX IF EXISTS uk_payment_order_idempotency;
+ALTER TABLE payment_order ADD UNIQUE KEY uk_payment_order_merchant_order (merchant_id, order_type, merchant_order_no);
+ALTER TABLE payment_order ADD UNIQUE KEY uk_payment_order_idempotency (merchant_id, order_type, idempotency_key);
 
 CREATE TABLE IF NOT EXISTS payment_attempt (
   id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',

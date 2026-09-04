@@ -11,10 +11,14 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface PaymentOrderMapper extends BaseMapper<PaymentOrderEntity> {
   PaymentOrderEntity findByMerchantOrder(
-      @Param("merchantId") String merchantId, @Param("merchantOrderNo") String merchantOrderNo);
+      @Param("merchantId") String merchantId,
+      @Param("merchantOrderNo") String merchantOrderNo,
+      @Param("orderType") String orderType);
 
   PaymentOrderEntity findByIdempotency(
-      @Param("merchantId") String merchantId, @Param("key") String key);
+      @Param("merchantId") String merchantId,
+      @Param("key") String key,
+      @Param("orderType") String orderType);
 
   int updateStatus(
       @Param("orderId") String orderId,

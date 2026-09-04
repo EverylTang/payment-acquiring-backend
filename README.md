@@ -132,6 +132,8 @@ git push -u origin main
 
 当前已在本地真实 MySQL/RocketMQ 完成支付成功 E2E（Trade Outbox -> RocketMQ -> Fund ledger），Fund 数据库已执行至 V6，退款 CAS/事件消费幂等、逐笔对账差异分类、Prometheus/OpenTelemetry 配置已补齐。后端 `mvn test`、前端 `npm run build` 均通过；构建产物和系统元数据不纳入源码。仍需接入具体供应商退款协议，并在 CI/生产环境执行 SQL 发布、DLQ 故障注入、Broker/Trade/Fund 重启恢复和告警联调。
 
+订单按逻辑产品类型固化为 `PAYIN`（收单）或 `PAYOUT`（出款）。平台订单号格式为 `PI`/`PO` + UTC 毫秒时间 + 两位实例节点号 + 五位启动标识 + 五位毫秒内序列；单实例无需数据库序列即可生成每毫秒 100,000 个号码。集群中的每个 Trade 实例必须在 Nacos 中配置不同的 `trade.order-id.node-id`（`0`-`99`），否则跨实例会发生编号冲突。启动标识与 MySQL 唯一键插入重试共同避免实例重启时的订单号复用。商户订单号和 `Idempotency-Key` 均按“商户 + 订单类型”隔离，并由 MySQL 唯一索引进行并发最终裁决。
+
 未完成项按优先级：
 
 - P0：RocketMQ 实际重试/DLQ/人工重放、Broker 与服务重启恢复、Outbox/Attempt 多实例真实 MySQL 验证、管理接口安全测试、迁移 Job 和 CI 集成验收。

@@ -29,6 +29,9 @@ public class ConfigurationSnapshotService {
     requireAvailable(mapper.countActiveMerchant(merchantId), "商户不可用");
     requireAvailable(mapper.countActiveProduct(productCode), "产品不可用");
     requireBinding(merchantId, productCode);
+    var productType = java.util.Optional.ofNullable(mapper.selectProductType(productCode))
+        .filter(type -> type.equals("PAYIN") || type.equals("PAYOUT"))
+        .orElseThrow(() -> unavailable("产品类型无效"));
 
     var product =
         java.util.Optional.ofNullable(
@@ -64,6 +67,7 @@ public class ConfigurationSnapshotService {
     var result = new LinkedHashMap<String, Object>();
     result.put("merchantId", merchantId);
     result.put("productCode", productCode);
+    result.put("productType", productType);
     result.put("paymentMethod", paymentMethod);
     result.put("channelPaymentMethod", channelPaymentMethod);
     result.put("country", country);
@@ -89,6 +93,12 @@ public class ConfigurationSnapshotService {
     if (mapper.countInvalidPricingRules(version) > 0) errors.add("费率或金额区间不合法");
     if (mapper.countConflictingRoutingRules(version) > 0) errors.add("路由规则存在相同作用域和优先级冲突");
     return errors;
+  }
+
+  public String productType(String productCode) {
+    return java.util.Optional.ofNullable(mapper.selectProductType(productCode))
+        .filter(type -> type.equals("PAYIN") || type.equals("PAYOUT"))
+        .orElseThrow(() -> unavailable("产品类型无效"));
   }
 
   public Map<String, Object> channelRuntime(String channelId) {

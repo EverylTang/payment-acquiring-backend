@@ -7,6 +7,7 @@
     <result property="merchantId" column="merchant_id" />
     <result property="merchantOrderNo" column="merchant_order_no" />
     <result property="productCode" column="product_code" />
+    <result property="orderType" column="order_type" />
     <result property="paymentMethod" column="payment_method" />
     <result property="country" column="country" />
     <result property="currency" column="currency" />
@@ -17,6 +18,7 @@
     <result property="feeBearer" column="fee_bearer" />
     <result property="status" column="status" />
     <result property="idempotencyKey" column="idempotency_key" />
+    <result property="merchantRequestSnapshot" column="merchant_request_snapshot" />
     <result property="routeSnapshotJson" column="route_snapshot_json" />
     <result property="pricingSnapshotJson" column="pricing_snapshot_json" />
     <result property="expireAt" column="expire_at" />
@@ -26,6 +28,7 @@
     <result property="notifyUrl" column="notify_url" />
     <result property="returnUrl" column="return_url" />
     <result property="customerReference" column="customer_reference" />
+    <result property="payoutDestinationRef" column="payout_destination_ref" />
     <result property="description" column="description" />
     <result property="callbackStatus" column="callback_status" />
     <result property="callbackEventId" column="callback_event_id" />
@@ -35,7 +38,7 @@
     <result property="version" column="version" />
   </resultMap>
   <sql id="allColumns">
-    id, order_id, merchant_id, merchant_order_no, product_code, payment_method, country, currency, amount, fee_amount, payer_payable_amount, net_amount, fee_bearer, status, idempotency_key, route_snapshot_json, pricing_snapshot_json, expire_at, created_at, paid_at, payment_token, notify_url, return_url, customer_reference, description, callback_status, callback_event_id, callback_attempt_count, callback_last_notified_at, callback_last_error, version
+    id, order_id, merchant_id, merchant_order_no, product_code, order_type, payment_method, country, currency, amount, fee_amount, payer_payable_amount, net_amount, fee_bearer, status, idempotency_key, merchant_request_snapshot, route_snapshot_json, pricing_snapshot_json, expire_at, created_at, paid_at, payment_token, notify_url, return_url, customer_reference, payout_destination_ref, description, callback_status, callback_event_id, callback_attempt_count, callback_last_notified_at, callback_last_error, version
   </sql>
   <select id="findByMerchantOrder" resultMap="PaymentOrderResultMap">
     SELECT
@@ -43,6 +46,7 @@
     FROM payment_order
     WHERE merchant_id = #{merchantId}
     AND merchant_order_no = #{merchantOrderNo}
+    AND order_type = #{orderType}
     LIMIT 1
   </select>
   <select id="findByIdempotency" resultMap="PaymentOrderResultMap">
@@ -51,6 +55,7 @@
     FROM payment_order
     WHERE merchant_id = #{merchantId}
     AND idempotency_key = #{key}
+    AND order_type = #{orderType}
     LIMIT 1
   </select>
   <update id="updateStatus">

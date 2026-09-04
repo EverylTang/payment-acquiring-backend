@@ -52,6 +52,7 @@ public class OrderController {
                 request.notifyUrl(),
                 request.returnUrl(),
                 request.customerReference(),
+                request.payoutDestinationRef(),
                 request.description()));
     return OrderDtos.OrderResponse.from(order);
   }
@@ -88,6 +89,8 @@ public class OrderController {
         attempt.channelRequestNo(),
         "status",
         attempt.status().name(),
+        "requestSnapshot",
+        attempt.requestSnapshot() == null ? "" : attempt.requestSnapshot(),
         "responseSnapshot",
         attempt.responseSnapshot());
   }
@@ -135,6 +138,8 @@ public class OrderController {
         attempt.attemptNo(),
         "status",
         attempt.status().name(),
+        "requestSnapshot",
+        attempt.requestSnapshot() == null ? "" : attempt.requestSnapshot(),
         "responseSnapshot",
         attempt.responseSnapshot() == null ? "" : attempt.responseSnapshot());
   }

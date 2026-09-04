@@ -21,6 +21,8 @@ public interface ConfigurationSnapshotMapper {
   long countActiveMerchantProduct(
       @Param("merchantId") String merchantId, @Param("productCode") String productCode);
 
+  String selectProductType(@Param("productCode") String productCode);
+
   ProductCapability selectProductCapability(
       @Param("productCode") String productCode,
       @Param("paymentMethod") String paymentMethod,

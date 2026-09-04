@@ -16,6 +16,7 @@ public class PaymentOrderEntity {
   private String merchantId;
   private String merchantOrderNo;
   private String productCode;
+  private String orderType;
   private String paymentMethod;
   private String country;
   private String currency;
@@ -26,6 +27,9 @@ public class PaymentOrderEntity {
   private String feeBearer;
   private String status;
   private String idempotencyKey;
+
+  @TableField("merchant_request_snapshot")
+  private String merchantRequestSnapshot;
 
   @TableField("route_snapshot_json")
   private String routeSnapshotJson;
@@ -40,6 +44,7 @@ public class PaymentOrderEntity {
   private String notifyUrl;
   private String returnUrl;
   private String customerReference;
+  private String payoutDestinationRef;
   private String description;
   private String callbackStatus;
   private String callbackEventId;
@@ -87,6 +92,9 @@ public class PaymentOrderEntity {
   public void setProductCode(String productCode) {
     this.productCode = productCode;
   }
+
+  public String getOrderType() { return orderType; }
+  public void setOrderType(String value) { orderType = value; }
 
   public String getPaymentMethod() {
     return paymentMethod;
@@ -156,6 +164,12 @@ public class PaymentOrderEntity {
   public void setIdempotencyKey(String idempotencyKey) {
     this.idempotencyKey = idempotencyKey;
   }
+
+  public String getPayoutDestinationRef() { return payoutDestinationRef; }
+  public void setPayoutDestinationRef(String value) { payoutDestinationRef = value; }
+
+  public String getMerchantRequestSnapshot() { return merchantRequestSnapshot; }
+  public void setMerchantRequestSnapshot(String value) { merchantRequestSnapshot = value; }
 
   public String getRouteSnapshotJson() {
     return routeSnapshotJson;

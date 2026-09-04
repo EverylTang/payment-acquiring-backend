@@ -51,6 +51,17 @@ public class PaymentAttemptRepository {
         .map(this::toDomain);
   }
 
+  public Optional<PaymentAttempt> findLatestByOrderId(String orderId) {
+    return Optional.ofNullable(
+            mapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<
+                        PaymentAttemptEntity>()
+                    .eq(PaymentAttemptEntity::getOrderId, orderId)
+                    .orderByDesc(PaymentAttemptEntity::getAttemptNo)
+                    .last("LIMIT 1")))
+        .map(this::toDomain);
+  }
+
   public Optional<PaymentAttempt> findByChannelRequestNo(String channelId, String requestNo) {
     return Optional.ofNullable(mapper.findByChannelOrderId(requestNo))
         .filter(entity -> channelId.equals(entity.getChannelId()))
