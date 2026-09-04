@@ -419,11 +419,12 @@ VALUES
   (0, 'product', '产品管理', 'PAGE', '/products', 'products', 'Layers3', 30, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'merchant-product', '商户产品', 'PAGE', '/merchant-products', 'merchant-products', 'Link', 50, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'routing', '路由与渠道', 'PAGE', '/routing', 'routing', 'Network', 60, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  (0, 'pricing', '费率与结算', 'PAGE', '/pricing', 'pricing', 'CircleDollarSign', 70, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  (0, 'risk', '风控工作台', 'PAGE', '/risk', 'risk', 'ShieldCheck', 80, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  (0, 'trade', '订单与支付', 'PAGE', '/orders', 'orders', 'WalletCards', 90, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  (0, 'operations', '运营处置', 'PAGE', '/operations', 'operations', 'ShieldCheck', 100, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  (0, 'system', '系统管理', 'DIRECTORY', NULL, NULL, 'Settings2', 110, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
+  (0, 'pricing', '费率管理', 'PAGE', '/pricing', 'pricing', 'CircleDollarSign', 70, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  (0, 'releases', '版本发布', 'PAGE', '/releases', 'releases', 'Layers3', 80, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  (0, 'risk', '风控工作台', 'PAGE', '/risk', 'risk', 'ShieldCheck', 90, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  (0, 'trade', '订单与支付', 'PAGE', '/orders', 'orders', 'WalletCards', 100, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  (0, 'operations', '运营处置', 'PAGE', '/operations', 'operations', 'ShieldCheck', 110, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  (0, 'system', '系统管理', 'DIRECTORY', NULL, NULL, 'Settings2', 120, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
 INSERT IGNORE INTO admin_menu (parent_id, menu_code, menu_name, menu_type, route_path, component_key, icon, sort_order, visible, status, created_at, updated_at)
 SELECT id, 'system:user', '用户管理', 'PAGE', '/users', 'users', 'Users', 111, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
@@ -1006,6 +1007,10 @@ INSERT IGNORE INTO admin_permission(permission_code,permission_name,resource_typ
 ('master-data:list','查看国家与币种','MASTER_DATA','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)),('master-data:create','新增国家与币种','MASTER_DATA','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)),('master-data:update','编辑国家与币种','MASTER_DATA','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)),('master-data:status','变更国家与币种状态','MASTER_DATA','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3));
 INSERT IGNORE INTO admin_role_menu(role_id,menu_id) SELECT r.id,m.id FROM admin_role r JOIN admin_menu m ON m.menu_code='master-data' WHERE r.role_code IN ('ADMIN','OPS');
 INSERT IGNORE INTO admin_role_permission(role_id,permission_id) SELECT r.id,p.id FROM admin_role r JOIN admin_permission p ON p.permission_code LIKE 'master-data:%' WHERE r.role_code IN ('ADMIN','OPS');
+INSERT IGNORE INTO admin_menu(parent_id,menu_code,menu_name,menu_type,route_path,component_key,icon,sort_order,visible,status,created_at,updated_at)
+VALUES (0,'releases','版本发布','PAGE','/releases','releases','Layers3',80,TRUE,'ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3));
+INSERT IGNORE INTO admin_role_menu(role_id,menu_id)
+SELECT r.id,m.id FROM admin_role r JOIN admin_menu m ON m.menu_code='releases' WHERE r.role_code IN ('ADMIN','OPS','FINANCE','RISK','READONLY');
 
 -- 菜单按收单业务操作顺序展示；同时覆盖已初始化环境的旧排序。
 UPDATE admin_menu
@@ -1017,18 +1022,20 @@ SET sort_order = CASE menu_code
   WHEN 'merchant-product' THEN 50
   WHEN 'routing' THEN 60
   WHEN 'pricing' THEN 70
-  WHEN 'risk' THEN 80
-  WHEN 'trade' THEN 90
-  WHEN 'operations' THEN 100
-  WHEN 'system' THEN 110
-  WHEN 'system:user' THEN 111
-  WHEN 'system:role' THEN 112
-  WHEN 'system:menu' THEN 113
+  WHEN 'releases' THEN 80
+  WHEN 'risk' THEN 90
+  WHEN 'trade' THEN 100
+  WHEN 'operations' THEN 110
+  WHEN 'system' THEN 120
+  WHEN 'system:user' THEN 121
+  WHEN 'system:role' THEN 122
+  WHEN 'system:menu' THEN 123
   ELSE sort_order
 END,
 updated_at = CURRENT_TIMESTAMP(3)
 WHERE menu_code IN (
   'dashboard', 'merchant', 'product', 'master-data', 'merchant-product',
-  'routing', 'pricing', 'risk', 'trade', 'operations', 'system',
+  'routing', 'pricing', 'releases', 'risk', 'trade', 'operations', 'system',
   'system:user', 'system:role', 'system:menu'
 );
+UPDATE admin_menu SET menu_name = '费率管理', updated_at = CURRENT_TIMESTAMP(3) WHERE menu_code = 'pricing';
