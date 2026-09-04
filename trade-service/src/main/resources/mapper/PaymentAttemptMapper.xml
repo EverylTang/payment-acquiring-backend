@@ -40,6 +40,14 @@
     ORDER BY attempt_no DESC
     LIMIT 1
   </select>
+  <select id="findLatestSuccessfulByOrderId" resultMap="AttemptResultMap">
+    SELECT *
+    FROM payment_attempt
+    WHERE order_id = #{orderId}
+    AND status = 'SUCCESS'
+    ORDER BY attempt_no DESC
+    LIMIT 1
+  </select>
   <update id="claimForQuery">
     UPDATE payment_attempt
     SET query_lock_owner = #{owner}, query_claim_token = #{claimToken}, query_lock_until = #{lockUntil}

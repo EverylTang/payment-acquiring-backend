@@ -21,7 +21,10 @@ public class SecurityConfiguration {
   }
 
   @Bean
-  SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter)
+  SecurityFilterChain securityFilterChain(
+      HttpSecurity http,
+      JwtAuthenticationFilter jwtFilter,
+      InternalAuthenticationFilter internalAuthenticationFilter)
       throws Exception {
     return http.csrf(csrf -> csrf.disable())
         .sessionManagement(
@@ -45,6 +48,7 @@ public class SecurityConfiguration {
                           .getWriter()
                           .write("{\"code\":\"UNAUTHORIZED\",\"message\":\"请先登录\"}");
                     }))
+        .addFilterBefore(internalAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
         .build();
   }

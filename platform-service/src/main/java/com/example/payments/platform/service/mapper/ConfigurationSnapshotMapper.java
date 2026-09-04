@@ -1,6 +1,8 @@
 package com.example.payments.platform.service.mapper;
 
 import com.example.payments.platform.service.service.ConfigurationSnapshotService.ChannelCandidate;
+import com.example.payments.platform.service.service.ConfigurationSnapshotService.ChannelRuntime;
+import com.example.payments.platform.service.service.ConfigurationSnapshotService.CredentialBinding;
 import com.example.payments.platform.service.service.ConfigurationSnapshotService.Pricing;
 import com.example.payments.platform.service.service.ConfigurationSnapshotService.ProductCapability;
 import com.example.payments.platform.service.service.ConfigurationSnapshotService.RiskPolicy;
@@ -33,6 +35,11 @@ public interface ConfigurationSnapshotMapper {
       @Param("country") String country,
       @Param("currency") String currency,
       @Param("amount") BigDecimal amount);
+
+  ChannelRuntime selectChannelRuntime(@Param("channelId") String channelId);
+
+  List<CredentialBinding> selectActiveChannelCredentialBindings(
+      @Param("channelId") String channelId);
 
   Pricing selectPricing(
       @Param("version") long version,

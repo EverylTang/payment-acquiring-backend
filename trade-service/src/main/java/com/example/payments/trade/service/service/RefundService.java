@@ -29,7 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class RefundService {
   private final PaymentRefundMapper mapper;
   private final OrderService orderService;
-  private final PaymentChannelAdapter channel;
+  private final ChannelAdapterRegistry channelAdapters;
+  private final PlatformChannelConfigurationClient channelConfiguration;
   private final PaymentOutboxEventRepository outbox;
   private final ObjectMapper objectMapper;
   private final RefundCallbackRecordMapper callbackMapper;
@@ -116,11 +117,13 @@ public class RefundService {
                           .eq(RefundAttemptEntity::getRefundId, refund.getRefundId()))
                   .intValue()
               + 1;
-      var channelOrder = paymentAttemptMapper.findSuccessfulChannelOrder(refund.getOrderId());
+      var paymentAttempt = successfulPaymentAttempt(refund.getOrderId());
+      var runtime = channelConfiguration.resolve(paymentAttempt.getChannelId());
+      var channel = channelAdapters.required(runtime.provider(), runtime.signatureProfile());
       var attempt = new RefundAttemptEntity();
       attempt.setAttemptId("refund-attempt-" + UUID.randomUUID());
       attempt.setRefundId(refund.getRefundId());
-      attempt.setChannelId("simulated-channel");
+      attempt.setChannelId(runtime.channelId());
       attempt.setChannelRequestNo("refund-" + refund.getRefundId());
       attempt.setAttemptNo(attemptNo);
       attempt.setStatus("PROCESSING");
@@ -129,7 +132,7 @@ public class RefundService {
           "{\"orderId\":\""
               + refund.getOrderId()
               + "\",\"channelOrderId\":\""
-              + (channelOrder == null ? "" : channelOrder)
+              + paymentAttempt.getChannelRequestNo()
               + "\"}");
       attemptMapper.insert(attempt);
       var result =
@@ -137,9 +140,10 @@ public class RefundService {
               new PaymentChannelAdapter.PaymentRefundRequest(
                   refund.getRefundId(),
                   refund.getOrderId(),
-                  channelOrder == null ? refund.getOrderId() : channelOrder,
+                  paymentAttempt.getChannelRequestNo(),
                   refund.getAmount().toPlainString(),
-                  refund.getCurrency()));
+                  refund.getCurrency(),
+                  runtime));
       attempt.setChannelRequestNo(result.channelRefundId());
       attempt.setStatus(result.status());
       attempt.setResponseSnapshot(result.responseSnapshot());
@@ -214,10 +218,14 @@ public class RefundService {
       String signature,
       long timestamp,
       String nonce) {
+    var refund = get(refundId);
+    var paymentAttempt = successfulPaymentAttempt(refund.getOrderId());
+    var runtime = channelConfiguration.resolve(paymentAttempt.getChannelId());
+    var channel = channelAdapters.required(runtime.provider(), runtime.signatureProfile());
     var verified =
         channel.verifyRefundCallback(
             new PaymentChannelAdapter.PaymentRefundCallbackRequest(
-                payload, signature, callbackId, timestamp, nonce));
+                payload, signature, callbackId, timestamp, nonce, runtime));
     if (!refundId.equals(verified.refundId()) || !status.equalsIgnoreCase(verified.status()))
       throw new IllegalArgumentException("退款回调内容不一致");
     var hash = sha256(payload);
@@ -249,7 +257,6 @@ public class RefundService {
         throw new IllegalStateException("退款回调标识冲突", duplicate);
       return get(refundId);
     }
-    var refund = get(refundId);
     refund.setStatus(RefundStatus.valueOf(status.toUpperCase()).name());
     refund.setCallbackId(callbackId);
     refund.setCompletedAt(
@@ -263,6 +270,14 @@ public class RefundService {
     callbackMapper.updateById(record);
     if (RefundStatus.SUCCESS.name().equals(refund.getStatus())) publishReversal(refund);
     return refund;
+  }
+
+  private PaymentAttemptEntity successfulPaymentAttempt(String orderId) {
+    var attempt = paymentAttemptMapper.findLatestSuccessfulByOrderId(orderId);
+    if (attempt == null) {
+      throw new IllegalStateException("退款缺少成功支付渠道尝试");
+    }
+    return attempt;
   }
 
   private static String sha256(String value) {

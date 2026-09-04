@@ -12,9 +12,23 @@ public class SimulatedChannelAdapter implements PaymentChannelAdapter {
   private final String signingSecret;
 
   public SimulatedChannelAdapter(
-      @Value("${trade.channel.simulated.signing-secret:local-simulated-channel-secret}")
-          String signingSecret) {
+      @Value("${trade.channel.simulated.signing-secret:}") String signingSecret) {
     this.signingSecret = signingSecret;
+  }
+
+  @Override
+  public String provider() {
+    return "SIMULATED";
+  }
+
+  @Override
+  public boolean supportsSignatureProfile(String signatureProfile) {
+    try {
+      ChannelRequestSigner.SignatureProfile.parse(signatureProfile);
+      return true;
+    } catch (IllegalArgumentException exception) {
+      return false;
+    }
   }
 
   @Override
@@ -70,7 +84,9 @@ public class SimulatedChannelAdapter implements PaymentChannelAdapter {
     if (Math.abs(now - request.timestamp()) > 300
         || request.nonce() == null
         || request.nonce().isBlank()) throw new IllegalArgumentException("refund callback expired");
-    if (!sign(request.timestamp() + "." + request.nonce() + "." + request.rawPayload())
+    if (!sign(
+            request.timestamp() + "." + request.nonce() + "." + request.rawPayload(),
+            signingSecret(request.runtime()))
         .equalsIgnoreCase(request.signature()))
       throw new IllegalArgumentException("invalid refund callback signature");
     String[] fields = request.rawPayload().split("\\|", -1);
@@ -85,7 +101,8 @@ public class SimulatedChannelAdapter implements PaymentChannelAdapter {
     if (request.callbackId() == null || request.callbackId().isBlank()) {
       throw new IllegalArgumentException("callback id is required");
     }
-    if (!sign(request.rawPayload()).equalsIgnoreCase(request.signature())) {
+    if (!sign(request.rawPayload(), signingSecret(request.runtime()))
+        .equalsIgnoreCase(request.signature())) {
       throw new IllegalArgumentException("invalid callback signature");
     }
     String[] fields = request.rawPayload().split("\\|", -1);
@@ -96,14 +113,36 @@ public class SimulatedChannelAdapter implements PaymentChannelAdapter {
         request.callbackId(), fields[0], fields[1].toUpperCase(), request.rawPayload());
   }
 
+  @Override
+  public String callbackChannelOrderId(String rawPayload) {
+    String[] fields = rawPayload.split("\\|", -1);
+    if (fields.length != 3 || fields[0].isBlank()) {
+      throw new IllegalArgumentException("invalid callback payload");
+    }
+    return fields[0];
+  }
+
   public String sign(String rawPayload) {
+    return sign(rawPayload, signingSecret);
+  }
+
+  private String sign(String rawPayload, String secret) {
     try {
       var digest = MessageDigest.getInstance("SHA-256");
       return HexFormat.of()
-          .formatHex(
-              digest.digest((signingSecret + "." + rawPayload).getBytes(StandardCharsets.UTF_8)));
+          .formatHex(digest.digest((secret + "." + rawPayload).getBytes(StandardCharsets.UTF_8)));
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException(exception);
     }
+  }
+
+  private String signingSecret(ChannelRuntimeContext runtime) {
+    var configured =
+        runtime == null
+            ? java.util.Optional.<String>empty()
+            : runtime.secret("callbackVerifyKey").or(() -> runtime.secret("requestSigningKey"));
+    return configured
+        .or(() -> java.util.Optional.ofNullable(signingSecret).filter(value -> !value.isBlank()))
+        .orElseThrow(() -> new IllegalStateException("渠道签名密钥未配置"));
   }
 }

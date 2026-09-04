@@ -33,6 +33,22 @@ public class AdminConfigurationController {
     service.createChannel(r, a);
   }
 
+  @PutMapping("/channels/{id}")
+  @PreAuthorize("hasAuthority('channel:update')")
+  public void updateChannel(
+      @PathVariable("id") String id,
+      @Valid @RequestBody ConfigurationAdminService.ChannelUpdateRequest r,
+      Authentication a) {
+    service.updateChannel(id, r, a);
+  }
+
+  @GetMapping("/channels/{id}/credentials")
+  @PreAuthorize("hasAuthority('channel:update')")
+  public java.util.List<ConfigurationAdminService.ChannelSecretBindingResponse> channelCredentials(
+      @PathVariable("id") String id) {
+    return service.channelSecretBindings(id);
+  }
+
   @PutMapping("/channels/{id}/status")
   @PreAuthorize("hasAuthority('channel:status')")
   public void updateChannelStatus(
@@ -54,6 +70,15 @@ public class AdminConfigurationController {
   public void createRoutingRule(
       @Valid @RequestBody ConfigurationAdminService.RoutingRuleRequest r, Authentication a) {
     service.createRoutingRule(r, a);
+  }
+
+  @PutMapping("/routing-rules/{id}")
+  @PreAuthorize("hasAuthority('routing-rule:update')")
+  public void updateRoutingRule(
+      @PathVariable("id") String id,
+      @Valid @RequestBody ConfigurationAdminService.RoutingRuleUpdateRequest r,
+      Authentication a) {
+    service.updateRoutingRule(id, r, a);
   }
 
   @PutMapping("/routing-rules/{id}/status")

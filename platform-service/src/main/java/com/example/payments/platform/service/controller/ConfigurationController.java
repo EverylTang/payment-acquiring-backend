@@ -34,4 +34,9 @@ public class ConfigurationController {
   public Map<String, Object> channelHealth(@PathVariable String channelId) {
     return healthService.health(channelId);
   }
+
+  @GetMapping("/channels/{channelId}/runtime")
+  public Map<String, Object> channelRuntime(@PathVariable String channelId) {
+    return snapshotService.channelRuntime(channelId);
+  }
 }

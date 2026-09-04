@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -30,7 +31,8 @@ public class ConfigurationSnapshotService {
     requireBinding(merchantId, productCode);
 
     var product =
-        java.util.Optional.ofNullable(mapper.selectProductCapability(productCode, paymentMethod, amount))
+        java.util.Optional.ofNullable(
+                mapper.selectProductCapability(productCode, paymentMethod, amount))
             .orElseThrow(() -> unavailable("产品能力不支持当前交易"));
 
     var channelPaymentMethod = product.channelPaymentMethod();
@@ -39,12 +41,19 @@ public class ConfigurationSnapshotService {
         mapper.selectChannelCandidates(
             version, productCode, merchantId, channelPaymentMethod, country, currency, amount);
     if (candidates.isEmpty()) throw unavailable("没有可用支付渠道");
+    var selectedChannel = selectWeightedCandidate(candidates);
+    var channelRuntime =
+        java.util.Optional.ofNullable(mapper.selectChannelRuntime(selectedChannel.channelId()))
+            .orElseThrow(() -> unavailable("渠道运行配置不可用"));
 
     var pricing =
-        java.util.Optional.ofNullable(mapper.selectPricing(version, productCode, merchantId, currency, amount))
+        java.util.Optional.ofNullable(
+                mapper.selectPricing(version, productCode, merchantId, currency, amount))
             .orElseThrow(() -> unavailable("没有匹配的费率规则"));
 
-    var risk = java.util.Optional.ofNullable(mapper.selectRiskPolicy(version, productCode, currency)).orElse(RiskPolicy.pass());
+    var risk =
+        java.util.Optional.ofNullable(mapper.selectRiskPolicy(version, productCode, currency))
+            .orElse(RiskPolicy.pass());
 
     var result = new LinkedHashMap<String, Object>();
     result.put("merchantId", merchantId);
@@ -56,7 +65,11 @@ public class ConfigurationSnapshotService {
     result.put("amount", amount);
     result.put("configVersion", version);
     result.put("product", product.asMap());
-    result.put("route", candidates.getFirst().asMap());
+    result.put(
+        "route",
+        selectedChannel.asMap(
+            channelRuntime,
+            mapper.selectActiveChannelCredentialBindings(selectedChannel.channelId())));
     result.put("pricing", pricing.asMap());
     result.put("risk", risk.asMap());
     result.put("candidates", candidates.stream().map(ChannelCandidate::channelId).toList());
@@ -74,6 +87,13 @@ public class ConfigurationSnapshotService {
     return errors;
   }
 
+  public Map<String, Object> channelRuntime(String channelId) {
+    var runtime =
+        java.util.Optional.ofNullable(mapper.selectChannelRuntime(channelId))
+            .orElseThrow(() -> unavailable("渠道运行配置不可用"));
+    return channelRuntime(runtime, mapper.selectActiveChannelCredentialBindings(channelId));
+  }
+
   private void requireAvailable(long count, String message) {
     if (count == 0) throw unavailable(message);
   }
@@ -87,22 +107,100 @@ public class ConfigurationSnapshotService {
     return new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, message);
   }
 
+  private static Map<String, Object> channelRuntime(
+      ChannelRuntime runtime, List<CredentialBinding> bindings) {
+    return Map.of(
+        "channelId", runtime.channelId(),
+        "provider", runtime.provider(),
+        "requestUrl", runtime.requestUrl(),
+        "signatureProfile", runtime.signatureProfile(),
+        "settings", runtime.settings(),
+        "credentialBindings", bindings.stream().map(CredentialBinding::asMap).toList());
+  }
+
+  private ChannelCandidate selectWeightedCandidate(List<ChannelCandidate> candidates) {
+    return selectWeightedCandidate(candidates, ThreadLocalRandom.current().nextLong());
+  }
+
+  static ChannelCandidate selectWeightedCandidate(List<ChannelCandidate> candidates, long ticket) {
+    var first = candidates.getFirst();
+    var tier =
+        candidates.stream()
+            .filter(candidate -> candidate.scopeRank() == first.scopeRank())
+            .filter(candidate -> candidate.priority() == first.priority())
+            .toList();
+    long totalWeight = tier.stream().mapToLong(ChannelCandidate::weight).sum();
+    if (totalWeight <= 0) return tier.getFirst();
+    long selectedTicket = Math.floorMod(ticket, totalWeight);
+    long accumulated = 0;
+    for (var candidate : tier) {
+      accumulated += candidate.weight();
+      if (selectedTicket < accumulated) return candidate;
+    }
+    return tier.getLast();
+  }
+
   public record ProductCapability(
-      String channelPaymentMethod, BigDecimal minAmount, BigDecimal maxAmount, boolean supportsRefund) {
+      String channelPaymentMethod,
+      BigDecimal minAmount,
+      BigDecimal maxAmount,
+      boolean supportsRefund) {
     Map<String, Object> asMap() {
-      return Map.of("enabled", true, "channelPaymentMethod", channelPaymentMethod, "supportsRefund", supportsRefund, "minAmount", minAmount, "maxAmount", maxAmount);
+      return Map.of(
+          "enabled",
+          true,
+          "channelPaymentMethod",
+          channelPaymentMethod,
+          "supportsRefund",
+          supportsRefund,
+          "minAmount",
+          minAmount,
+          "maxAmount",
+          maxAmount);
     }
   }
 
-  public record ChannelCandidate(String channelId, int priority, int weight) {
-    Map<String, Object> asMap() {
-      return Map.of("channelId", channelId, "priority", priority, "weight", weight);
+  public record ChannelCandidate(String channelId, int scopeRank, int priority, int weight) {
+    Map<String, Object> asMap(ChannelRuntime runtime, List<CredentialBinding> bindings) {
+      var route = new LinkedHashMap<>(channelRuntime(runtime, bindings));
+      route.put("priority", priority);
+      route.put("weight", weight);
+      return route;
+    }
+  }
+
+  public record ChannelRuntime(
+      String channelId,
+      String provider,
+      String requestUrl,
+      String signatureProfile,
+      String configuration) {
+    Map<String, Object> settings() {
+      try {
+        return new com.fasterxml.jackson.databind.ObjectMapper()
+            .readValue(configuration, Map.class);
+      } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
+        throw new IllegalStateException("渠道运行参数不是合法 JSON", exception);
+      }
+    }
+  }
+
+  public record CredentialBinding(String credentialRole, String secretRef, String keyVersion) {
+    Map<String, String> asMap() {
+      return Map.of(
+          "role",
+          credentialRole,
+          "secretRef",
+          secretRef,
+          "keyVersion",
+          keyVersion == null ? "" : keyVersion);
     }
   }
 
   public record Pricing(String ruleId, BigDecimal feeRate, BigDecimal fixedFee, String mode) {
     Map<String, Object> asMap() {
-      return Map.of("ruleId", ruleId, "feeRate", feeRate, "fixedFee", fixedFee, "mode", mode, "scale", 2);
+      return Map.of(
+          "ruleId", ruleId, "feeRate", feeRate, "fixedFee", fixedFee, "mode", mode, "scale", 2);
     }
   }
 
@@ -112,7 +210,9 @@ public class ConfigurationSnapshotService {
     }
 
     Map<String, Object> asMap() {
-      return policyId == null ? Map.of("decision", decision) : Map.of("policyId", policyId, "decision", decision);
+      return policyId == null
+          ? Map.of("decision", decision)
+          : Map.of("policyId", policyId, "decision", decision);
     }
   }
 }

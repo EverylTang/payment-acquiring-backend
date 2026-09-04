@@ -9,6 +9,8 @@ import org.apache.ibatis.annotations.Param;
 public interface PaymentAttemptMapper extends BaseMapper<PaymentAttemptEntity> {
   String findSuccessfulChannelOrder(@Param("orderId") String orderId);
 
+  PaymentAttemptEntity findLatestSuccessfulByOrderId(@Param("orderId") String orderId);
+
   int countByOrderId(@Param("orderId") String orderId);
 
   java.util.List<PaymentAttemptEntity> findQueryable(

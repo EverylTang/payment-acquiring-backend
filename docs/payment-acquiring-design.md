@@ -46,6 +46,10 @@
 
 本地依赖为 MySQL 8.4、Redis 7.2、Nacos 2.3.2、RocketMQ 5.2.0 和 MinIO。基础设施由 Docker 或平台独立维护，应用通过 Nacos 和服务端口连接；仓库不保存真实密码、渠道密钥或商户 API Key。
 
+渠道运行参数分为普通参数和安全凭据引用。`channel.config_json` 仅保存端点、商户号、appId、产品代码等非敏感参数；签名方案保存为 `signature_profile`；`channel_secret_binding` 只保存凭据角色、KMS URI 和版本，不保存密钥原文。具备渠道管理权限的运营人员可在编辑表单中回显并维护 KMS 引用，但任何接口、审计或日志均不得回显密钥原文。交易服务从平台内部快照取得所选渠道的参数与引用，并在适配器加签或验签时按需解析凭据。当前开发环境支持 `env://VARIABLE_NAME`；生产环境必须以 Vault 或云 KMS 的 `ChannelSecretResolver` 实现替换。内部快照调用要求平台与交易服务使用相同的 `GATEWAY_INTERNAL_TOKEN`，模拟渠道另需设置 `TRADE_SIMULATED_CHANNEL_SIGNING_SECRET`。
+
+签名方案由渠道管理下拉框受控选择，当前支持 `NONE`、`MD5_KEY_SUFFIX_V1`、`SHA256_KEY_SUFFIX_V1`、`HMAC_SHA256_V1`、`HMAC_SHA512_V1`、`RSA_SHA256_V1` 与模拟渠道兼容方案。交易服务在调用适配器前自动按字典序构造 `key=value` 待签名串，并从 `requestSigningKey`（或配置的 `signatureSecretRole`）读取 KMS 凭据。`signatureFields` 可指定逗号分隔的待签名字段，`signatureFieldName` 可指定渠道请求中的签名字段名；渠道适配器负责将生成的签名放入渠道要求的位置。渠道专属的字段编码、时间戳、嵌套参数及回调验签必须以服务商文档为准。
+
 Nacos 默认约定：
 
 | 配置 | 默认值 | 覆盖方式 |

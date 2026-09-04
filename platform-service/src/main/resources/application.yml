@@ -22,3 +22,6 @@ spring:
         namespace: ${NACOS_NAMESPACE:payment}
         group: ${NACOS_GROUP:PAYMENT_GROUP}
         file-extension: yml
+platform:
+  security:
+    internal-token: ${GATEWAY_INTERNAL_TOKEN:}

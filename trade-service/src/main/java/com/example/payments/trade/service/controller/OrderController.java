@@ -152,7 +152,7 @@ public class OrderController {
   public Map<String, Object> attemptCallback(@Valid @RequestBody CallbackRequest request) {
     var attempt =
         paymentAttemptService.callback(
-            request.rawPayload(), request.signature(), request.callbackId());
+            request.channelId(), request.rawPayload(), request.signature(), request.callbackId());
     return Map.of(
         "attemptId",
         attempt.attemptId(),
@@ -165,5 +165,8 @@ public class OrderController {
   }
 
   public record CallbackRequest(
-      @NotBlank String callbackId, @NotBlank String rawPayload, @NotBlank String signature) {}
+      @NotBlank String channelId,
+      @NotBlank String callbackId,
+      @NotBlank String rawPayload,
+      @NotBlank String signature) {}
 }

@@ -115,12 +115,54 @@ CREATE TABLE IF NOT EXISTS channel (
   channel_id VARCHAR(64) NOT NULL COMMENT '渠道ID',
   name VARCHAR(128) NOT NULL COMMENT '名称',
   provider VARCHAR(64) NOT NULL COMMENT '服务商',
+  request_url VARCHAR(512) NOT NULL DEFAULT '' COMMENT '渠道请求地址',
+  signature_profile VARCHAR(64) NOT NULL DEFAULT 'DEFAULT' COMMENT '签名方案标识',
   status VARCHAR(16) NOT NULL COMMENT '业务状态',
-  weight INT NOT NULL DEFAULT 0 COMMENT '权重',
   config_json JSON NOT NULL COMMENT '配置JSON',
   created_at DATETIME(3) NOT NULL COMMENT '创建时间',
   updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
   UNIQUE KEY uk_channel_id (channel_id)
+);
+
+SET @add_channel_signature_profile_sql = (
+  SELECT IF(
+    COUNT(*) = 0,
+    'ALTER TABLE channel ADD COLUMN signature_profile VARCHAR(64) NOT NULL DEFAULT ''DEFAULT'' COMMENT ''签名方案标识'' AFTER provider',
+    'SELECT 1'
+  )
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'channel' AND column_name = 'signature_profile'
+);
+PREPARE add_channel_signature_profile_statement FROM @add_channel_signature_profile_sql;
+EXECUTE add_channel_signature_profile_statement;
+DEALLOCATE PREPARE add_channel_signature_profile_statement;
+
+SET @add_channel_request_url_sql = (
+  SELECT IF(
+    COUNT(*) = 0,
+    'ALTER TABLE channel ADD COLUMN request_url VARCHAR(512) NOT NULL DEFAULT '''' COMMENT ''渠道请求地址'' AFTER provider',
+    'SELECT 1'
+  )
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'channel' AND column_name = 'request_url'
+);
+PREPARE add_channel_request_url_statement FROM @add_channel_request_url_sql;
+EXECUTE add_channel_request_url_statement;
+DEALLOCATE PREPARE add_channel_request_url_statement;
+
+CREATE TABLE IF NOT EXISTS channel_secret_binding (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  binding_id VARCHAR(64) NOT NULL COMMENT '绑定ID',
+  channel_id VARCHAR(64) NOT NULL COMMENT '渠道ID',
+  credential_role VARCHAR(64) NOT NULL COMMENT '凭据角色',
+  secret_ref VARCHAR(512) NOT NULL COMMENT '密钥管理服务引用',
+  key_version VARCHAR(64) COMMENT '密钥版本',
+  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '业务状态',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
+  UNIQUE KEY uk_channel_secret_binding_id (binding_id),
+  UNIQUE KEY uk_channel_secret_binding_role (channel_id, credential_role),
+  KEY idx_channel_secret_binding_channel (channel_id, status)
 );
 
 CREATE TABLE IF NOT EXISTS routing_rule (
@@ -138,6 +180,16 @@ CREATE TABLE IF NOT EXISTS routing_rule (
   status VARCHAR(16) NOT NULL COMMENT '业务状态',
   UNIQUE KEY uk_routing_rule_id (rule_id)
 );
+
+-- Drop the obsolete channel-level routing weight in initialized environments.
+SET @drop_channel_weight_sql = (
+  SELECT IF(COUNT(*) = 1, 'ALTER TABLE channel DROP COLUMN weight', 'SELECT 1')
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'channel' AND column_name = 'weight'
+);
+PREPARE drop_channel_weight_statement FROM @drop_channel_weight_sql;
+EXECUTE drop_channel_weight_statement;
+DEALLOCATE PREPARE drop_channel_weight_statement;
 
 CREATE TABLE IF NOT EXISTS pricing_rule (
   id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
@@ -264,10 +316,19 @@ INSERT IGNORE INTO product_capability (capability_id, product_code, customer_pay
 VALUES ('pc-card-us-usd', 'CARD-US-USD', 'CARD', 'CARD', 1.00, 10000.00, TRUE, 'ACTIVE');
 
 INSERT IGNORE INTO merchant_product (binding_id, merchant_id, product_code, status, created_at, updated_at)
-VALUES ('mp-demo-card', 'merchant-demo', 'CARD-US-USD', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
+VALUES ('mp-demo-card-usd', 'merchant-demo', 'CARD-US-USD', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
-INSERT IGNORE INTO channel (channel_id, name, provider, status, weight, config_json, created_at, updated_at)
-VALUES ('simulated-channel', '模拟渠道', 'SIMULATED', 'ACTIVE', 100, JSON_OBJECT('mode', 'SIMULATED', 'successRate', 100), CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
+INSERT IGNORE INTO channel (channel_id, name, provider, request_url, status, config_json, created_at, updated_at)
+VALUES ('simulated-channel', '模拟渠道', 'SIMULATED', 'https://simulated.local', 'ACTIVE', JSON_OBJECT('mode', 'SIMULATED', 'successRate', 100), CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
+
+UPDATE channel SET request_url = 'https://simulated.local' WHERE channel_id = 'simulated-channel' AND request_url = '';
+
+UPDATE channel SET signature_profile = 'SIMULATED_SHA256_PREFIX_V1' WHERE channel_id = 'simulated-channel' AND signature_profile = 'DEFAULT';
+
+INSERT IGNORE INTO channel_secret_binding (binding_id, channel_id, credential_role, secret_ref, key_version, status, created_at, updated_at)
+VALUES
+  ('channel-secret-sim-request', 'simulated-channel', 'requestSigningKey', 'vault://secret/data/payments/channels/simulated#requestSigningKey', 'v1', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  ('channel-secret-sim-callback', 'simulated-channel', 'callbackVerifyKey', 'vault://secret/data/payments/channels/simulated#callbackVerifyKey', 'v1', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
 INSERT IGNORE INTO channel_capability (capability_id, channel_id, country, currency, payment_method, min_amount, max_amount, status)
 VALUES ('cc-sim-card-usd', 'simulated-channel', 'US', 'USD', 'CARD', 1.00, 10000.00, 'ACTIVE');
@@ -550,7 +611,7 @@ FROM (
   SELECT 'system:data-scope:user:update', '配置用户数据范围', 'DATA_SCOPE' UNION ALL
   SELECT 'dashboard:overview', '查看运营总览', 'DASHBOARD' UNION ALL
   SELECT 'channel:list', '查看渠道', 'CHANNEL' UNION ALL SELECT 'channel:create', '创建渠道', 'CHANNEL' UNION ALL
-  SELECT 'channel:status', '变更渠道状态', 'CHANNEL' UNION ALL SELECT 'channel:health:list', '查看渠道健康状态', 'CHANNEL' UNION ALL
+  SELECT 'channel:status', '变更渠道状态', 'CHANNEL' UNION ALL SELECT 'channel:update', '编辑渠道', 'CHANNEL' UNION ALL SELECT 'channel:health:list', '查看渠道健康状态', 'CHANNEL' UNION ALL
   SELECT 'routing-rule:list', '查看路由规则', 'ROUTING_RULE' UNION ALL SELECT 'routing-rule:detail', '查看路由规则详情', 'ROUTING_RULE' UNION ALL
   SELECT 'routing-rule:create', '创建路由规则', 'ROUTING_RULE' UNION ALL SELECT 'routing-rule:update', '编辑路由规则', 'ROUTING_RULE' UNION ALL
   SELECT 'routing-rule:status', '变更路由规则状态', 'ROUTING_RULE' UNION ALL SELECT 'routing-rule:delete', '删除路由规则', 'ROUTING_RULE' UNION ALL
@@ -569,16 +630,16 @@ FROM (
   SELECT 'order:list', '查看订单', 'ORDER' UNION ALL SELECT 'order:statistics', '查看订单统计', 'ORDER' UNION ALL
   SELECT 'outbox:list', '查看失败事件', 'OUTBOX' UNION ALL SELECT 'outbox:detail', '查看事件详情', 'OUTBOX' UNION ALL SELECT 'outbox:redrive', '重放失败事件', 'OUTBOX' UNION ALL
   SELECT 'payment-event:list', '查看失败支付事件', 'PAYMENT_EVENT' UNION ALL SELECT 'payment-event:detail', '查看支付事件详情', 'PAYMENT_EVENT' UNION ALL SELECT 'payment-event:replay', '重放支付事件', 'PAYMENT_EVENT' UNION ALL
-  SELECT 'reconciliation:bill:import', '导入对账单', 'RECONCILIATION' UNION ALL SELECT 'reconciliation:difference:list', '查看对账差异', 'RECONCILIATION' UNION ALL
+  SELECT 'reconciliation:bill:import', '导入对账单', 'RECONCILIATION' UNION ALL SELECT 'reconciliation:bill:list', '查看渠道结算账单', 'RECONCILIATION' UNION ALL SELECT 'reconciliation:bill:detail', '查看渠道结算账单明细', 'RECONCILIATION' UNION ALL SELECT 'reconciliation:difference:list', '查看对账差异', 'RECONCILIATION' UNION ALL
   SELECT 'reconciliation:bill:reconcile', '执行对账', 'RECONCILIATION' UNION ALL SELECT 'reconciliation:difference:resolve', '处理对账差异', 'RECONCILIATION'
 ) AS permissions;
 
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM admin_role r CROSS JOIN admin_permission p WHERE r.role_code = 'ADMIN';
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
-SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('auth:me', 'auth:password:change', 'system:access:list', 'dashboard:overview', 'channel:list', 'channel:health:list', 'routing-rule:list', 'routing-rule:detail', 'pricing-rule:list', 'pricing-rule:detail', 'risk-policy:list', 'configuration:snapshot:list', 'config-release:list', 'config-release:diff', 'audit:list', 'merchant:profile', 'merchant:contact:list', 'order:list', 'order:statistics') WHERE r.role_code IN ('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY');
+SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('auth:me', 'auth:password:change', 'system:access:list', 'dashboard:overview', 'channel:list', 'channel:health:list', 'routing-rule:list', 'routing-rule:detail', 'pricing-rule:list', 'pricing-rule:detail', 'risk-policy:list', 'configuration:snapshot:list', 'config-release:list', 'config-release:diff', 'audit:list', 'merchant:profile', 'merchant:contact:list', 'order:list', 'order:statistics', 'reconciliation:bill:list', 'reconciliation:bill:detail') WHERE r.role_code IN ('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY');
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
-SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('merchant:profile:update', 'merchant:credential:list', 'channel:create', 'routing-rule:create', 'routing-rule:update', 'pricing-rule:create', 'config-release:create', 'config-release:submit', 'outbox:list', 'outbox:detail', 'outbox:redrive', 'payment-event:list', 'payment-event:detail', 'payment-event:replay', 'reconciliation:bill:import', 'reconciliation:difference:list', 'reconciliation:bill:reconcile', 'reconciliation:difference:resolve') WHERE r.role_code = 'OPS';
+SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('merchant:profile:update', 'merchant:credential:list', 'channel:create', 'channel:update', 'routing-rule:create', 'routing-rule:update', 'pricing-rule:create', 'config-release:create', 'config-release:submit', 'outbox:list', 'outbox:detail', 'outbox:redrive', 'payment-event:list', 'payment-event:detail', 'payment-event:replay', 'reconciliation:bill:import', 'reconciliation:bill:list', 'reconciliation:bill:detail', 'reconciliation:difference:list', 'reconciliation:bill:reconcile', 'reconciliation:difference:resolve') WHERE r.role_code = 'OPS';
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('pricing-rule:create', 'pricing-rule:update') WHERE r.role_code = 'FINANCE';
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
