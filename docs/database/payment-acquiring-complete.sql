@@ -212,12 +212,30 @@ CREATE TABLE IF NOT EXISTS pricing_rule (
   status VARCHAR(16) NOT NULL COMMENT '业务状态',
   UNIQUE KEY uk_pricing_rule_id (rule_id)
 );
-ALTER TABLE pricing_rule ADD COLUMN IF NOT EXISTS channel_id VARCHAR(64) NULL COMMENT '渠道ID，空表示适用全部渠道' AFTER merchant_id;
-ALTER TABLE pricing_rule ADD COLUMN IF NOT EXISTS fee_type VARCHAR(16) NOT NULL DEFAULT 'COMBINED' COMMENT '手续费类型' AFTER fixed_fee;
-ALTER TABLE pricing_rule ADD COLUMN IF NOT EXISTS tiered_fees JSON NULL COMMENT '阶梯手续费配置' AFTER fee_type;
-ALTER TABLE pricing_rule ADD COLUMN IF NOT EXISTS extra_fee DECIMAL(20, 2) NOT NULL DEFAULT 0 COMMENT '额外手续费' AFTER fixed_fee;
-ALTER TABLE pricing_rule ADD COLUMN IF NOT EXISTS min_fee DECIMAL(20, 2) NULL COMMENT '最小手续费' AFTER extra_fee;
-ALTER TABLE pricing_rule ADD COLUMN IF NOT EXISTS max_fee DECIMAL(20, 2) NULL COMMENT '最大手续费' AFTER min_fee;
+SET @add_pricing_channel_id_sql = (SELECT IF(COUNT(*) = 0, 'ALTER TABLE pricing_rule ADD COLUMN channel_id VARCHAR(64) NULL COMMENT ''渠道ID，空表示适用全部渠道'' AFTER merchant_id', 'SELECT 1') FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pricing_rule' AND column_name = 'channel_id');
+PREPARE add_pricing_channel_id_statement FROM @add_pricing_channel_id_sql;
+EXECUTE add_pricing_channel_id_statement;
+DEALLOCATE PREPARE add_pricing_channel_id_statement;
+SET @add_pricing_fee_type_sql = (SELECT IF(COUNT(*) = 0, 'ALTER TABLE pricing_rule ADD COLUMN fee_type VARCHAR(16) NOT NULL DEFAULT ''COMBINED'' COMMENT ''手续费类型'' AFTER fixed_fee', 'SELECT 1') FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pricing_rule' AND column_name = 'fee_type');
+PREPARE add_pricing_fee_type_statement FROM @add_pricing_fee_type_sql;
+EXECUTE add_pricing_fee_type_statement;
+DEALLOCATE PREPARE add_pricing_fee_type_statement;
+SET @add_pricing_tiered_fees_sql = (SELECT IF(COUNT(*) = 0, 'ALTER TABLE pricing_rule ADD COLUMN tiered_fees JSON NULL COMMENT ''阶梯手续费配置'' AFTER fee_type', 'SELECT 1') FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pricing_rule' AND column_name = 'tiered_fees');
+PREPARE add_pricing_tiered_fees_statement FROM @add_pricing_tiered_fees_sql;
+EXECUTE add_pricing_tiered_fees_statement;
+DEALLOCATE PREPARE add_pricing_tiered_fees_statement;
+SET @add_pricing_extra_fee_sql = (SELECT IF(COUNT(*) = 0, 'ALTER TABLE pricing_rule ADD COLUMN extra_fee DECIMAL(20, 2) NOT NULL DEFAULT 0 COMMENT ''额外手续费'' AFTER fixed_fee', 'SELECT 1') FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pricing_rule' AND column_name = 'extra_fee');
+PREPARE add_pricing_extra_fee_statement FROM @add_pricing_extra_fee_sql;
+EXECUTE add_pricing_extra_fee_statement;
+DEALLOCATE PREPARE add_pricing_extra_fee_statement;
+SET @add_pricing_min_fee_sql = (SELECT IF(COUNT(*) = 0, 'ALTER TABLE pricing_rule ADD COLUMN min_fee DECIMAL(20, 2) NULL COMMENT ''最小手续费'' AFTER extra_fee', 'SELECT 1') FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pricing_rule' AND column_name = 'min_fee');
+PREPARE add_pricing_min_fee_statement FROM @add_pricing_min_fee_sql;
+EXECUTE add_pricing_min_fee_statement;
+DEALLOCATE PREPARE add_pricing_min_fee_statement;
+SET @add_pricing_max_fee_sql = (SELECT IF(COUNT(*) = 0, 'ALTER TABLE pricing_rule ADD COLUMN max_fee DECIMAL(20, 2) NULL COMMENT ''最大手续费'' AFTER min_fee', 'SELECT 1') FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pricing_rule' AND column_name = 'max_fee');
+PREPARE add_pricing_max_fee_statement FROM @add_pricing_max_fee_sql;
+EXECUTE add_pricing_max_fee_statement;
+DEALLOCATE PREPARE add_pricing_max_fee_statement;
 
 CREATE TABLE IF NOT EXISTS risk_policy (
   id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
