@@ -2,6 +2,7 @@ package com.example.payments.platform.service.controller;
 
 import com.example.payments.platform.service.service.MerchantProductAdminService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -16,10 +17,20 @@ public class AdminMerchantProductController {
   @GetMapping
   @PreAuthorize("hasAuthority('merchant-product:list')")
   public AdminPageResponse<MerchantProductAdminService.MerchantProductResponse> list(
-      @RequestParam(defaultValue = "1") int p,
-      @RequestParam(defaultValue = "20") int s,
+      @RequestParam(defaultValue = "1") int page,
+      @RequestParam(defaultValue = "20") int pageSize,
+      @RequestParam(required = false) String merchantName,
+      @RequestParam(required = false) String merchantId,
+      @RequestParam(required = false) String productName,
+      @RequestParam(required = false) String productCode,
+      @RequestParam(required = false) @Pattern(regexp = "ACTIVE|DISABLED") String status,
       Authentication a) {
-    return service.list(p, s, a);
+    return service.list(
+        page,
+        pageSize,
+        new MerchantProductAdminService.MerchantProductFilter(
+            merchantName, merchantId, productName, productCode, status),
+        a);
   }
 
   @GetMapping("/{id}")

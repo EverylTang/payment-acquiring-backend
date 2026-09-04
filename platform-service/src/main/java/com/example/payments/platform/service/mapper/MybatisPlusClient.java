@@ -5,6 +5,10 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.RecordComponent;
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -177,7 +181,7 @@ public final class MybatisPlusClient {
         return constructor.newInstance(args);
       }
       return type.getDeclaredConstructor().newInstance();
-    } catch (ReflectiveOperationException e) {
+    } catch (ReflectiveOperationException | IllegalArgumentException e) {
       throw new IllegalStateException("Cannot map SQL row to " + type.getName(), e);
     }
   }
@@ -193,10 +197,14 @@ public final class MybatisPlusClient {
       return n.intValue();
     if ((type == Boolean.class || type == boolean.class) && value instanceof Number n)
       return n.intValue() != 0;
-    if (type == java.time.Instant.class && value instanceof java.util.Date date)
+    if (type == Instant.class && value instanceof java.util.Date date)
       return date.toInstant();
-    if (type == java.time.LocalDateTime.class && value instanceof java.util.Date date)
-      return date.toInstant().atZone(java.time.ZoneOffset.UTC).toLocalDateTime();
+    if (type == Instant.class && value instanceof LocalDateTime dateTime)
+      return dateTime.toInstant(ZoneOffset.UTC);
+    if (type == Instant.class && value instanceof OffsetDateTime dateTime)
+      return dateTime.toInstant();
+    if (type == LocalDateTime.class && value instanceof java.util.Date date)
+      return date.toInstant().atZone(ZoneOffset.UTC).toLocalDateTime();
     if (type == java.time.LocalDate.class && value instanceof java.sql.Date date)
       return date.toLocalDate();
     if (type == String.class) return String.valueOf(value);
