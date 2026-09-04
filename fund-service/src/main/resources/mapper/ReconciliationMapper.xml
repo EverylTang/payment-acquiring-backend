@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.payments.fund.service.mapper.ReconciliationMapper">
+  <insert id="upsertBill">
+    INSERT INTO settlement_bill (bill_id, channel_id, bill_date, currency, total_amount, total_count, status, imported_at)
+    VALUES (#{id}, #{channel}, #{date}, #{currency}, #{amount}, #{count}, 'IMPORTED', #{now})
+    ON DUPLICATE KEY UPDATE total_amount = VALUES(total_amount), total_count = VALUES(total_count), status = 'IMPORTED'
+  </insert>
+  <delete id="deleteBillLines">DELETE FROM settlement_bill_line WHERE bill_id = #{bill}</delete>
+  <insert id="insertBillLine">
+    INSERT INTO settlement_bill_line (bill_id, channel_order_id, merchant_id, order_id, transaction_type, status, amount, currency)
+    VALUES (#{bill}, #{channelOrder}, #{merchant}, #{order}, #{type}, #{status}, #{amount}, #{currency})
+  </insert>
+  <select id="selectOpenDifferences" resultType="map">
+    SELECT * FROM reconciliation_difference WHERE status = 'OPEN' ORDER BY created_at DESC LIMIT 200
+  </select>
+  <select id="selectBill" resultType="com.example.payments.fund.service.mapper.ReconciliationMapper$BillRow">
+    SELECT currency, total_amount AS totalAmount, total_count AS totalCount, bill_date AS billDate
+    FROM settlement_bill WHERE bill_id = #{id}
+  </select>
+  <select id="selectBillLines" resultType="map">SELECT * FROM settlement_bill_line WHERE bill_id = #{bill}</select>
+  <select id="selectLedgerEntries" resultType="map">
+    SELECT * FROM ledger_entry WHERE order_id = #{order} AND entry_type = #{entryType}
+  </select>
+  <select id="selectPlatformOnlyEntries" resultType="map">
+    SELECT order_id, amount FROM ledger_entry
+    WHERE currency = #{currency} AND created_at &gt;= #{start} AND created_at &lt; #{end}
+      AND entry_type IN ('PAYMENT_SUCCESS', 'REFUND_REVERSAL')
+      AND order_id NOT IN (SELECT order_id FROM settlement_bill_line WHERE bill_id = #{bill} AND order_id IS NOT NULL)
+  </select>
+  <update id="updateBillStatus">UPDATE settlement_bill SET status = #{status} WHERE bill_id = #{id}</update>
+  <insert id="upsertDifference">
+    INSERT INTO reconciliation_difference
+      (difference_id, bill_id, difference_type, order_id, expected_amount, actual_amount, status, reason, created_at)
+    VALUES (#{id}, #{bill}, #{type}, #{order}, #{expected}, #{actual}, 'OPEN', #{reason}, #{now})
+    ON DUPLICATE KEY UPDATE expected_amount = VALUES(expected_amount), actual_amount = VALUES(actual_amount),
+      reason = VALUES(reason), status = IF(status = 'RESOLVED', status, 'OPEN')
+  </insert>
+  <update id="resolveDifference">
+    UPDATE reconciliation_difference SET status = 'RESOLVED', reason = #{reason}, resolved_by = #{operator}, resolved_at = #{now}
+    WHERE difference_id = #{id} AND status = 'OPEN'
+  </update>
+</mapper>

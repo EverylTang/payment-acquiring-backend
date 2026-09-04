@@ -26,6 +26,11 @@ public class OperationAuditService {
         Instant.now());
   }
 
+  public void recordAction(String operator, String action, String resourceType, String resourceId) {
+    mapper.insertAuditWithoutSummary(
+        UUID.randomUUID().toString(), operator, action, resourceType, resourceId, Instant.now());
+  }
+
   private String json(Object value) {
     try {
       return objectMapper.writeValueAsString(value);

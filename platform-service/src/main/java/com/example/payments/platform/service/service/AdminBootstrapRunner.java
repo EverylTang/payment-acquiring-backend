@@ -1,6 +1,6 @@
 package com.example.payments.platform.service.service;
 
-import com.example.payments.platform.service.mapper.MybatisPlusClient;
+import com.example.payments.platform.service.mapper.AdminBootstrapMapper;
 import java.time.Instant;
 import java.util.Objects;
 import org.slf4j.Logger;
@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminBootstrapRunner implements ApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(AdminBootstrapRunner.class);
 
-  private final MybatisPlusClient mybatisClient;
+  private final AdminBootstrapMapper mapper;
   private final PasswordEncoder passwordEncoder;
   private final boolean enabled;
   private final String username;
@@ -24,13 +24,13 @@ public class AdminBootstrapRunner implements ApplicationRunner {
   private final String displayName;
 
   public AdminBootstrapRunner(
-      MybatisPlusClient mybatisClient,
+      AdminBootstrapMapper mapper,
       PasswordEncoder passwordEncoder,
       @Value("${platform.security.admin-bootstrap.enabled:true}") boolean enabled,
       @Value("${platform.security.admin-bootstrap.username:}") String username,
       @Value("${platform.security.admin-bootstrap.password:}") String password,
       @Value("${platform.security.admin-bootstrap.display-name:系统管理员}") String displayName) {
-    this.mybatisClient = mybatisClient;
+    this.mapper = mapper;
     this.passwordEncoder = passwordEncoder;
     this.enabled = enabled;
     this.username = username;
@@ -55,33 +55,11 @@ public class AdminBootstrapRunner implements ApplicationRunner {
 
     var now = Instant.now();
     var passwordHash = passwordEncoder.encode(password);
-    mybatisClient
-        .sql(
-            "INSERT INTO admin_user (username, password_hash, display_name, status, created_at,"
-                + " updated_at) VALUES (:username, :passwordHash, :displayName, 'ACTIVE', :now,"
-                + " :now)")
-        .param("username", username)
-        .param("passwordHash", passwordHash)
-        .param("displayName", displayName)
-        .param("now", now)
-        .update();
-    var userId =
-        mybatisClient
-            .sql("SELECT id FROM admin_user WHERE username = :username")
-            .param("username", username)
-            .query(Long.class)
-            .single();
-    var roleId =
-        mybatisClient
-            .sql("SELECT id FROM admin_role WHERE role_code = 'ADMIN'")
-            .query(Long.class)
-            .optional()
-            .orElseThrow(() -> new IllegalStateException("ADMIN 角色不存在"));
-    mybatisClient
-        .sql("INSERT INTO admin_user_role (user_id, role_id) VALUES (:userId, :roleId)")
-        .param("userId", userId)
-        .param("roleId", roleId)
-        .update();
+    mapper.insertAdminUser(username, passwordHash, displayName, now);
+    var userId = mapper.selectUserId(username);
+    var roleId = mapper.selectAdminRoleId();
+    if (roleId == null) throw new IllegalStateException("ADMIN 角色不存在");
+    mapper.insertUserRole(userId, roleId);
     log.warn("管理员账号初始化完成，请立即轮换初始密码，账号={}", username);
   }
 
@@ -91,22 +69,8 @@ public class AdminBootstrapRunner implements ApplicationRunner {
       return;
     }
     var now = Instant.now();
-    mybatisClient
-        .sql(
-            "INSERT IGNORE INTO admin_menu (parent_id, menu_code, menu_name, menu_type,"
-                + " route_path, component_key, icon, sort_order, visible, status, created_at,"
-                + " updated_at) VALUES (0, :menuCode, '菜单管理', 'PAGE', '/menus', 'menus',"
-                + " 'Settings2', 93, TRUE, 'ACTIVE', :now, :now)")
-        .param("menuCode", "system:menu")
-        .param("now", now)
-        .update();
-    mybatisClient
-        .sql(
-            "INSERT IGNORE INTO admin_role_menu (role_id, menu_id) SELECT r.id, m.id FROM"
-                + " admin_role r JOIN admin_menu m ON m.menu_code = :menuCode WHERE"
-                + " r.role_code = 'ADMIN'")
-        .param("menuCode", "system:menu")
-        .update();
+    mapper.insertSystemMenu("system:menu", now);
+    mapper.assignSystemMenuToAdmin("system:menu");
   }
 
   private void ensureAdminPermissions() {
@@ -116,27 +80,15 @@ public class AdminBootstrapRunner implements ApplicationRunner {
       log.warn("后台权限表未初始化，跳过 ADMIN 全量操作权限同步");
       return;
     }
-    mybatisClient
-        .sql(
-            "INSERT IGNORE INTO admin_role_permission (role_id, permission_id) SELECT r.id, p.id"
-                + " FROM admin_role r CROSS JOIN admin_permission p WHERE r.role_code = 'ADMIN'"
-                + " AND p.status = 'ACTIVE'")
-        .update();
+    mapper.assignAllActivePermissionsToAdmin();
   }
 
   private boolean hasTable(String tableName) {
-    return mybatisClient
-            .sql(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()"
-                    + " AND table_name = :tableName")
-            .param("tableName", tableName)
-            .query(Long.class)
-            .single()
-        > 0;
+    return mapper.countTables(tableName) > 0;
   }
 
   private boolean hasAdminUser() {
-    return mybatisClient.sql("SELECT COUNT(*) FROM admin_user").query(Long.class).single() > 0;
+    return mapper.countAdminUsers() > 0;
   }
 
   private void validateConfiguration() {

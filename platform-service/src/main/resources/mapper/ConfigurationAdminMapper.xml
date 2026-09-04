@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.payments.platform.service.mapper.ConfigurationAdminMapper">
+  <resultMap id="channel" type="com.example.payments.platform.service.service.ConfigurationAdminService$ChannelRow"><constructor><arg column="channel_id" javaType="string"/><arg column="name" javaType="string"/><arg column="provider" javaType="string"/><arg column="status" javaType="string"/><arg column="weight" javaType="int"/><arg column="config_json" javaType="string"/></constructor></resultMap>
+  <resultMap id="routingRule" type="com.example.payments.platform.service.service.ConfigurationAdminService$RoutingRuleResponse"><constructor><arg column="rule_id" javaType="string"/><arg column="release_version" javaType="long"/><arg column="product_code" javaType="string"/><arg column="merchant_id" javaType="string"/><arg column="payment_method" javaType="string"/><arg column="country" javaType="string"/><arg column="currency" javaType="string"/><arg column="channel_id" javaType="string"/><arg column="priority" javaType="int"/><arg column="weight" javaType="int"/><arg column="status" javaType="string"/></constructor></resultMap>
+  <resultMap id="riskPolicy" type="com.example.payments.platform.service.service.ConfigurationAdminService$RiskPolicyRow"><constructor><arg column="policy_id" javaType="string"/><arg column="release_version" javaType="long"/><arg column="name" javaType="string"/><arg column="priority" javaType="int"/><arg column="decision" javaType="string"/><arg column="condition_json" javaType="string"/><arg column="status" javaType="string"/></constructor></resultMap>
+  <select id="countActiveMerchants" resultType="long">SELECT COUNT(*) FROM merchant WHERE status='ACTIVE'</select>
+  <select id="countActiveChannels" resultType="long">SELECT COUNT(*) FROM channel WHERE status='ACTIVE'</select>
+  <select id="countPendingReleases" resultType="long">SELECT COUNT(*) FROM config_release WHERE status IN ('DRAFT','IN_REVIEW','APPROVED')</select>
+  <select id="countChannels" resultType="long">SELECT COUNT(*) FROM channel</select>
+  <select id="countRoutingRules" resultType="long">SELECT COUNT(*) FROM routing_rule</select>
+  <select id="countRiskPolicies" resultType="long">SELECT COUNT(*) FROM risk_policy</select>
+  <select id="selectChannels" resultMap="channel">SELECT channel_id,name,provider,status,weight,CAST(config_json AS CHAR) AS config_json FROM channel ORDER BY created_at DESC LIMIT #{limit} OFFSET #{offset}</select>
+  <insert id="insertChannel">INSERT INTO channel(channel_id,name,provider,status,weight,config_json,created_at,updated_at) VALUES(#{id},#{name},#{provider},'ACTIVE',#{weight},#{config},#{now},#{now})</insert>
+  <insert id="insertChannelCapability">INSERT INTO channel_capability(capability_id,channel_id,country,currency,payment_method,min_amount,max_amount,status) VALUES(#{id},#{channel},#{country},#{currency},#{method},#{min},#{max},'ACTIVE')</insert>
+  <update id="updateChannelStatus">UPDATE channel SET status=#{status},updated_at=#{now} WHERE channel_id=#{id}</update>
+  <select id="selectRoutingRules" resultMap="routingRule">SELECT rule_id,release_version,product_code,merchant_id,payment_method,country,currency,channel_id,priority,weight,status FROM routing_rule ORDER BY release_version DESC,priority LIMIT #{limit} OFFSET #{offset}</select>
+  <insert id="insertRoutingRule">INSERT INTO routing_rule(rule_id,release_version,product_code,merchant_id,payment_method,country,currency,channel_id,priority,weight,status) VALUES(#{id},#{version},#{product},#{merchant},#{method},#{country},#{currency},#{channel},#{priority},#{weight},'ACTIVE')</insert>
+  <update id="updateRoutingRuleStatus">UPDATE routing_rule SET status=#{status},updated_at=#{now} WHERE rule_id=#{id}</update>
+  <select id="selectRiskPolicies" resultMap="riskPolicy">SELECT policy_id,release_version,name,priority,decision,CAST(condition_json AS CHAR) AS condition_json,status FROM risk_policy ORDER BY release_version DESC,priority LIMIT #{limit} OFFSET #{offset}</select>
+  <insert id="insertRiskPolicy">INSERT INTO risk_policy(policy_id,release_version,name,priority,decision,condition_json,status) VALUES(#{id},#{version},#{name},#{priority},#{decision},#{condition},'ACTIVE')</insert>
+  <update id="updateRiskPolicyStatus">UPDATE risk_policy SET status=#{status},updated_at=#{now} WHERE policy_id=#{id}</update>
+  <select id="selectDraftVersion" resultType="long">SELECT version_no FROM config_release WHERE release_id=#{releaseId} AND status='DRAFT'</select>
+</mapper>

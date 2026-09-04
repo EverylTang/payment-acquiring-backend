@@ -48,11 +48,6 @@ public class AdminDataScopeService {
     return mapper.hasAllScope(username);
   }
 
-  public String predicate(String alias) {
-    return alias
-        + ".merchant_id IN (SELECT ums.merchant_id FROM admin_user_merchant_scope ums JOIN admin_user u ON u.id=ums.user_id WHERE u.username = :scopeUsername)";
-  }
-
   public boolean allowed(String username, String merchantId) {
     return mapper.allowed(username, merchantId);
   }

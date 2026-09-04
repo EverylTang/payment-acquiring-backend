@@ -9,6 +9,8 @@ import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface MerchantMapper {
+  long countByMerchantId(@Param("merchantId") String merchantId);
+
   long countVisible(
       @Param("username") String username,
       @Param("allScope") boolean allScope,

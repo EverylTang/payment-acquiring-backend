@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class PricingRuleAdminService {
   private final PricingRuleMapper mapper;
-  private final PlatformDataService mybatisClient;
+  private final OperationAuditService auditService;
 
   public AdminPageResponse<PricingRuleResponse> list(int page, int pageSize) {
     page = Math.max(page, 1);
@@ -139,17 +139,7 @@ public class PricingRuleAdminService {
   }
 
   private void audit(String username, String action, String targetId) {
-    mybatisClient
-        .sql(
-            "INSERT INTO operation_audit (audit_id, operator_id, action, resource_type,"
-                + " resource_id, created_at) VALUES (:audit, :operator, :action,"
-                + " 'PRICING_RULE', :resourceId, :now)")
-        .param("audit", UUID.randomUUID().toString())
-        .param("operator", username)
-        .param("action", action)
-        .param("resourceId", targetId)
-        .param("now", Instant.now())
-        .update();
+    auditService.record(username, action, "PRICING_RULE", targetId, null);
   }
 
   public record PricingRuleRequest(

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.payments.platform.service.mapper.AdminMenuMapper">
+  <resultMap id="menu" type="com.example.payments.platform.service.service.AdminMenuService$MenuResponse"><constructor><idArg column="id" javaType="long"/><arg column="parent_id" javaType="long"/><arg column="menu_code" javaType="string"/><arg column="menu_name" javaType="string"/><arg column="menu_type" javaType="string"/><arg column="route_path" javaType="string"/><arg column="component_key" javaType="string"/><arg column="icon" javaType="string"/><arg column="sort_order" javaType="int"/><arg column="visible" javaType="boolean"/><arg column="status" javaType="string"/></constructor></resultMap>
+  <resultMap id="permission" type="com.example.payments.platform.service.service.AdminMenuService$PermissionResponse"><constructor><arg column="permission_code" javaType="string"/><arg column="permission_name" javaType="string"/><arg column="resource_type" javaType="string"/><arg column="status" javaType="string"/></constructor></resultMap>
+  <resultMap id="resourceType" type="com.example.payments.platform.service.service.AdminMenuService$ResourceTypeResponse"><constructor><arg column="resource_type" javaType="string"/><arg column="resource_name" javaType="string"/></constructor></resultMap>
+  <sql id="filter">WHERE (#{menuName} IS NULL OR LOWER(menu_name) LIKE CONCAT('%', LOWER(#{menuName}), '%')) AND (#{menuCode} IS NULL OR LOWER(menu_code) LIKE CONCAT('%', LOWER(#{menuCode}), '%')) AND (#{menuType} IS NULL OR menu_type = #{menuType}) AND (#{status} IS NULL OR status = #{status})</sql>
+  <select id="count" resultType="long">SELECT COUNT(*) FROM admin_menu <include refid="filter"/></select>
+  <select id="selectPage" resultMap="menu">SELECT id,parent_id,menu_code,menu_name,menu_type,route_path,component_key,icon,sort_order,visible,status FROM admin_menu <include refid="filter"/> ORDER BY parent_id,sort_order,id LIMIT #{limit} OFFSET #{offset}</select>
+  <insert id="insertMenu">INSERT INTO admin_menu (parent_id,menu_code,menu_name,menu_type,route_path,component_key,icon,sort_order,visible,status,created_at,updated_at) VALUES (#{parentId},#{code},#{name},#{type},#{path},#{component},#{icon},#{sort},#{visible},'ACTIVE',#{now},#{now})</insert>
+  <update id="updateStatus">UPDATE admin_menu SET status=#{status},updated_at=#{now} WHERE menu_code=#{code}</update>
+  <update id="updateMenu">UPDATE admin_menu SET parent_id=#{parentId},menu_name=#{name},menu_type=#{type},route_path=#{path},component_key=#{component},icon=#{icon},sort_order=#{sort},visible=#{visible},updated_at=#{now} WHERE menu_code=#{code}</update>
+  <select id="countChildren" resultType="long">SELECT COUNT(*) FROM admin_menu WHERE parent_id=#{parentId}</select>
+  <delete id="deleteRolePermissionsByPrefix">DELETE rp FROM admin_role_permission rp JOIN admin_permission p ON p.id=rp.permission_id WHERE p.permission_code LIKE #{prefix}</delete>
+  <delete id="deletePermissionsByPrefix">DELETE FROM admin_permission WHERE permission_code LIKE #{prefix}</delete>
+  <delete id="deleteRoleMenus">DELETE FROM admin_role_menu WHERE menu_id=#{menuId}</delete>
+  <delete id="deleteMenuResourceTypes">DELETE FROM admin_menu_resource_type WHERE menu_id=#{menuId}</delete>
+  <delete id="deleteMenu">DELETE FROM admin_menu WHERE id=#{menuId}</delete>
+  <select id="selectPermissions" resultMap="permission">SELECT permission_code,permission_name,resource_type,status FROM admin_permission WHERE permission_code LIKE #{prefix} ORDER BY permission_code</select>
+  <select id="selectActiveResourceTypes" resultMap="resourceType">SELECT resource_type,resource_name FROM admin_resource_type WHERE status='ACTIVE' ORDER BY resource_type</select>
+  <insert id="insertResourceType">INSERT INTO admin_resource_type(resource_type,resource_name,status) VALUES(#{type},#{name},'ACTIVE')</insert>
+  <select id="selectMenuResourceTypes" resultType="string">SELECT resource_type FROM admin_menu_resource_type WHERE menu_id=#{menuId} ORDER BY resource_type</select>
+  <insert id="insertPermission">INSERT INTO admin_permission(permission_code,permission_name,resource_type,status,created_at,updated_at) VALUES(#{code},#{name},#{type},'ACTIVE',#{now},#{now})</insert>
+  <update id="updatePermission">UPDATE admin_permission SET permission_name=#{name},resource_type=#{type},status=#{status},updated_at=#{now} WHERE permission_code=#{code}</update>
+  <delete id="deleteRolePermission">DELETE rp FROM admin_role_permission rp JOIN admin_permission p ON p.id=rp.permission_id WHERE p.permission_code=#{code}</delete>
+  <delete id="deletePermission">DELETE FROM admin_permission WHERE permission_code=#{code}</delete>
+  <select id="selectMenuId" resultType="long">SELECT id FROM admin_menu WHERE menu_code=#{code}</select>
+  <select id="selectMenu" resultMap="menu">SELECT id,parent_id,menu_code,menu_name,menu_type,route_path,component_key,icon,sort_order,visible,status FROM admin_menu WHERE menu_code=#{code}</select>
+  <select id="selectPermission" resultMap="permission">SELECT permission_code,permission_name,resource_type,status FROM admin_permission WHERE permission_code=#{code}</select>
+  <insert id="insertMenuResourceType">INSERT INTO admin_menu_resource_type(menu_id,resource_type) VALUES(#{menuId},#{type})</insert>
+</mapper>

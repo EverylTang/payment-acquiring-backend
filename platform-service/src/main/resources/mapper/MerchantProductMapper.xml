@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.payments.platform.service.mapper.MerchantProductMapper">
+  <resultMap id="merchantProduct" type="com.example.payments.platform.service.service.MerchantProductAdminService$MerchantProductResponse"><constructor><arg column="binding_id" javaType="string"/><arg column="merchant_id" javaType="string"/><arg column="merchant_name" javaType="string"/><arg column="product_code" javaType="string"/><arg column="product_name" javaType="string"/><arg column="status" javaType="string"/><arg column="created_at" javaType="java.time.Instant"/><arg column="updated_at" javaType="java.time.Instant"/><arg column="supported_payment_methods" javaType="string"/></constructor></resultMap>
+  <sql id="accessScope"><if test="!hasAllScope">AND mp.merchant_id IN (SELECT ums.merchant_id FROM admin_user_merchant_scope ums JOIN admin_user u ON u.id=ums.user_id WHERE u.username=#{username})</if></sql>
+  <sql id="filters"><if test="merchantName != null">AND LOWER(m.name) LIKE CONCAT('%',LOWER(#{merchantName}),'%')</if><if test="merchantId != null">AND LOWER(mp.merchant_id) LIKE CONCAT('%',LOWER(#{merchantId}),'%')</if><if test="productName != null">AND LOWER(p.name) LIKE CONCAT('%',LOWER(#{productName}),'%')</if><if test="productCode != null">AND LOWER(mp.product_code) LIKE CONCAT('%',LOWER(#{productCode}),'%')</if><if test="status != null">AND mp.status=#{status}</if></sql>
+  <sql id="selectColumns">mp.binding_id,mp.merchant_id,m.name AS merchant_name,mp.product_code,p.name AS product_name,mp.status,mp.created_at,mp.updated_at,COALESCE((SELECT GROUP_CONCAT(DISTINCT pc.customer_payment_method ORDER BY pc.customer_payment_method SEPARATOR ',') FROM product_capability pc WHERE pc.product_code=mp.product_code AND pc.status='ACTIVE'),'') AS supported_payment_methods</sql>
+  <sql id="from">FROM merchant_product mp JOIN merchant m ON m.merchant_id=mp.merchant_id JOIN logical_product p ON p.product_code=mp.product_code</sql>
+  <select id="countPage" resultType="long">SELECT COUNT(*) <include refid="from"/> WHERE 1=1 <include refid="accessScope"/> <include refid="filters"/></select>
+  <select id="selectPage" resultMap="merchantProduct">SELECT <include refid="selectColumns"/> <include refid="from"/> WHERE 1=1 <include refid="accessScope"/> <include refid="filters"/> ORDER BY mp.created_at DESC LIMIT #{limit} OFFSET #{offset}</select>
+  <select id="selectByBindingId" resultMap="merchantProduct">SELECT <include refid="selectColumns"/> <include refid="from"/> WHERE mp.binding_id=#{bindingId} <include refid="accessScope"/></select>
+  <select id="countByMerchantAndProduct" resultType="long">SELECT COUNT(*) FROM merchant_product WHERE merchant_id=#{merchantId} AND product_code=#{productCode}</select>
+  <select id="countOtherByMerchantAndProduct" resultType="long">SELECT COUNT(*) FROM merchant_product WHERE merchant_id=#{merchantId} AND product_code=#{productCode} AND binding_id &lt;&gt; #{bindingId}</select>
+  <select id="countActiveMerchant" resultType="long">SELECT COUNT(*) FROM merchant WHERE merchant_id=#{merchantId} AND status='ACTIVE'</select>
+  <select id="countActiveProduct" resultType="long">SELECT COUNT(*) FROM logical_product WHERE product_code=#{productCode} AND status='ACTIVE'</select>
+  <insert id="insert">INSERT INTO merchant_product(binding_id,merchant_id,product_code,status,created_at,updated_at) VALUES(#{bindingId},#{merchantId},#{productCode},'ACTIVE',#{now},#{now})</insert>
+  <update id="update">UPDATE merchant_product SET merchant_id=#{merchantId},product_code=#{productCode},updated_at=#{now} WHERE binding_id=#{bindingId}</update>
+  <update id="updateStatus">UPDATE merchant_product SET status=#{status},updated_at=#{now} WHERE binding_id=#{bindingId}</update>
+</mapper>

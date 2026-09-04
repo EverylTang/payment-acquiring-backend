@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RoutingRuleAdminService {
   private final RoutingRuleMapper mapper;
-  private final PlatformDataService mybatisClient;
+  private final OperationAuditService auditService;
 
   public AdminPageResponse<RoutingRuleResponse> list(int page, int pageSize) {
     page = Math.max(page, 1);
@@ -138,17 +138,7 @@ public class RoutingRuleAdminService {
   }
 
   private void audit(String username, String action, String targetId) {
-    mybatisClient
-        .sql(
-            "INSERT INTO operation_audit (audit_id, operator_id, action, resource_type,"
-                + " resource_id, created_at) VALUES (:audit, :operator, :action,"
-                + " 'ROUTING_RULE', :resourceId, :now)")
-        .param("audit", UUID.randomUUID().toString())
-        .param("operator", username)
-        .param("action", action)
-        .param("resourceId", targetId)
-        .param("now", Instant.now())
-        .update();
+    auditService.record(username, action, "ROUTING_RULE", targetId, null);
   }
 
   public record RoutingRuleRequest(

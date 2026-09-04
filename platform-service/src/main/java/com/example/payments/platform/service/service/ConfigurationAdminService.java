@@ -1,6 +1,7 @@
 package com.example.payments.platform.service.service;
 
 import com.example.payments.platform.service.controller.AdminPageResponse;
+import com.example.payments.platform.service.mapper.ConfigurationAdminMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.constraints.DecimalMin;
@@ -11,7 +12,6 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Map;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -20,7 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ConfigurationAdminService {
-  private final PlatformDataService mybatisClient;
+  private final ConfigurationAdminMapper mapper;
+  private final OperationAuditService auditService;
   private final ObjectMapper objectMapper;
   private final com.example.payments.platform.service.mapper.PricingRuleMapper pricingRuleMapper;
 
@@ -31,11 +32,11 @@ public class ConfigurationAdminService {
         "paymentVolume",
         BigDecimal.ZERO,
         "activeMerchants",
-        count("merchant", "status = 'ACTIVE'"),
+        mapper.countActiveMerchants(),
         "activeChannels",
-        count("channel", "status = 'ACTIVE'"),
+        mapper.countActiveChannels(),
         "pendingReleases",
-        count("config_release", "status IN ('DRAFT', 'IN_REVIEW', 'APPROVED')"),
+        mapper.countPendingReleases(),
         "channelHealth",
         channels(1, 100).items().stream()
             .map(
@@ -54,108 +55,65 @@ public class ConfigurationAdminService {
 
   public AdminPageResponse<ChannelResponse> channels(int page, int pageSize) {
     var q = pageQuery(page, pageSize);
-    var total = count("channel", "1=1");
+    var total = mapper.countChannels();
     var items =
-        mybatisClient
-            .sql(
-                "SELECT channel_id, name, provider, status, weight, config_json FROM channel ORDER"
-                    + " BY created_at DESC LIMIT :limit OFFSET :offset")
-            .param("limit", q.size())
-            .param("offset", q.offset())
-            .query(
-                (rs, rowNum) ->
+        mapper.selectChannels(q.size(), q.offset()).stream()
+            .map(
+                channel ->
                     new ChannelResponse(
-                        rs.getString("channel_id"),
-                        rs.getString("name"),
-                        rs.getString("provider"),
-                        rs.getString("status"),
-                        rs.getInt("weight"),
-                        readMap(rs.getString("config_json"))))
-            .list();
+                        channel.channelId(),
+                        channel.name(),
+                        channel.provider(),
+                        channel.status(),
+                        channel.weight(),
+                        readMap(channel.configuration())))
+            .toList();
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
 
   @Transactional
   public void createChannel(ChannelRequest request, Authentication authentication) {
     var now = Instant.now();
-    mybatisClient
-        .sql(
-            "INSERT INTO channel (channel_id, name, provider, status, weight, config_json,"
-                + " created_at, updated_at) VALUES (:id, :name, :provider, 'ACTIVE', :weight,"
-                + " :config, :now, :now)")
-        .param("id", request.channelId())
-        .param("name", request.name())
-        .param("provider", request.provider())
-        .param("weight", request.weight())
-        .param("config", json(request.configuration()))
-        .param("now", now)
-        .update();
-    mybatisClient
-        .sql(
-            "INSERT INTO channel_capability (capability_id, channel_id, country, currency,"
-                + " payment_method, min_amount, max_amount, status) VALUES (:id, :channel,"
-                + " :country, :currency, :method, :min, :max, 'ACTIVE')")
-        .param("id", UUID.randomUUID().toString())
-        .param("channel", request.channelId())
-        .param("country", request.country())
-        .param("currency", request.currency())
-        .param("method", request.paymentMethod())
-        .param("min", request.minAmount())
-        .param("max", request.maxAmount())
-        .update();
+    mapper.insertChannel(
+        request.channelId(), request.name(), request.provider(), request.weight(), json(request.configuration()), now);
+    mapper.insertChannelCapability(
+        java.util.UUID.randomUUID().toString(),
+        request.channelId(),
+        request.country(),
+        request.currency(),
+        request.paymentMethod(),
+        request.minAmount(),
+        request.maxAmount());
     audit(authentication.getName(), "CREATE", "CHANNEL", request.channelId(), request);
   }
 
   @Transactional
   public void updateChannelStatus(
       String channelId, StatusRequest request, Authentication authentication) {
-    updateStatus("channel", "channel_id", channelId, request.status());
+    mapper.updateChannelStatus(channelId, request.status(), Instant.now());
     audit(authentication.getName(), "CHANGE_STATUS", "CHANNEL", channelId, request);
   }
 
   public AdminPageResponse<RoutingRuleResponse> routingRules(int page, int pageSize) {
     var q = pageQuery(page, pageSize);
-    var total = count("routing_rule", "1=1");
-    var items =
-        mybatisClient
-            .sql(
-                "SELECT rule_id, release_version, product_code, merchant_id, payment_method,"
-                    + " country, currency, channel_id, priority, weight, status FROM routing_rule"
-                    + " ORDER BY release_version DESC, priority LIMIT :limit OFFSET :offset")
-            .param("limit", q.size())
-            .param("offset", q.offset())
-            .query(RoutingRuleResponse.class)
-            .list();
+    var total = mapper.countRoutingRules();
+    var items = mapper.selectRoutingRules(q.size(), q.offset());
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
 
   @Transactional
   public void createRoutingRule(RoutingRuleRequest request, Authentication authentication) {
     var version = draftVersion(request.releaseId());
-    mybatisClient
-        .sql(
-            "INSERT INTO routing_rule (rule_id, release_version, product_code, merchant_id,"
-                + " payment_method, country, currency, channel_id, priority, weight, status) VALUES"
-                + " (:id, :version, :product, :merchant, :method, :country, :currency, :channel,"
-                + " :priority, :weight, 'ACTIVE')")
-        .param("id", request.ruleId())
-        .param("version", version)
-        .param("product", request.productCode())
-        .param("merchant", request.merchantId())
-        .param("method", request.paymentMethod())
-        .param("country", request.country())
-        .param("currency", request.currency())
-        .param("channel", request.channelId())
-        .param("priority", request.priority())
-        .param("weight", request.weight())
-        .update();
+    mapper.insertRoutingRule(
+        request.ruleId(), version, request.productCode(), request.merchantId(), request.paymentMethod(),
+        request.country(), request.currency(), request.channelId(), request.priority(), request.weight());
     audit(authentication.getName(), "CREATE", "ROUTING_RULE", request.ruleId(), request);
   }
 
   @Transactional
   public void updateRoutingRuleStatus(
       String ruleId, StatusRequest request, Authentication authentication) {
-    updateStatus("routing_rule", "rule_id", ruleId, request.status());
+    mapper.updateRoutingRuleStatus(ruleId, request.status(), Instant.now());
     audit(authentication.getName(), "CHANGE_STATUS", "ROUTING_RULE", ruleId, request);
   }
 
@@ -210,69 +168,35 @@ public class ConfigurationAdminService {
 
   public AdminPageResponse<RiskPolicyResponse> riskPolicies(int page, int pageSize) {
     var q = pageQuery(page, pageSize);
-    var total = count("risk_policy", "1=1");
+    var total = mapper.countRiskPolicies();
     var items =
-        mybatisClient
-            .sql(
-                "SELECT policy_id, release_version, name, priority, decision, condition_json,"
-                    + " status FROM risk_policy ORDER BY release_version DESC, priority LIMIT"
-                    + " :limit OFFSET :offset")
-            .param("limit", q.size())
-            .param("offset", q.offset())
-            .query(
-                (rs, rowNum) ->
+        mapper.selectRiskPolicies(q.size(), q.offset()).stream()
+            .map(
+                policy ->
                     new RiskPolicyResponse(
-                        rs.getString("policy_id"),
-                        rs.getLong("release_version"),
-                        rs.getString("name"),
-                        rs.getInt("priority"),
-                        rs.getString("decision"),
-                        readMap(rs.getString("condition_json")),
-                        rs.getString("status")))
-            .list();
+                        policy.policyId(), policy.releaseVersion(), policy.name(), policy.priority(),
+                        policy.decision(), readMap(policy.condition()), policy.status()))
+            .toList();
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
 
   @Transactional
   public void createRiskPolicy(RiskPolicyRequest request, Authentication authentication) {
     var version = draftVersion(request.releaseId());
-    mybatisClient
-        .sql(
-            "INSERT INTO risk_policy (policy_id, release_version, name, priority, decision,"
-                + " condition_json, status) VALUES (:id, :version, :name, :priority, :decision,"
-                + " :condition, 'ACTIVE')")
-        .param("id", request.policyId())
-        .param("version", version)
-        .param("name", request.name())
-        .param("priority", request.priority())
-        .param("decision", request.decision())
-        .param("condition", json(request.condition()))
-        .update();
+    mapper.insertRiskPolicy(
+        request.policyId(), version, request.name(), request.priority(), request.decision(), json(request.condition()));
     audit(authentication.getName(), "CREATE", "RISK_POLICY", request.policyId(), request);
   }
 
   @Transactional
   public void updateRiskPolicyStatus(
       String policyId, StatusRequest request, Authentication authentication) {
-    updateStatus("risk_policy", "policy_id", policyId, request.status());
+    mapper.updateRiskPolicyStatus(policyId, request.status(), Instant.now());
     audit(authentication.getName(), "CHANGE_STATUS", "RISK_POLICY", policyId, request);
   }
 
   private long draftVersion(String releaseId) {
-    return mybatisClient
-        .sql(
-            "SELECT version_no FROM config_release WHERE release_id = :releaseId AND status ="
-                + " 'DRAFT'")
-        .param("releaseId", releaseId)
-        .query(Long.class)
-        .single();
-  }
-
-  private long count(String table, String condition) {
-    return mybatisClient
-        .sql("SELECT COUNT(*) FROM " + table + " WHERE " + condition)
-        .query(Long.class)
-        .single();
+    return mapper.selectDraftVersion(releaseId);
   }
 
   private PageQuery pageQuery(int page, int pageSize) {
@@ -290,34 +214,8 @@ public class ConfigurationAdminService {
     }
   }
 
-  private void updateStatus(String table, String idColumn, String id, String status) {
-    mybatisClient
-        .sql(
-            "UPDATE "
-                + table
-                + " SET status = :status, updated_at = :now WHERE "
-                + idColumn
-                + " = :id")
-        .param("status", status)
-        .param("now", Instant.now())
-        .param("id", id)
-        .update();
-  }
-
   private void audit(String operator, String action, String type, String id, Object after) {
-    mybatisClient
-        .sql(
-            "INSERT INTO operation_audit (audit_id, operator_id, action, resource_type,"
-                + " resource_id, after_summary, created_at) VALUES (:audit, :operator, :action,"
-                + " :type, :id, :after, :now)")
-        .param("audit", UUID.randomUUID().toString())
-        .param("operator", operator)
-        .param("action", action)
-        .param("type", type)
-        .param("id", id)
-        .param("after", json(after))
-        .param("now", Instant.now())
-        .update();
+    auditService.record(operator, action, type, id, after);
   }
 
   private String json(Object value) {
@@ -393,6 +291,9 @@ public class ConfigurationAdminService {
       int weight,
       Map<String, Object> configuration) {}
 
+  public record ChannelRow(
+      String channelId, String name, String provider, String status, int weight, String configuration) {}
+
   public record RoutingRuleRequest(
       @NotBlank String ruleId,
       @NotBlank String releaseId,
@@ -458,5 +359,14 @@ public class ConfigurationAdminService {
       int priority,
       String decision,
       Map<String, Object> condition,
+      String status) {}
+
+  public record RiskPolicyRow(
+      String policyId,
+      long releaseVersion,
+      String name,
+      int priority,
+      String decision,
+      String condition,
       String status) {}
 }

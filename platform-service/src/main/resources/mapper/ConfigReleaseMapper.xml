@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.payments.platform.service.mapper.ConfigReleaseMapper">
+  <resultMap id="ReleaseResponseMap" type="com.example.payments.platform.service.service.ConfigReleaseService$ReleaseResponse">
+    <constructor>
+      <arg column="release_id" javaType="java.lang.String"/>
+      <arg column="version_no" javaType="long"/>
+      <arg column="status" javaType="java.lang.String"/>
+      <arg column="created_by" javaType="java.lang.String"/>
+      <arg column="approved_by" javaType="java.lang.String"/>
+      <arg column="published_at" javaType="java.time.Instant"/>
+      <arg column="created_at" javaType="java.time.Instant"/>
+    </constructor>
+  </resultMap>
+  <resultMap id="RawConfigMap" type="com.example.payments.platform.service.service.ConfigReleaseService$RawConfig">
+    <constructor><arg column="version_no" javaType="long"/><arg column="config_json" javaType="java.lang.String"/></constructor>
+  </resultMap>
+  <select id="countAll" resultType="long">SELECT COUNT(*) FROM config_release</select>
+  <select id="selectPage" resultMap="ReleaseResponseMap">
+    SELECT release_id, version_no, status, created_by, approved_by, published_at, created_at
+    FROM config_release ORDER BY version_no DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+  <select id="nextVersionForUpdate" resultType="long">SELECT COALESCE(MAX(version_no), 0) + 1 FROM config_release FOR UPDATE</select>
+  <insert id="insert">
+    INSERT INTO config_release (release_id, version_no, status, config_json, created_by, created_at)
+    VALUES (#{releaseId}, #{version}, 'DRAFT', #{config}, #{createdBy}, #{createdAt})
+  </insert>
+  <update id="publish">
+    UPDATE config_release SET status = 'PUBLISHED', published_at = #{publishedAt}
+    WHERE release_id = #{releaseId} AND status = 'APPROVED'
+  </update>
+  <update id="disableOtherPublished">
+    UPDATE config_release SET status = 'DISABLED' WHERE release_id &lt;&gt; #{releaseId} AND status = 'PUBLISHED'
+  </update>
+  <select id="selectPreviousConfig" resultType="string">
+    SELECT config_json FROM config_release WHERE version_no &lt; #{version} ORDER BY version_no DESC LIMIT 1
+  </select>
+  <update id="transition">
+    UPDATE config_release SET status = #{to}
+    <if test="approver != null">, approved_by = #{approver}</if>
+    WHERE release_id = #{releaseId} AND status = #{from}
+  </update>
+  <select id="selectById" resultMap="ReleaseResponseMap">
+    SELECT release_id, version_no, status, created_by, approved_by, published_at, created_at
+    FROM config_release WHERE release_id = #{releaseId}
+  </select>
+  <select id="selectRawById" resultMap="RawConfigMap">
+    SELECT version_no, CAST(config_json AS CHAR) AS config_json FROM config_release WHERE release_id = #{releaseId}
+  </select>
+</mapper>

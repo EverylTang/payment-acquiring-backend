@@ -1,11 +1,11 @@
 package com.example.payments.fund.service.service;
 
+import com.example.payments.fund.service.mapper.ReconciliationMapper;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class ReconciliationService {
-  private final FundDataService mybatisClient;
+  private final ReconciliationMapper mapper;
   private final MeterRegistry metrics;
 
   public Map<String, Object> importBill(BillRequest request) {
@@ -23,42 +23,11 @@ public class ReconciliationService {
         request.billId() == null || request.billId().isBlank()
             ? "bill-" + UUID.randomUUID()
             : request.billId();
-    mybatisClient
-        .sql(
-            "INSERT INTO settlement_bill (bill_id, channel_id, bill_date, currency, total_amount,"
-                + " total_count, status, imported_at) VALUES"
-                + " (:id,:channel,:date,:currency,:amount,:count,'IMPORTED',:now) ON DUPLICATE KEY"
-                + " UPDATE total_amount=VALUES(total_amount), total_count=VALUES(total_count),"
-                + " status='IMPORTED'")
-        .param("id", id)
-        .param("channel", request.channelId())
-        .param("date", request.billDate())
-        .param("currency", request.currency())
-        .param("amount", request.totalAmount())
-        .param("count", request.totalCount())
-        .param("now", Instant.now())
-        .update();
-    mybatisClient
-        .sql("DELETE FROM settlement_bill_line WHERE bill_id=:bill")
-        .param("bill", id)
-        .update();
+    mapper.upsertBill(id, request.channelId(), request.billDate(), request.currency(), request.totalAmount(), request.totalCount(), Instant.now());
+    mapper.deleteBillLines(id);
     if (request.lines() != null) {
       for (BillLineRequest line : request.lines()) {
-        mybatisClient
-            .sql(
-                "INSERT INTO settlement_bill_line"
-                    + " (bill_id,channel_order_id,merchant_id,order_id,transaction_type,status,amount,currency)"
-                    + " VALUES"
-                    + " (:bill,:channelOrder,:merchant,:order,:type,:status,:amount,:currency)")
-            .param("bill", id)
-            .param("channelOrder", line.channelOrderId())
-            .param("merchant", line.merchantId())
-            .param("order", line.orderId())
-            .param("type", line.transactionType())
-            .param("status", line.status())
-            .param("amount", line.amount())
-            .param("currency", line.currency())
-            .update();
+        mapper.insertBillLine(id, line.channelOrderId(), line.merchantId(), line.orderId(), line.transactionType(), line.status(), line.amount(), line.currency());
       }
     }
     return Map.of("billId", id, "status", "IMPORTED");
@@ -67,37 +36,13 @@ public class ReconciliationService {
   public Map<String, Object> differences() {
     return Map.of(
         "items",
-        mybatisClient
-            .sql(
-                "SELECT * FROM reconciliation_difference WHERE status='OPEN' ORDER BY created_at"
-                    + " DESC LIMIT 200")
-            .query()
-            .listOfRows());
+        mapper.selectOpenDifferences());
   }
 
   public Map<String, Object> reconcile(String billId) {
-    var bill =
-        mybatisClient
-            .sql(
-                "SELECT currency,total_amount,total_count,bill_date FROM settlement_bill WHERE"
-                    + " bill_id=:id")
-            .param("id", billId)
-            .query(
-                (rs, row) -> {
-                  var result = new HashMap<String, Object>();
-                  result.put("currency", rs.getString("currency"));
-                  result.put("total_amount", rs.getBigDecimal("total_amount"));
-                  result.put("total_count", rs.getInt("total_count"));
-                  result.put("bill_date", rs.getDate("bill_date").toLocalDate());
-                  return result;
-                })
-            .single();
-    var lines =
-        mybatisClient
-            .sql("SELECT * FROM settlement_bill_line WHERE bill_id=:bill")
-            .param("bill", billId)
-            .query()
-            .listOfRows();
+    var bill = mapper.selectBill(billId);
+    if (bill == null) throw new IllegalArgumentException("账单不存在");
+    var lines = mapper.selectBillLines(billId);
     if (lines.isEmpty()) throw new IllegalArgumentException("账单缺少逐笔明细");
     var differences = new ArrayList<Map<String, Object>>();
     for (var line : lines) {
@@ -107,14 +52,7 @@ public class ReconciliationService {
       var actualRows =
           orderId == null
               ? List.<Map<String, Object>>of()
-              : mybatisClient
-                  .sql("SELECT * FROM ledger_entry WHERE order_id=:order AND entry_type=:entryType")
-                  .param("order", orderId)
-                  .param(
-                      "entryType",
-                      "REFUND".equalsIgnoreCase(type) ? "REFUND_REVERSAL" : "PAYMENT_SUCCESS")
-                  .query()
-                  .listOfRows();
+              : mapper.selectLedgerEntries(orderId, "REFUND".equalsIgnoreCase(type) ? "REFUND_REVERSAL" : "PAYMENT_SUCCESS");
       String difference = null;
       BigDecimal actualAmount = null;
       if (actualRows.size() > 1) difference = "DUPLICATE";
@@ -143,20 +81,9 @@ public class ReconciliationService {
       }
     }
     // 平台有账本但渠道账单没有对应逐笔记录。
-    var date = (LocalDate) bill.get("bill_date");
+    var date = bill.billDate();
     var platformOnly =
-        mybatisClient
-            .sql(
-                "SELECT order_id,amount FROM ledger_entry WHERE currency=:currency AND created_at"
-                    + " >= :start AND created_at < :end AND entry_type IN"
-                    + " ('PAYMENT_SUCCESS','REFUND_REVERSAL') AND order_id NOT IN (SELECT order_id"
-                    + " FROM settlement_bill_line WHERE bill_id=:bill AND order_id IS NOT NULL)")
-            .param("currency", bill.get("currency"))
-            .param("start", date)
-            .param("end", date.plusDays(1))
-            .param("bill", billId)
-            .query()
-            .listOfRows();
+        mapper.selectPlatformOnlyEntries(bill.currency(), date, date.plusDays(1), billId);
     for (var row : platformOnly) {
       recordDifference(
           billId,
@@ -170,11 +97,7 @@ public class ReconciliationService {
               "orderId", String.valueOf(row.get("order_id")), "differenceType", "PLATFORM_ONLY"));
     }
     String status = differences.isEmpty() ? "MATCHED" : "DIFFERENCE";
-    mybatisClient
-        .sql("UPDATE settlement_bill SET status=:status WHERE bill_id=:id")
-        .param("status", status)
-        .param("id", billId)
-        .update();
+    mapper.updateBillStatus(status, billId);
     return Map.of(
         "billId",
         billId,
@@ -194,36 +117,11 @@ public class ReconciliationService {
       BigDecimal actual,
       String reason) {
     var key = "diff-" + billId + "-" + type + "-" + (orderId == null ? "unknown" : orderId);
-    mybatisClient
-        .sql(
-            "INSERT INTO reconciliation_difference"
-                + " (difference_id,bill_id,difference_type,order_id,expected_amount,actual_amount,status,reason,created_at)"
-                + " VALUES (:id,:bill,:type,:order,:expected,:actual,'OPEN',:reason,:now) ON"
-                + " DUPLICATE KEY UPDATE"
-                + " expected_amount=VALUES(expected_amount),actual_amount=VALUES(actual_amount),reason=VALUES(reason),status=IF(status='RESOLVED',status,'OPEN')")
-        .param("id", key)
-        .param("bill", billId)
-        .param("type", type)
-        .param("order", orderId)
-        .param("expected", expected)
-        .param("actual", actual)
-        .param("reason", reason)
-        .param("now", Instant.now())
-        .update();
+    mapper.upsertDifference(key, billId, type, orderId, expected, actual, reason, Instant.now());
   }
 
   public Map<String, Object> resolve(String differenceId, ResolveRequest request, String operator) {
-    var updated =
-        mybatisClient
-            .sql(
-                "UPDATE reconciliation_difference SET status='RESOLVED', reason=:reason,"
-                    + " resolved_by=:operator, resolved_at=:now WHERE difference_id=:id AND"
-                    + " status='OPEN'")
-            .param("reason", request.reason())
-            .param("operator", operator)
-            .param("now", Instant.now())
-            .param("id", differenceId)
-            .update();
+    var updated = mapper.resolveDifference(request.reason(), operator, Instant.now(), differenceId);
     if (updated != 1) throw new IllegalArgumentException("差异不存在或已处理");
     return Map.of("differenceId", differenceId, "status", "RESOLVED");
   }

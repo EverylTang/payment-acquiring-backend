@@ -1,6 +1,8 @@
 package com.example.payments.platform.service.service;
 
 import com.example.payments.platform.service.controller.AdminPageResponse;
+import com.example.payments.platform.service.mapper.ConfigReleaseMapper;
+import com.example.payments.platform.service.mapper.OperationAuditMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.constraints.NotBlank;
@@ -18,46 +20,24 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @RequiredArgsConstructor
 public class ConfigReleaseService {
-  private final PlatformDataService mybatisClient;
+  private final ConfigReleaseMapper mapper;
+  private final OperationAuditMapper auditMapper;
   private final ObjectMapper objectMapper;
   private final ConfigurationSnapshotService snapshotService;
 
   public AdminPageResponse<ReleaseResponse> list(int page, int pageSize) {
     var currentPage = Math.max(page, 1);
     var size = Math.min(Math.max(pageSize, 1), 100);
-    var total = mybatisClient.sql("SELECT COUNT(*) FROM config_release").query(Long.class).single();
-    var items =
-        mybatisClient
-            .sql(
-                "SELECT release_id, version_no, status, created_by, approved_by, published_at,"
-                    + " created_at FROM config_release ORDER BY version_no DESC LIMIT :limit OFFSET"
-                    + " :offset")
-            .param("limit", size)
-            .param("offset", (currentPage - 1) * size)
-            .query(ReleaseResponse.class)
-            .list();
+    var total = mapper.countAll();
+    var items = mapper.selectPage(size, (currentPage - 1) * size);
     return new AdminPageResponse<>(items, currentPage, size, total);
   }
 
   @Transactional
   public ReleaseResponse create(CreateReleaseRequest request, Authentication authentication) {
-    var version =
-        mybatisClient
-            .sql("SELECT COALESCE(MAX(version_no), 0) + 1 FROM config_release FOR UPDATE")
-            .query(Long.class)
-            .single();
+    var version = mapper.nextVersionForUpdate();
     var releaseId = "release-" + UUID.randomUUID();
-    mybatisClient
-        .sql(
-            "INSERT INTO config_release (release_id, version_no, status, config_json, created_by,"
-                + " created_at) VALUES (:releaseId, :version, 'DRAFT', :config, :createdBy,"
-                + " :createdAt)")
-        .param("releaseId", releaseId)
-        .param("version", version)
-        .param("config", json(request.configuration()))
-        .param("createdBy", authentication.getName())
-        .param("createdAt", Instant.now())
-        .update();
+    mapper.insert(releaseId, version, json(request.configuration()), authentication.getName(), Instant.now());
     audit(authentication.getName(), "CREATE", releaseId, request.reason(), request.configuration());
     return find(releaseId);
   }
@@ -97,21 +77,9 @@ public class ConfigReleaseService {
   public ReleaseResponse publish(
       String releaseId, ReasonRequest request, Authentication authentication) {
     var publishedAt = Instant.now();
-    var updated =
-        mybatisClient
-            .sql(
-                "UPDATE config_release SET status = 'PUBLISHED', published_at = :publishedAt WHERE"
-                    + " release_id = :releaseId AND status = 'APPROVED'")
-            .param("publishedAt", publishedAt)
-            .param("releaseId", releaseId)
-            .update();
+    var updated = mapper.publish(releaseId, publishedAt);
     requireUpdated(updated);
-    mybatisClient
-        .sql(
-            "UPDATE config_release SET status = 'DISABLED' WHERE release_id <> :releaseId AND"
-                + " status = 'PUBLISHED'")
-        .param("releaseId", releaseId)
-        .update();
+    mapper.disableOtherPublished(releaseId);
     audit(
         authentication.getName(),
         "PUBLISH",
@@ -123,15 +91,7 @@ public class ConfigReleaseService {
 
   public Map<String, Object> diff(String releaseId) {
     var release = rawConfig(releaseId);
-    var previous =
-        mybatisClient
-            .sql(
-                "SELECT config_json FROM config_release WHERE version_no < :version ORDER BY"
-                    + " version_no DESC LIMIT 1")
-            .param("version", release.version())
-            .query(String.class)
-            .optional()
-            .orElse("{}");
+    var previous = java.util.Optional.ofNullable(mapper.selectPreviousConfig(release.version())).orElse("{}");
     var currentMap = readObject(release.config());
     var previousMap = readObject(previous);
     var changed = new java.util.LinkedHashMap<String, Map<String, Object>>();
@@ -154,22 +114,9 @@ public class ConfigReleaseService {
   public ReleaseResponse rollback(
       String releaseId, ReasonRequest request, Authentication authentication) {
     var source = rawConfig(releaseId);
-    var version =
-        mybatisClient
-            .sql("SELECT COALESCE(MAX(version_no), 0) + 1 FROM config_release FOR UPDATE")
-            .query(Long.class)
-            .single();
+    var version = mapper.nextVersionForUpdate();
     var newId = "release-rollback-" + UUID.randomUUID();
-    mybatisClient
-        .sql(
-            "INSERT INTO config_release (release_id, version_no, status, config_json, created_by,"
-                + " created_at) VALUES (:id, :version, 'DRAFT', :config, :createdBy, :now)")
-        .param("id", newId)
-        .param("version", version)
-        .param("config", source.config())
-        .param("createdBy", authentication.getName())
-        .param("now", Instant.now())
-        .update();
+    mapper.insert(newId, version, source.config(), authentication.getName(), Instant.now());
     audit(
         authentication.getName(),
         "ROLLBACK",
@@ -180,16 +127,7 @@ public class ConfigReleaseService {
   }
 
   private void transition(String releaseId, String from, String to, String approver) {
-    var sql =
-        approver == null
-            ? "UPDATE config_release SET status = :to WHERE release_id = :releaseId AND status ="
-                + " :from"
-            : "UPDATE config_release SET status = :to, approved_by = :approver WHERE release_id ="
-                + " :releaseId AND status = :from";
-    var statement =
-        mybatisClient.sql(sql).param("to", to).param("releaseId", releaseId).param("from", from);
-    if (approver != null) statement = statement.param("approver", approver);
-    requireUpdated(statement.update());
+    requireUpdated(mapper.transition(releaseId, from, to, approver));
   }
 
   private void requireUpdated(int updated) {
@@ -197,23 +135,15 @@ public class ConfigReleaseService {
   }
 
   private ReleaseResponse find(String releaseId) {
-    return mybatisClient
-        .sql(
-            "SELECT release_id, version_no, status, created_by, approved_by, published_at,"
-                + " created_at FROM config_release WHERE release_id = :releaseId")
-        .param("releaseId", releaseId)
-        .query(ReleaseResponse.class)
-        .single();
+    var release = mapper.selectById(releaseId);
+    if (release == null) throw new IllegalArgumentException("配置版本不存在: " + releaseId);
+    return release;
   }
 
   private RawConfig rawConfig(String releaseId) {
-    return mybatisClient
-        .sql(
-            "SELECT version_no, CAST(config_json AS CHAR) config_json FROM config_release WHERE"
-                + " release_id = :releaseId")
-        .param("releaseId", releaseId)
-        .query(RawConfig.class)
-        .single();
+    var config = mapper.selectRawById(releaseId);
+    if (config == null) throw new IllegalArgumentException("配置版本不存在: " + releaseId);
+    return config;
   }
 
   private Map<String, Object> readObject(String value) {
@@ -226,19 +156,8 @@ public class ConfigReleaseService {
 
   private void audit(
       String operator, String action, String releaseId, String reason, Object after) {
-    mybatisClient
-        .sql(
-            "INSERT INTO operation_audit (audit_id, operator_id, action, resource_type,"
-                + " resource_id, reason, after_summary, created_at) VALUES (:auditId, :operator,"
-                + " :action, 'CONFIG_RELEASE', :resourceId, :reason, :after, :createdAt)")
-        .param("auditId", UUID.randomUUID().toString())
-        .param("operator", operator)
-        .param("action", action)
-        .param("resourceId", releaseId)
-        .param("reason", reason)
-        .param("after", json(after))
-        .param("createdAt", Instant.now())
-        .update();
+    auditMapper.insertAuditWithReason(
+        UUID.randomUUID().toString(), operator, action, "CONFIG_RELEASE", releaseId, reason, json(after), Instant.now());
   }
 
   private String json(Object value) {

@@ -2,6 +2,7 @@ package com.example.payments.platform.service.service;
 
 import com.example.payments.platform.service.mapper.MerchantContactFullMapper;
 import com.example.payments.platform.service.mapper.MerchantCredentialFullMapper;
+import com.example.payments.platform.service.mapper.MerchantMapper;
 import com.example.payments.platform.service.mapper.MerchantProfileMapper;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -20,10 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class MerchantProfileAdminService {
-  private final PlatformDataService mybatisClient;
+  private final MerchantMapper merchantMapper;
   private final MerchantProfileMapper merchantProfileMapper;
   private final MerchantContactFullMapper merchantContactFullMapper;
   private final MerchantCredentialFullMapper merchantCredentialFullMapper;
+  private final OperationAuditService auditService;
 
   public ProfileResponse profile(String merchantId) {
     ensureMerchant(merchantId);
@@ -215,26 +217,12 @@ public class MerchantProfileAdminService {
   }
 
   private void ensureMerchant(String merchantId) {
-    if (mybatisClient
-            .sql("SELECT COUNT(*) FROM merchant WHERE merchant_id = :merchantId")
-            .param("merchantId", merchantId)
-            .query(Long.class)
-            .single()
-        == 0) throw new IllegalArgumentException("商户不存在: " + merchantId);
+    if (merchantMapper.countByMerchantId(merchantId) == 0)
+      throw new IllegalArgumentException("商户不存在: " + merchantId);
   }
 
   private void audit(String operator, String action, String resourceId) {
-    mybatisClient
-        .sql(
-            "INSERT INTO operation_audit (audit_id, operator_id, action, resource_type,"
-                + " resource_id, created_at) VALUES (:audit, :operator, :action, 'MERCHANT',"
-                + " :resourceId, :now)")
-        .param("audit", UUID.randomUUID().toString())
-        .param("operator", operator)
-        .param("action", action)
-        .param("resourceId", resourceId)
-        .param("now", Instant.now())
-        .update();
+    auditService.record(operator, action, "MERCHANT", resourceId, null);
   }
 
   private String sha256(String value) {

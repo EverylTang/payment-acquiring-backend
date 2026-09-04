@@ -41,6 +41,9 @@
     <include refid="scope" />
     <include refid="filters" />
   </select>
+  <select id="countByMerchantId" resultType="long">
+    SELECT COUNT(*) FROM merchant WHERE merchant_id = #{merchantId}
+  </select>
   <select id="selectVisible" resultMap="MerchantMap">
     SELECT merchant_id,name,status,created_at,updated_at
     FROM merchant m

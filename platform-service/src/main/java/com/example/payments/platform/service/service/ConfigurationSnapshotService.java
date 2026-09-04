@@ -1,6 +1,6 @@
 package com.example.payments.platform.service.service;
 
-import com.example.payments.platform.service.mapper.MybatisPlusClient;
+import com.example.payments.platform.service.mapper.ConfigurationSnapshotMapper;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -13,7 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @RequiredArgsConstructor
 public class ConfigurationSnapshotService {
-  private final MybatisPlusClient mybatisClient;
+  private final ConfigurationSnapshotMapper mapper;
 
   public Map<String, Object> snapshot(
       String merchantId,
@@ -23,134 +23,28 @@ public class ConfigurationSnapshotService {
       String currency,
       BigDecimal amount) {
     var version =
-        mybatisClient
-            .sql(
-                "SELECT version_no FROM config_release WHERE status = 'PUBLISHED' ORDER BY"
-                    + " version_no DESC LIMIT 1")
-            .query(Long.class)
-            .optional()
+        java.util.Optional.ofNullable(mapper.selectLatestPublishedVersion())
             .orElseThrow(() -> unavailable("没有已发布的配置版本"));
-    requireExists(
-        "SELECT COUNT(*) FROM merchant WHERE merchant_id = :value AND status = 'ACTIVE'",
-        merchantId,
-        "商户不可用");
-    requireExists(
-        "SELECT COUNT(*) FROM logical_product WHERE product_code = :value AND status = 'ACTIVE'",
-        productCode,
-        "产品不可用");
+    requireAvailable(mapper.countActiveMerchant(merchantId), "商户不可用");
+    requireAvailable(mapper.countActiveProduct(productCode), "产品不可用");
     requireBinding(merchantId, productCode);
 
     var product =
-        mybatisClient
-            .sql(
-                "SELECT channel_payment_method, min_amount, max_amount, supports_refund FROM product_capability WHERE"
-                    + " product_code = :product AND customer_payment_method = :method"
-                    + " AND status = 'ACTIVE' AND :amount BETWEEN"
-                    + " min_amount AND max_amount")
-            .param("product", productCode)
-            .param("method", paymentMethod)
-            .param("amount", amount)
-            .query(
-                (rs, rowNum) ->
-                    Map.<String, Object>of(
-                        "enabled",
-                        true,
-                        "channelPaymentMethod",
-                        rs.getString("channel_payment_method"),
-                        "supportsRefund",
-                        rs.getBoolean("supports_refund"),
-                        "minAmount",
-                        rs.getBigDecimal("min_amount"),
-                        "maxAmount",
-                        rs.getBigDecimal("max_amount")))
-            .optional()
+        java.util.Optional.ofNullable(mapper.selectProductCapability(productCode, paymentMethod, amount))
             .orElseThrow(() -> unavailable("产品能力不支持当前交易"));
 
-    var channelPaymentMethod = (String) product.get("channelPaymentMethod");
+    var channelPaymentMethod = product.channelPaymentMethod();
 
     var candidates =
-        mybatisClient
-            .sql(
-                "SELECT r.channel_id, r.priority, r.weight FROM routing_rule r JOIN channel c ON"
-                    + " c.channel_id = r.channel_id AND c.status = 'ACTIVE' JOIN channel_capability"
-                    + " cc ON cc.channel_id = r.channel_id AND cc.status = 'ACTIVE' WHERE"
-                    + " r.release_version = :version AND r.product_code = :product AND"
-                    + " (r.merchant_id = :merchant OR r.merchant_id IS NULL) AND r.payment_method ="
-                    + " :method AND (r.country = :country OR r.country IS NULL) AND r.currency ="
-                    + " :currency AND r.status = 'ACTIVE' AND cc.payment_method = :method AND"
-                    + " cc.country = :country AND cc.currency = :currency AND :amount BETWEEN"
-                    + " cc.min_amount AND cc.max_amount ORDER BY CASE WHEN r.merchant_id ="
-                    + " :merchant THEN 0 ELSE 1 END, r.priority, r.weight DESC")
-            .param("version", version)
-            .param("product", productCode)
-            .param("merchant", merchantId)
-            .param("method", channelPaymentMethod)
-            .param("country", country)
-            .param("currency", currency)
-            .param("amount", amount)
-            .query(
-                (rs, rowNum) ->
-                    Map.<String, Object>of(
-                        "channelId",
-                        rs.getString("channel_id"),
-                        "priority",
-                        rs.getInt("priority"),
-                        "weight",
-                        rs.getInt("weight")))
-            .list();
+        mapper.selectChannelCandidates(
+            version, productCode, merchantId, channelPaymentMethod, country, currency, amount);
     if (candidates.isEmpty()) throw unavailable("没有可用支付渠道");
 
     var pricing =
-        mybatisClient
-            .sql(
-                "SELECT fee_rate, fixed_fee, fee_mode, rule_id FROM pricing_rule WHERE"
-                    + " release_version = :version AND product_code = :product AND (merchant_id ="
-                    + " :merchant OR merchant_id IS NULL) AND currency = :currency AND status ="
-                    + " 'ACTIVE' AND :amount BETWEEN min_amount AND max_amount ORDER BY CASE WHEN"
-                    + " merchant_id = :merchant THEN 0 ELSE 1 END, id LIMIT 1")
-            .param("version", version)
-            .param("product", productCode)
-            .param("merchant", merchantId)
-            .param("currency", currency)
-            .param("amount", amount)
-            .query(
-                (rs, rowNum) ->
-                    Map.<String, Object>of(
-                        "ruleId",
-                        rs.getString("rule_id"),
-                        "feeRate",
-                        rs.getBigDecimal("fee_rate"),
-                        "fixedFee",
-                        rs.getBigDecimal("fixed_fee"),
-                        "mode",
-                        rs.getString("fee_mode"),
-                        "scale",
-                        2))
-            .optional()
+        java.util.Optional.ofNullable(mapper.selectPricing(version, productCode, merchantId, currency, amount))
             .orElseThrow(() -> unavailable("没有匹配的费率规则"));
 
-    var risk =
-        mybatisClient
-            .sql(
-                "SELECT policy_id, decision FROM risk_policy WHERE release_version = :version AND"
-                    + " status = 'ACTIVE' AND (JSON_UNQUOTE(JSON_EXTRACT(condition_json,"
-                    + " '$.productCode')) IS NULL OR JSON_UNQUOTE(JSON_EXTRACT(condition_json,"
-                    + " '$.productCode')) = :product) AND"
-                    + " (JSON_UNQUOTE(JSON_EXTRACT(condition_json, '$.currency')) IS NULL OR"
-                    + " JSON_UNQUOTE(JSON_EXTRACT(condition_json, '$.currency')) = :currency) ORDER"
-                    + " BY priority LIMIT 1")
-            .param("version", version)
-            .param("product", productCode)
-            .param("currency", currency)
-            .query(
-                (rs, rowNum) ->
-                    Map.<String, Object>of(
-                        "policyId",
-                        rs.getString("policy_id"),
-                        "decision",
-                        rs.getString("decision")))
-            .optional()
-            .orElse(Map.of("decision", "PASS"));
+    var risk = java.util.Optional.ofNullable(mapper.selectRiskPolicy(version, productCode, currency)).orElse(RiskPolicy.pass());
 
     var result = new LinkedHashMap<String, Object>();
     result.put("merchantId", merchantId);
@@ -161,76 +55,64 @@ public class ConfigurationSnapshotService {
     result.put("currency", currency);
     result.put("amount", amount);
     result.put("configVersion", version);
-    result.put("product", product);
-    result.put("route", candidates.getFirst());
-    result.put("pricing", pricing);
-    result.put("risk", risk);
-    result.put("candidates", candidates.stream().map(item -> item.get("channelId")).toList());
+    result.put("product", product.asMap());
+    result.put("route", candidates.getFirst().asMap());
+    result.put("pricing", pricing.asMap());
+    result.put("risk", risk.asMap());
+    result.put("candidates", candidates.stream().map(ChannelCandidate::channelId).toList());
     return result;
   }
 
   public List<String> validate(long version) {
     var errors = new java.util.ArrayList<String>();
-    if (count(
-            "SELECT COUNT(*) FROM routing_rule WHERE release_version = :version AND status ="
-                + " 'ACTIVE'",
-            version)
-        == 0) errors.add("至少需要一条路由规则");
-    if (count(
-            "SELECT COUNT(*) FROM pricing_rule WHERE release_version = :version AND status ="
-                + " 'ACTIVE'",
-            version)
-        == 0) errors.add("至少需要一条费率规则");
-    if (count(
-            "SELECT COUNT(*) FROM risk_policy WHERE release_version = :version AND status ="
-                + " 'ACTIVE'",
-            version)
-        == 0) errors.add("至少需要一条风控策略");
-    if (count(
-            "SELECT COUNT(*) FROM routing_rule r LEFT JOIN channel c ON c.channel_id = r.channel_id"
-                + " AND c.status = 'ACTIVE' WHERE r.release_version = :version AND c.id IS NULL",
-            version)
-        > 0) errors.add("路由包含不存在或已停用的渠道");
-    if (count(
-            "SELECT COUNT(*) FROM pricing_rule WHERE release_version = :version AND (fee_rate < 0"
-                + " OR fixed_fee < 0 OR min_amount > max_amount)",
-            version)
-        > 0) errors.add("费率或金额区间不合法");
-    if (count(
-            "SELECT COUNT(*) FROM routing_rule a JOIN routing_rule b ON a.id < b.id AND"
-                + " a.release_version = b.release_version AND a.product_code = b.product_code AND"
-                + " COALESCE(a.merchant_id, '') = COALESCE(b.merchant_id, '') AND a.payment_method"
-                + " = b.payment_method AND COALESCE(a.country, '') = COALESCE(b.country, '') AND"
-                + " a.currency = b.currency AND a.priority = b.priority WHERE a.release_version ="
-                + " :version AND a.status = 'ACTIVE' AND b.status = 'ACTIVE'",
-            version)
-        > 0) errors.add("路由规则存在相同作用域和优先级冲突");
+    if (mapper.countActiveRoutingRules(version) == 0) errors.add("至少需要一条路由规则");
+    if (mapper.countActivePricingRules(version) == 0) errors.add("至少需要一条费率规则");
+    if (mapper.countActiveRiskPolicies(version) == 0) errors.add("至少需要一条风控策略");
+    if (mapper.countInactiveRoutingChannels(version) > 0) errors.add("路由包含不存在或已停用的渠道");
+    if (mapper.countInvalidPricingRules(version) > 0) errors.add("费率或金额区间不合法");
+    if (mapper.countConflictingRoutingRules(version) > 0) errors.add("路由规则存在相同作用域和优先级冲突");
     return errors;
   }
 
-  private long count(String sql, long version) {
-    return mybatisClient.sql(sql).param("version", version).query(Long.class).single();
-  }
-
-  private void requireExists(String sql, String value, String message) {
-    if (mybatisClient.sql(sql).param("value", value).query(Long.class).single() == 0)
-      throw unavailable(message);
+  private void requireAvailable(long count, String message) {
+    if (count == 0) throw unavailable(message);
   }
 
   private void requireBinding(String merchantId, String productCode) {
-    var count =
-        mybatisClient
-            .sql(
-                "SELECT COUNT(*) FROM merchant_product WHERE merchant_id = :merchant AND"
-                    + " product_code = :product AND status = 'ACTIVE'")
-            .param("merchant", merchantId)
-            .param("product", productCode)
-            .query(Long.class)
-            .single();
+    var count = mapper.countActiveMerchantProduct(merchantId, productCode);
     if (count == 0) throw unavailable("商户未开通当前产品");
   }
 
   private ResponseStatusException unavailable(String message) {
     return new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, message);
+  }
+
+  public record ProductCapability(
+      String channelPaymentMethod, BigDecimal minAmount, BigDecimal maxAmount, boolean supportsRefund) {
+    Map<String, Object> asMap() {
+      return Map.of("enabled", true, "channelPaymentMethod", channelPaymentMethod, "supportsRefund", supportsRefund, "minAmount", minAmount, "maxAmount", maxAmount);
+    }
+  }
+
+  public record ChannelCandidate(String channelId, int priority, int weight) {
+    Map<String, Object> asMap() {
+      return Map.of("channelId", channelId, "priority", priority, "weight", weight);
+    }
+  }
+
+  public record Pricing(String ruleId, BigDecimal feeRate, BigDecimal fixedFee, String mode) {
+    Map<String, Object> asMap() {
+      return Map.of("ruleId", ruleId, "feeRate", feeRate, "fixedFee", fixedFee, "mode", mode, "scale", 2);
+    }
+  }
+
+  public record RiskPolicy(String policyId, String decision) {
+    static RiskPolicy pass() {
+      return new RiskPolicy(null, "PASS");
+    }
+
+    Map<String, Object> asMap() {
+      return policyId == null ? Map.of("decision", decision) : Map.of("policyId", policyId, "decision", decision);
+    }
   }
 }
