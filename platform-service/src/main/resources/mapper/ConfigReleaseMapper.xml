@@ -4,7 +4,7 @@
   <resultMap id="ReleaseResponseMap" type="com.example.payments.platform.service.service.ConfigReleaseService$ReleaseResponse">
     <constructor>
       <arg column="release_id" javaType="java.lang.String"/>
-      <arg column="version_no" javaType="long"/>
+      <arg column="version_no" javaType="_long"/>
       <arg column="status" javaType="java.lang.String"/>
       <arg column="created_by" javaType="java.lang.String"/>
       <arg column="approved_by" javaType="java.lang.String"/>
@@ -13,7 +13,7 @@
     </constructor>
   </resultMap>
   <resultMap id="RawConfigMap" type="com.example.payments.platform.service.service.ConfigReleaseService$RawConfig">
-    <constructor><arg column="version_no" javaType="long"/><arg column="config_json" javaType="java.lang.String"/></constructor>
+    <constructor><arg column="version_no" javaType="_long"/><arg column="config_json" javaType="java.lang.String"/></constructor>
   </resultMap>
   <select id="countAll" resultType="long">SELECT COUNT(*) FROM config_release</select>
   <select id="selectPage" resultMap="ReleaseResponseMap">
