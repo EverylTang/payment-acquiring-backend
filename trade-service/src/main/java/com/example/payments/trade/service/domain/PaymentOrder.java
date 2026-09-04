@@ -80,4 +80,27 @@ public record PaymentOrder(
         nextStatus == OrderStatus.SUCCESS ? paymentTime : paidAt,
         paymentToken);
   }
+
+  public PaymentOrder withPricing(
+      BigDecimal fee, BigDecimal net, String routeSnapshot, String pricingSnapshot) {
+    return new PaymentOrder(
+        orderId,
+        merchantId,
+        merchantOrderNo,
+        productCode,
+        paymentMethod,
+        country,
+        currency,
+        amount,
+        fee,
+        net,
+        status,
+        idempotencyKey,
+        routeSnapshot,
+        pricingSnapshot,
+        expireAt,
+        createdAt,
+        paidAt,
+        paymentToken);
+  }
 }

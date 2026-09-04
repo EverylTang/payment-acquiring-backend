@@ -104,6 +104,15 @@ public class AdminConfigurationController {
     service.createPricingRule(r, a);
   }
 
+  @PutMapping("/pricing-rules/{id}")
+  @PreAuthorize("hasAuthority('pricing-rule:update')")
+  public void updatePricingRule(
+      @PathVariable("id") String id,
+      @Valid @RequestBody ConfigurationAdminService.PricingRuleUpdateRequest r,
+      Authentication a) {
+    service.updatePricingRule(id, r, a);
+  }
+
   @PutMapping("/pricing-rules/{id}/status")
   @PreAuthorize("hasAuthority('pricing-rule:status')")
   public void updatePricingRuleStatus(

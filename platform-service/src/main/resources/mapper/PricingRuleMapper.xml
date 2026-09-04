@@ -8,9 +8,15 @@
         <result property="releaseVersion" column="release_version"/>
         <result property="productCode" column="product_code"/>
         <result property="merchantId" column="merchant_id"/>
+        <result property="channelId" column="channel_id"/>
         <result property="currency" column="currency"/>
         <result property="feeRate" column="fee_rate"/>
         <result property="fixedFee" column="fixed_fee"/>
+        <result property="extraFee" column="extra_fee"/>
+        <result property="minFee" column="min_fee"/>
+        <result property="maxFee" column="max_fee"/>
+        <result property="feeType" column="fee_type"/>
+        <result property="tieredFees" column="tiered_fees"/>
         <result property="feeMode" column="fee_mode"/>
         <result property="minAmount" column="min_amount"/>
         <result property="maxAmount" column="max_amount"/>
@@ -18,8 +24,8 @@
     </resultMap>
 
     <select id="selectByPage" resultMap="PricingRuleFullResultMap">
-        SELECT id, rule_id, release_version, product_code, merchant_id, currency,
-               fee_rate, fixed_fee, fee_mode, min_amount, max_amount, status
+        SELECT id, rule_id, release_version, product_code, merchant_id, channel_id, currency,
+               fee_rate, fixed_fee, extra_fee, min_fee, max_fee, fee_type, tiered_fees, fee_mode, min_amount, max_amount, status
         FROM pricing_rule
         ORDER BY id DESC
         LIMIT #{limit} OFFSET #{offset}
@@ -29,16 +35,20 @@
         SELECT COUNT(*) FROM pricing_rule
     </select>
 
+    <select id="isDraftVersion" resultType="boolean">
+        SELECT EXISTS(SELECT 1 FROM config_release WHERE version_no = #{releaseVersion} AND status = 'DRAFT')
+    </select>
+
     <insert id="insert" parameterType="com.example.payments.platform.service.model.PricingRuleFull">
-        INSERT INTO pricing_rule (rule_id, release_version, product_code, merchant_id, currency,
-                                  fee_rate, fixed_fee, fee_mode, min_amount, max_amount, status)
-        VALUES (#{ruleId}, #{releaseVersion}, #{productCode}, #{merchantId}, #{currency},
-                #{feeRate}, #{fixedFee}, #{feeMode}, #{minAmount}, #{maxAmount}, #{status})
+        INSERT INTO pricing_rule (rule_id, release_version, product_code, merchant_id, channel_id, currency,
+                                  fee_rate, fixed_fee, extra_fee, min_fee, max_fee, fee_type, tiered_fees, fee_mode, min_amount, max_amount, status)
+        VALUES (#{ruleId}, #{releaseVersion}, #{productCode}, #{merchantId}, #{channelId}, #{currency},
+                #{feeRate}, #{fixedFee}, #{extraFee}, #{minFee}, #{maxFee}, #{feeType}, #{tieredFees}, #{feeMode}, #{minAmount}, #{maxAmount}, #{status})
     </insert>
 
     <select id="selectByRuleId" resultMap="PricingRuleFullResultMap">
-        SELECT id, rule_id, release_version, product_code, merchant_id, currency,
-               fee_rate, fixed_fee, fee_mode, min_amount, max_amount, status
+        SELECT id, rule_id, release_version, product_code, merchant_id, channel_id, currency,
+               fee_rate, fixed_fee, extra_fee, min_fee, max_fee, fee_type, tiered_fees, fee_mode, min_amount, max_amount, status
         FROM pricing_rule
         WHERE rule_id = #{ruleId}
     </select>
@@ -48,9 +58,15 @@
         SET release_version = #{releaseVersion},
             product_code = #{productCode},
             merchant_id = #{merchantId},
+            channel_id = #{channelId},
             currency = #{currency},
             fee_rate = #{feeRate},
             fixed_fee = #{fixedFee},
+            extra_fee = #{extraFee},
+            min_fee = #{minFee},
+            max_fee = #{maxFee},
+            fee_type = #{feeType},
+            tiered_fees = #{tieredFees},
             fee_mode = #{feeMode},
             min_amount = #{minAmount},
             max_amount = #{maxAmount},

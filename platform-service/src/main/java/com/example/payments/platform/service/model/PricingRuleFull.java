@@ -8,9 +8,15 @@ public class PricingRuleFull {
   private Long releaseVersion;
   private String productCode;
   private String merchantId;
+  private String channelId;
   private String currency;
   private BigDecimal feeRate;
   private BigDecimal fixedFee;
+  private BigDecimal extraFee;
+  private BigDecimal minFee;
+  private BigDecimal maxFee;
+  private String feeType;
+  private String tieredFees;
   private String feeMode;
   private BigDecimal minAmount;
   private BigDecimal maxAmount;
@@ -56,6 +62,14 @@ public class PricingRuleFull {
     this.merchantId = merchantId;
   }
 
+  public String getChannelId() {
+    return channelId;
+  }
+
+  public void setChannelId(String channelId) {
+    this.channelId = channelId;
+  }
+
   public String getCurrency() {
     return currency;
   }
@@ -78,6 +92,46 @@ public class PricingRuleFull {
 
   public void setFixedFee(BigDecimal fixedFee) {
     this.fixedFee = fixedFee;
+  }
+
+  public BigDecimal getExtraFee() {
+    return extraFee;
+  }
+
+  public void setExtraFee(BigDecimal extraFee) {
+    this.extraFee = extraFee;
+  }
+
+  public BigDecimal getMinFee() {
+    return minFee;
+  }
+
+  public void setMinFee(BigDecimal minFee) {
+    this.minFee = minFee;
+  }
+
+  public BigDecimal getMaxFee() {
+    return maxFee;
+  }
+
+  public void setMaxFee(BigDecimal maxFee) {
+    this.maxFee = maxFee;
+  }
+
+  public String getFeeType() {
+    return feeType;
+  }
+
+  public void setFeeType(String feeType) {
+    this.feeType = feeType;
+  }
+
+  public String getTieredFees() {
+    return tieredFees;
+  }
+
+  public void setTieredFees(String tieredFees) {
+    this.tieredFees = tieredFees;
   }
 
   public String getFeeMode() {

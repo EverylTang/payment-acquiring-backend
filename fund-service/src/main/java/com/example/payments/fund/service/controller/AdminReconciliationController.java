@@ -47,6 +47,41 @@ public class AdminReconciliationController {
             lines));
   }
 
+  @PutMapping("/bills/{billId}")
+  public Map<String, Object> updateBill(
+      @PathVariable String billId,
+      @RequestBody BillRequest r,
+      @RequestHeader("X-Gateway-Token") String t,
+      @RequestHeader("X-User-Id") String u,
+      @RequestHeader("X-Permissions") String permissions) {
+    var lines =
+        r.lines() == null
+            ? null
+            : r.lines().stream()
+                .map(
+                    x ->
+                        new ReconciliationService.BillLineRequest(
+                            x.channelOrderId(),
+                            x.merchantId(),
+                            x.orderId(),
+                            x.transactionType(),
+                            x.status(),
+                            x.amount(),
+                            x.currency()))
+                .toList();
+    auth.authorize(t, u, permissions, "reconciliation:bill:import");
+    return service.updateBill(
+        billId,
+        new ReconciliationService.BillRequest(
+            r.billId(),
+            r.channelId(),
+            r.billDate(),
+            r.currency(),
+            r.totalAmount(),
+            r.totalCount(),
+            lines));
+  }
+
   @GetMapping("/differences")
   public Map<String, Object> differences(
       @RequestHeader("X-Gateway-Token") String t,

@@ -1,0 +1,4 @@
+# Local-only fallback. Production must provide GATEWAY_INTERNAL_TOKEN explicitly.
+platform:
+  security:
+    internal-token: ${GATEWAY_INTERNAL_TOKEN:payment-local-internal-token}

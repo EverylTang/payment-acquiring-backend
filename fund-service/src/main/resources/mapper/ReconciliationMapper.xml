@@ -10,7 +10,8 @@
   <insert id="upsertBill">
     INSERT INTO settlement_bill (bill_id, channel_id, bill_date, currency, total_amount, total_count, status, imported_at)
     VALUES (#{id}, #{channel}, #{date}, #{currency}, #{amount}, #{count}, 'IMPORTED', #{now})
-    ON DUPLICATE KEY UPDATE total_amount = VALUES(total_amount), total_count = VALUES(total_count), status = 'IMPORTED'
+    ON DUPLICATE KEY UPDATE channel_id = VALUES(channel_id), bill_date = VALUES(bill_date), currency = VALUES(currency),
+      total_amount = VALUES(total_amount), total_count = VALUES(total_count), status = 'IMPORTED', imported_at = VALUES(imported_at)
   </insert>
   <delete id="deleteBillLines">DELETE FROM settlement_bill_line WHERE bill_id = #{bill}</delete>
   <insert id="insertBillLine">

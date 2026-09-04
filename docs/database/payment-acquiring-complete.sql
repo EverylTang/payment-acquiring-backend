@@ -197,15 +197,27 @@ CREATE TABLE IF NOT EXISTS pricing_rule (
   release_version BIGINT NOT NULL COMMENT '配置发布版本',
   product_code VARCHAR(64) NOT NULL COMMENT '产品编码',
   merchant_id VARCHAR(64) COMMENT '商户ID',
+  channel_id VARCHAR(64) COMMENT '渠道ID，空表示适用全部渠道',
   currency VARCHAR(3) NOT NULL COMMENT '币种',
   fee_rate DECIMAL(10, 6) NOT NULL COMMENT '费率',
   fixed_fee DECIMAL(20, 2) NOT NULL COMMENT '固定手续费',
+  extra_fee DECIMAL(20, 2) NOT NULL DEFAULT 0 COMMENT '额外手续费',
+  min_fee DECIMAL(20, 2) NULL COMMENT '最小手续费',
+  max_fee DECIMAL(20, 2) NULL COMMENT '最大手续费',
+  fee_type VARCHAR(16) NOT NULL DEFAULT 'COMBINED' COMMENT '手续费类型',
+  tiered_fees JSON NULL COMMENT '阶梯手续费配置',
   fee_mode VARCHAR(16) NOT NULL COMMENT '费率模式',
   min_amount DECIMAL(20, 2) COMMENT '最小金额',
   max_amount DECIMAL(20, 2) COMMENT '最大金额',
   status VARCHAR(16) NOT NULL COMMENT '业务状态',
   UNIQUE KEY uk_pricing_rule_id (rule_id)
 );
+ALTER TABLE pricing_rule ADD COLUMN IF NOT EXISTS channel_id VARCHAR(64) NULL COMMENT '渠道ID，空表示适用全部渠道' AFTER merchant_id;
+ALTER TABLE pricing_rule ADD COLUMN IF NOT EXISTS fee_type VARCHAR(16) NOT NULL DEFAULT 'COMBINED' COMMENT '手续费类型' AFTER fixed_fee;
+ALTER TABLE pricing_rule ADD COLUMN IF NOT EXISTS tiered_fees JSON NULL COMMENT '阶梯手续费配置' AFTER fee_type;
+ALTER TABLE pricing_rule ADD COLUMN IF NOT EXISTS extra_fee DECIMAL(20, 2) NOT NULL DEFAULT 0 COMMENT '额外手续费' AFTER fixed_fee;
+ALTER TABLE pricing_rule ADD COLUMN IF NOT EXISTS min_fee DECIMAL(20, 2) NULL COMMENT '最小手续费' AFTER extra_fee;
+ALTER TABLE pricing_rule ADD COLUMN IF NOT EXISTS max_fee DECIMAL(20, 2) NULL COMMENT '最大手续费' AFTER min_fee;
 
 CREATE TABLE IF NOT EXISTS risk_policy (
   id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
@@ -339,8 +351,8 @@ VALUES ('release-initial', 1, 'PUBLISHED', JSON_OBJECT('description', 'initial c
 INSERT IGNORE INTO routing_rule (rule_id, release_version, product_code, merchant_id, payment_method, country, currency, channel_id, priority, weight, status)
 VALUES ('route-initial', 1, 'CARD-US-USD', 'merchant-demo', 'CARD', 'US', 'USD', 'simulated-channel', 1, 100, 'ACTIVE');
 
-INSERT IGNORE INTO pricing_rule (rule_id, release_version, product_code, merchant_id, currency, fee_rate, fixed_fee, fee_mode, min_amount, max_amount, status)
-VALUES ('price-initial', 1, 'CARD-US-USD', 'merchant-demo', 'USD', 0.020000, 0.30, 'INCLUSIVE', 1.00, 10000.00, 'ACTIVE');
+INSERT IGNORE INTO pricing_rule (rule_id, release_version, product_code, merchant_id, channel_id, currency, fee_rate, fixed_fee, fee_mode, min_amount, max_amount, status)
+VALUES ('price-initial', 1, 'CARD-US-USD', 'merchant-demo', 'simulated-channel', 'USD', 0.020000, 0.30, 'INCLUSIVE', 1.00, 10000.00, 'ACTIVE');
 
 INSERT IGNORE INTO risk_policy (policy_id, release_version, name, priority, decision, condition_json, status)
 VALUES ('risk-initial', 1, '默认放行策略', 1000, 'PASS', JSON_OBJECT('productCode', 'CARD-US-USD', 'currency', 'USD'), 'ACTIVE');

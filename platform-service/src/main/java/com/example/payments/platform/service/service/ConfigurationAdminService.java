@@ -234,9 +234,15 @@ public class ConfigurationAdminService {
                         rule.getReleaseVersion(),
                         rule.getProductCode(),
                         rule.getMerchantId(),
+                        rule.getChannelId(),
                         rule.getCurrency(),
                         rule.getFeeRate(),
                         rule.getFixedFee(),
+                        rule.getExtraFee(),
+                        rule.getMinFee(),
+                        rule.getMaxFee(),
+                        rule.getFeeType(),
+                        readTiers(rule.getTieredFees()),
                         rule.getFeeMode(),
                         rule.getMinAmount(),
                         rule.getMaxAmount(),
@@ -247,21 +253,71 @@ public class ConfigurationAdminService {
 
   @Transactional
   public void createPricingRule(PricingRuleRequest request, Authentication authentication) {
+    PricingFeeRules.validate(
+        request.feeType(),
+        request.feeRate(),
+        request.fixedFee(),
+        request.extraFee(),
+        request.minFee(),
+        request.maxFee(),
+        request.tiers());
     var version = draftVersion(request.releaseId());
     var rule = new com.example.payments.platform.service.model.PricingRuleFull();
     rule.setRuleId(request.ruleId());
     rule.setReleaseVersion(version);
     rule.setProductCode(request.productCode());
     rule.setMerchantId(request.merchantId());
+    rule.setChannelId(request.channelId());
     rule.setCurrency(request.currency());
     rule.setFeeRate(request.feeRate());
     rule.setFixedFee(request.fixedFee());
+    rule.setExtraFee(request.extraFee());
+    rule.setMinFee(request.minFee());
+    rule.setMaxFee(request.maxFee());
+    rule.setFeeType(request.feeType());
+    rule.setTieredFees(
+        request.feeType().equals(PricingFeeRules.TIERED) ? json(request.tiers()) : null);
     rule.setFeeMode(request.feeMode());
     rule.setMinAmount(request.minAmount());
     rule.setMaxAmount(request.maxAmount());
     rule.setStatus("ACTIVE");
     pricingRuleMapper.insert(rule);
     audit(authentication.getName(), "CREATE", "PRICING_RULE", request.ruleId(), request);
+  }
+
+  @Transactional
+  public void updatePricingRule(
+      String ruleId, PricingRuleUpdateRequest request, Authentication authentication) {
+    var existing = pricingRuleMapper.selectByRuleId(ruleId);
+    if (existing == null) throw new IllegalArgumentException("费率规则不存在: " + ruleId);
+    if (!pricingRuleMapper.isDraftVersion(existing.getReleaseVersion())) {
+      throw new IllegalStateException("已发布或审核中的费率规则不可编辑，请创建草稿版本后调整");
+    }
+    PricingFeeRules.validate(
+        request.feeType(),
+        request.feeRate(),
+        request.fixedFee(),
+        request.extraFee(),
+        request.minFee(),
+        request.maxFee(),
+        request.tiers());
+    existing.setProductCode(request.productCode());
+    existing.setMerchantId(request.merchantId());
+    existing.setChannelId(request.channelId());
+    existing.setCurrency(request.currency());
+    existing.setFeeRate(request.feeRate());
+    existing.setFixedFee(request.fixedFee());
+    existing.setExtraFee(request.extraFee());
+    existing.setMinFee(request.minFee());
+    existing.setMaxFee(request.maxFee());
+    existing.setFeeType(request.feeType());
+    existing.setTieredFees(
+        request.feeType().equals(PricingFeeRules.TIERED) ? json(request.tiers()) : null);
+    existing.setFeeMode(request.feeMode());
+    existing.setMinAmount(request.minAmount());
+    existing.setMaxAmount(request.maxAmount());
+    pricingRuleMapper.update(existing);
+    audit(authentication.getName(), "UPDATE", "PRICING_RULE", ruleId, request);
   }
 
   @Transactional
@@ -445,6 +501,19 @@ public class ConfigurationAdminService {
     }
   }
 
+  private List<PricingFeeRules.FeeTier> readTiers(String value) {
+    if (value == null || value.isBlank()) return List.of();
+    try {
+      return objectMapper.readValue(
+          value,
+          objectMapper
+              .getTypeFactory()
+              .constructCollectionType(List.class, PricingFeeRules.FeeTier.class));
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("数据库阶梯手续费配置无法解析", exception);
+    }
+  }
+
   public record MerchantRequest(
       @NotBlank String merchantId,
       @NotBlank String name,
@@ -576,25 +645,53 @@ public class ConfigurationAdminService {
       @NotBlank String releaseId,
       @NotBlank String productCode,
       String merchantId,
+      String channelId,
       @Pattern(regexp = "[A-Z]{3}") String currency,
-      @DecimalMin("0.000000") BigDecimal feeRate,
-      @DecimalMin("0.00") BigDecimal fixedFee,
-      @Pattern(regexp = "INCLUSIVE|EXCLUSIVE") String feeMode,
-      @DecimalMin("0.01") BigDecimal minAmount,
-      @Positive BigDecimal maxAmount) {}
+      @NotNull @DecimalMin("0.000000") BigDecimal feeRate,
+      @NotNull @DecimalMin("0.00") BigDecimal fixedFee,
+      @NotNull @DecimalMin("0.00") BigDecimal extraFee,
+      @DecimalMin("0.00") BigDecimal minFee,
+      @DecimalMin("0.00") BigDecimal maxFee,
+      @NotBlank @Pattern(regexp = "FIXED|PERCENTAGE|TIERED|COMBINED") String feeType,
+      List<PricingFeeRules.FeeTier> tiers,
+      @NotBlank @Pattern(regexp = "PAYER_BEAR|MERCHANT_BEAR|INCLUSIVE|EXCLUSIVE") String feeMode,
+      @NotNull @DecimalMin("0.01") BigDecimal minAmount,
+      @NotNull @Positive BigDecimal maxAmount) {}
 
   public record PricingRuleResponse(
       String ruleId,
       long releaseVersion,
       String productCode,
       String merchantId,
+      String channelId,
       String currency,
       BigDecimal feeRate,
       BigDecimal fixedFee,
+      BigDecimal extraFee,
+      BigDecimal minFee,
+      BigDecimal maxFee,
+      String feeType,
+      List<PricingFeeRules.FeeTier> tiers,
       String feeMode,
       BigDecimal minAmount,
       BigDecimal maxAmount,
       String status) {}
+
+  public record PricingRuleUpdateRequest(
+      @NotBlank String productCode,
+      String merchantId,
+      String channelId,
+      @Pattern(regexp = "[A-Z]{3}") String currency,
+      @NotNull @DecimalMin("0.000000") BigDecimal feeRate,
+      @NotNull @DecimalMin("0.00") BigDecimal fixedFee,
+      @NotNull @DecimalMin("0.00") BigDecimal extraFee,
+      @DecimalMin("0.00") BigDecimal minFee,
+      @DecimalMin("0.00") BigDecimal maxFee,
+      @NotBlank @Pattern(regexp = "FIXED|PERCENTAGE|TIERED|COMBINED") String feeType,
+      List<PricingFeeRules.FeeTier> tiers,
+      @NotBlank @Pattern(regexp = "PAYER_BEAR|MERCHANT_BEAR|INCLUSIVE|EXCLUSIVE") String feeMode,
+      @NotNull @DecimalMin("0.01") BigDecimal minAmount,
+      @NotNull @Positive BigDecimal maxAmount) {}
 
   public record RiskPolicyRequest(
       @NotBlank String policyId,

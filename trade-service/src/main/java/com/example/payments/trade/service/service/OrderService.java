@@ -3,11 +3,15 @@ package com.example.payments.trade.service.service;
 import com.example.payments.trade.service.domain.OrderStatus;
 import com.example.payments.trade.service.domain.PaymentOrder;
 import com.example.payments.trade.service.mapper.PaymentOrderRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -15,9 +19,24 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
-@RequiredArgsConstructor
 public class OrderService {
   private final PaymentOrderRepository repository;
+  private final PlatformChannelConfigurationClient channelConfiguration;
+  private final ObjectMapper objectMapper;
+
+  @Autowired
+  public OrderService(
+      PaymentOrderRepository repository,
+      PlatformChannelConfigurationClient channelConfiguration,
+      ObjectMapper objectMapper) {
+    this.repository = repository;
+    this.channelConfiguration = channelConfiguration;
+    this.objectMapper = objectMapper;
+  }
+
+  OrderService(PaymentOrderRepository repository) {
+    this(repository, null, null);
+  }
 
   @Transactional
   public PaymentOrder create(CreateOrderCommand command) {
@@ -42,6 +61,9 @@ public class OrderService {
             command.amount(),
             command.idempotencyKey(),
             command.expireAt());
+    if (channelConfiguration != null) {
+      order = applyPricing(order, channelConfiguration.resolveConfiguration(order));
+    }
     try {
       return repository.insert(order);
     } catch (DuplicateKeyException duplicate) {
@@ -141,6 +163,68 @@ public class OrderService {
       repository.updateStatus(orderId, current.status(), next, null);
     }
     return get(orderId);
+  }
+
+  private PaymentOrder applyPricing(
+      PaymentOrder order, PlatformChannelConfigurationClient.ResolvedPaymentConfiguration config) {
+    var fee = calculateFee(order.amount(), config).add(config.extraFee());
+    if (config.minFee() != null && fee.compareTo(config.minFee()) < 0) fee = config.minFee();
+    if (config.maxFee() != null && fee.compareTo(config.maxFee()) > 0) fee = config.maxFee();
+    fee = fee.setScale(2, RoundingMode.HALF_UP);
+    var net = order.amount();
+    if ("MERCHANT_BEAR".equals(config.feeMode()) || "INCLUSIVE".equals(config.feeMode())) {
+      if (fee.compareTo(order.amount()) > 0) {
+        throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "内含手续费不能超过交易金额");
+      }
+      net = order.amount().subtract(fee);
+    }
+    try {
+      var routeSnapshot =
+          objectMapper.writeValueAsString(
+              Map.of(
+                  "channelId", config.runtime().channelId(),
+                  "provider", config.runtime().provider(),
+                  "configVersion", config.configVersion()));
+      var pricing = new LinkedHashMap<String, Object>();
+      pricing.put("ruleId", config.pricingRuleId());
+      pricing.put("channelId", config.runtime().channelId());
+      pricing.put("feeRate", config.feeRate());
+      pricing.put("fixedFee", config.fixedFee());
+      pricing.put("extraFee", config.extraFee());
+      pricing.put("minFee", config.minFee());
+      pricing.put("maxFee", config.maxFee());
+      pricing.put("feeType", config.feeType());
+      pricing.put("tiers", config.tiers());
+      pricing.put("mode", config.feeMode());
+      pricing.put("feeAmount", fee);
+      pricing.put("netAmount", net);
+      pricing.put("configVersion", config.configVersion());
+      var pricingSnapshot = objectMapper.writeValueAsString(pricing);
+      return order.withPricing(fee, net, routeSnapshot, pricingSnapshot);
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("无法记录订单费率快照", exception);
+    }
+  }
+
+  private BigDecimal calculateFee(
+      BigDecimal amount, PlatformChannelConfigurationClient.ResolvedPaymentConfiguration config) {
+    return switch (config.feeType()) {
+      case "FIXED" -> config.fixedFee();
+      case "PERCENTAGE" -> amount.multiply(config.feeRate());
+      case "TIERED" ->
+          config.tiers().stream()
+              .filter(
+                  tier ->
+                      amount.compareTo(tier.minAmount()) >= 0
+                          && amount.compareTo(tier.maxAmount()) <= 0)
+              .findFirst()
+              .map(tier -> amount.multiply(tier.feeRate()).add(tier.fixedFee()))
+              .orElseThrow(
+                  () ->
+                      new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "交易金额未匹配阶梯手续费"));
+      case "COMBINED" -> amount.multiply(config.feeRate()).add(config.fixedFee());
+      default -> throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "手续费类型无效");
+    };
   }
 
   public record CreateOrderCommand(

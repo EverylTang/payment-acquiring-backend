@@ -13,6 +13,8 @@ public interface PricingRuleMapper {
 
   PricingRuleFull selectByRuleId(@Param("ruleId") String ruleId);
 
+  boolean isDraftVersion(@Param("releaseVersion") long releaseVersion);
+
   void insert(PricingRuleFull rule);
 
   void update(PricingRuleFull rule);

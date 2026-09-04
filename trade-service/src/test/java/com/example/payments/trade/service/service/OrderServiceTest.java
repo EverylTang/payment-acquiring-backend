@@ -1,12 +1,16 @@
 package com.example.payments.trade.service.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.payments.trade.service.domain.OrderStatus;
 import com.example.payments.trade.service.domain.PaymentOrder;
 import com.example.payments.trade.service.mapper.PaymentOrderRepository;
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -51,5 +55,79 @@ class OrderServiceTest {
             .withStatus(OrderStatus.SUCCESS, java.time.Instant.now());
     when(repository.findById("o2")).thenReturn(Optional.of(success));
     assertThat(service.callback("o2", OrderStatus.FAILED).status()).isEqualTo(OrderStatus.SUCCESS);
+  }
+
+  @Test
+  void createsOrderUsingTheResolvedChannelPricingSnapshot() {
+    var channelConfiguration = org.mockito.Mockito.mock(PlatformChannelConfigurationClient.class);
+    var configuredService = new OrderService(repository, channelConfiguration, new ObjectMapper());
+    var command =
+        new OrderService.CreateOrderCommand(
+            "m2", "o3", "p1", "CARD", "US", "USD", new BigDecimal("10.00"), "key-3", null);
+    var runtime =
+        new ChannelRuntimeContext(
+            "payermax-card-us",
+            "PAYERMAX",
+            "https://payments.example.test",
+            "HMAC_SHA256_V1",
+            Map.of(),
+            Map.of(),
+            reference -> "unused");
+    var configuration =
+        new PlatformChannelConfigurationClient.ResolvedPaymentConfiguration(
+            runtime,
+            "price-payermax-usd",
+            new BigDecimal("0.025"),
+            new BigDecimal("0.30"),
+            "INCLUSIVE",
+            "12");
+    when(repository.findByIdempotency("m2", "key-3")).thenReturn(Optional.empty());
+    when(repository.findByMerchantOrder("m2", "o3")).thenReturn(Optional.empty());
+    when(channelConfiguration.resolveConfiguration(any())).thenReturn(configuration);
+    when(repository.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var order = configuredService.create(command);
+
+    assertThat(order.feeAmount()).isEqualByComparingTo("0.55");
+    assertThat(order.netAmount()).isEqualByComparingTo("9.45");
+    assertThat(order.routeSnapshot()).contains("payermax-card-us");
+    assertThat(order.pricingSnapshot()).contains("price-payermax-usd");
+  }
+
+  @Test
+  void calculatesTheFeeFromTheMatchedTier() {
+    var channelConfiguration = org.mockito.Mockito.mock(PlatformChannelConfigurationClient.class);
+    var configuredService = new OrderService(repository, channelConfiguration, new ObjectMapper());
+    var command =
+        new OrderService.CreateOrderCommand(
+            "m3", "o4", "p1", "CARD", "US", "USD", new BigDecimal("150.00"), "key-4", null);
+    var runtime =
+        new ChannelRuntimeContext(
+            "antom-card-us", "ANTOM", "https://payments.example.test", "HMAC_SHA256_V1", Map.of(), Map.of(), reference -> "unused");
+    var configuration =
+        new PlatformChannelConfigurationClient.ResolvedPaymentConfiguration(
+            runtime,
+            "price-tiered-usd",
+            BigDecimal.ZERO,
+            BigDecimal.ZERO,
+            new BigDecimal("0.20"),
+            new BigDecimal("2.50"),
+            new BigDecimal("4.00"),
+            "TIERED",
+            List.of(
+                new PlatformChannelConfigurationClient.FeeTier(BigDecimal.ZERO, new BigDecimal("100.00"), new BigDecimal("0.02"), BigDecimal.ZERO),
+                new PlatformChannelConfigurationClient.FeeTier(new BigDecimal("100.01"), new BigDecimal("1000.00"), new BigDecimal("0.01"), new BigDecimal("0.50"))),
+            "EXCLUSIVE",
+            "13");
+    when(repository.findByIdempotency("m3", "key-4")).thenReturn(Optional.empty());
+    when(repository.findByMerchantOrder("m3", "o4")).thenReturn(Optional.empty());
+    when(channelConfiguration.resolveConfiguration(any())).thenReturn(configuration);
+    when(repository.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var order = configuredService.create(command);
+
+    assertThat(order.feeAmount()).isEqualByComparingTo("2.50");
+    assertThat(order.netAmount()).isEqualByComparingTo("150.00");
+    assertThat(order.pricingSnapshot()).contains("TIERED");
   }
 }

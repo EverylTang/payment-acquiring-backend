@@ -3,6 +3,8 @@ package com.example.payments.platform.service.service;
 import com.example.payments.platform.service.controller.AdminPageResponse;
 import com.example.payments.platform.service.mapper.PricingRuleMapper;
 import com.example.payments.platform.service.model.PricingRuleFull;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PricingRuleAdminService {
   private final PricingRuleMapper mapper;
   private final OperationAuditService auditService;
+  private final ObjectMapper objectMapper;
 
   public AdminPageResponse<PricingRuleResponse> list(int page, int pageSize) {
     page = Math.max(page, 1);
@@ -37,16 +40,22 @@ public class PricingRuleAdminService {
                         r.getReleaseVersion(),
                         r.getProductCode(),
                         r.getMerchantId(),
+                        r.getChannelId(),
                         r.getCurrency(),
                         r.getFeeRate(),
                         r.getFixedFee(),
+                        r.getExtraFee(),
+                        r.getMinFee(),
+                        r.getMaxFee(),
+                        r.getFeeType(),
+                        readTiers(r.getTieredFees()),
                         r.getFeeMode(),
                         r.getMinAmount(),
                         r.getMaxAmount(),
                         r.getStatus()))
             .toList();
 
-    return new AdminPageResponse<>(items, total, page, pageSize);
+    return new AdminPageResponse<>(items, page, pageSize, total);
   }
 
   public PricingRuleResponse detail(String ruleId) {
@@ -59,9 +68,15 @@ public class PricingRuleAdminService {
         rule.getReleaseVersion(),
         rule.getProductCode(),
         rule.getMerchantId(),
+        rule.getChannelId(),
         rule.getCurrency(),
         rule.getFeeRate(),
         rule.getFixedFee(),
+        rule.getExtraFee(),
+        rule.getMinFee(),
+        rule.getMaxFee(),
+        rule.getFeeType(),
+        readTiers(rule.getTieredFees()),
         rule.getFeeMode(),
         rule.getMinAmount(),
         rule.getMaxAmount(),
@@ -70,6 +85,14 @@ public class PricingRuleAdminService {
 
   @Transactional
   public PricingRuleResponse create(PricingRuleRequest request, Authentication auth) {
+    PricingFeeRules.validate(
+        request.feeType(),
+        request.feeRate(),
+        request.fixedFee(),
+        request.extraFee(),
+        request.minFee(),
+        request.maxFee(),
+        request.tiers());
     String ruleId = "PR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
     PricingRuleFull rule = new PricingRuleFull();
@@ -77,9 +100,16 @@ public class PricingRuleAdminService {
     rule.setReleaseVersion(request.releaseVersion());
     rule.setProductCode(request.productCode());
     rule.setMerchantId(request.merchantId());
+    rule.setChannelId(request.channelId());
     rule.setCurrency(request.currency());
     rule.setFeeRate(request.feeRate());
     rule.setFixedFee(request.fixedFee());
+    rule.setExtraFee(request.extraFee());
+    rule.setMinFee(request.minFee());
+    rule.setMaxFee(request.maxFee());
+    rule.setFeeType(request.feeType());
+    rule.setTieredFees(
+        request.feeType().equals(PricingFeeRules.TIERED) ? json(request.tiers()) : null);
     rule.setFeeMode(request.feeMode());
     rule.setMinAmount(request.minAmount());
     rule.setMaxAmount(request.maxAmount());
@@ -98,13 +128,28 @@ public class PricingRuleAdminService {
     if (existing == null) {
       throw new IllegalArgumentException("Pricing rule not found: " + ruleId);
     }
+    PricingFeeRules.validate(
+        request.feeType(),
+        request.feeRate(),
+        request.fixedFee(),
+        request.extraFee(),
+        request.minFee(),
+        request.maxFee(),
+        request.tiers());
 
     existing.setReleaseVersion(request.releaseVersion());
     existing.setProductCode(request.productCode());
     existing.setMerchantId(request.merchantId());
+    existing.setChannelId(request.channelId());
     existing.setCurrency(request.currency());
     existing.setFeeRate(request.feeRate());
     existing.setFixedFee(request.fixedFee());
+    existing.setExtraFee(request.extraFee());
+    existing.setMinFee(request.minFee());
+    existing.setMaxFee(request.maxFee());
+    existing.setFeeType(request.feeType());
+    existing.setTieredFees(
+        request.feeType().equals(PricingFeeRules.TIERED) ? json(request.tiers()) : null);
     existing.setFeeMode(request.feeMode());
     existing.setMinAmount(request.minAmount());
     existing.setMaxAmount(request.maxAmount());
@@ -141,25 +186,58 @@ public class PricingRuleAdminService {
     auditService.record(username, action, "PRICING_RULE", targetId, null);
   }
 
+  private String json(Object value) {
+    try {
+      return objectMapper.writeValueAsString(value);
+    } catch (JsonProcessingException exception) {
+      throw new IllegalArgumentException("阶梯手续费配置不是合法 JSON", exception);
+    }
+  }
+
+  private List<PricingFeeRules.FeeTier> readTiers(String value) {
+    if (value == null || value.isBlank()) return List.of();
+    try {
+      return objectMapper.readValue(
+          value,
+          objectMapper
+              .getTypeFactory()
+              .constructCollectionType(List.class, PricingFeeRules.FeeTier.class));
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("数据库阶梯手续费配置无法解析", exception);
+    }
+  }
+
   public record PricingRuleRequest(
       @NotNull Long releaseVersion,
       @NotBlank String productCode,
       String merchantId,
+      String channelId,
       @NotBlank @Pattern(regexp = "[A-Z]{3}") String currency,
       @NotNull @DecimalMin("0.000000") BigDecimal feeRate,
       @NotNull @DecimalMin("0.00") BigDecimal fixedFee,
-      @NotBlank @Pattern(regexp = "INCLUSIVE|EXCLUSIVE") String feeMode,
-      BigDecimal minAmount,
-      BigDecimal maxAmount) {}
+      @NotNull @DecimalMin("0.00") BigDecimal extraFee,
+      @DecimalMin("0.00") BigDecimal minFee,
+      @DecimalMin("0.00") BigDecimal maxFee,
+      @NotBlank @Pattern(regexp = "FIXED|PERCENTAGE|TIERED|COMBINED") String feeType,
+      List<PricingFeeRules.FeeTier> tiers,
+      @NotBlank @Pattern(regexp = "PAYER_BEAR|MERCHANT_BEAR|INCLUSIVE|EXCLUSIVE") String feeMode,
+      @NotNull @DecimalMin("0.01") BigDecimal minAmount,
+      @NotNull @DecimalMin("0.01") BigDecimal maxAmount) {}
 
   public record PricingRuleResponse(
       String ruleId,
       Long releaseVersion,
       String productCode,
       String merchantId,
+      String channelId,
       String currency,
       BigDecimal feeRate,
       BigDecimal fixedFee,
+      BigDecimal extraFee,
+      BigDecimal minFee,
+      BigDecimal maxFee,
+      String feeType,
+      List<PricingFeeRules.FeeTier> tiers,
       String feeMode,
       BigDecimal minAmount,
       BigDecimal maxAmount,

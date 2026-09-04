@@ -1,6 +1,8 @@
 package com.example.payments.trade.service.service;
 
 import com.example.payments.trade.service.domain.PaymentOrder;
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +31,20 @@ public class PlatformChannelConfigurationClient {
 
   public ChannelRuntimeContext resolve(PaymentOrder order) {
     try {
+      var route =
+          new com.fasterxml.jackson.databind.ObjectMapper()
+              .readValue(order.routeSnapshot(), Map.class);
+      var channelId = text(route.get("channelId"));
+      if (!channelId.isBlank()) return resolve(channelId);
+    } catch (com.fasterxml.jackson.core.JsonProcessingException ignored) {
+      // Orders created before configuration snapshots are resolved through the current route
+      // lookup.
+    }
+    return resolveConfiguration(order).runtime();
+  }
+
+  public ResolvedPaymentConfiguration resolveConfiguration(PaymentOrder order) {
+    try {
       var snapshot =
           client
               .get()
@@ -49,7 +65,21 @@ public class PlatformChannelConfigurationClient {
       if (snapshot == null || !(snapshot.get("route") instanceof Map<?, ?> route)) {
         throw unavailable("平台未返回渠道路由");
       }
-      return runtime(route);
+      if (!(snapshot.get("pricing") instanceof Map<?, ?> pricing)) {
+        throw unavailable("平台未返回费率配置");
+      }
+      return new ResolvedPaymentConfiguration(
+          runtime(route),
+          text(pricing.get("ruleId")),
+          decimal(pricing.get("feeRate"), "费率"),
+          decimal(pricing.get("fixedFee"), "固定费用"),
+          decimalOrZero(pricing.get("extraFee"), "额外手续费"),
+          optionalDecimal(pricing.get("minFee"), "最小手续费"),
+          optionalDecimal(pricing.get("maxFee"), "最大手续费"),
+          text(pricing.get("feeType")),
+          tiers(pricing.get("tiers")),
+          text(pricing.get("mode")),
+          text(snapshot.get("configVersion")));
     } catch (RestClientException exception) {
       throw unavailable("无法读取渠道运行配置");
     }
@@ -122,7 +152,132 @@ public class PlatformChannelConfigurationClient {
     return value == null ? "" : String.valueOf(value);
   }
 
+  private BigDecimal decimal(Object value, String field) {
+    try {
+      var result = new BigDecimal(text(value));
+      if (result.signum() < 0) throw new NumberFormatException();
+      return result;
+    } catch (NumberFormatException exception) {
+      throw unavailable("渠道运行配置中的" + field + "无效");
+    }
+  }
+
+  private BigDecimal decimalOrZero(Object value, String field) {
+    return value == null || text(value).isBlank() ? BigDecimal.ZERO : decimal(value, field);
+  }
+
+  private BigDecimal optionalDecimal(Object value, String field) {
+    return value == null || text(value).isBlank() ? null : decimal(value, field);
+  }
+
+  private List<FeeTier> tiers(Object value) {
+    if (value == null || text(value).isBlank() || "[]".equals(text(value))) return List.of();
+    try {
+      Object parsed =
+          value instanceof String
+              ? new com.fasterxml.jackson.databind.ObjectMapper()
+                  .readValue((String) value, List.class)
+              : value;
+      if (!(parsed instanceof List<?> source)) throw new IllegalArgumentException();
+      var result = new ArrayList<FeeTier>();
+      for (var item : source) {
+        if (!(item instanceof Map<?, ?> tier)) throw new IllegalArgumentException();
+        result.add(
+            new FeeTier(
+                decimal(tier.get("minAmount"), "阶梯最小金额"),
+                decimal(tier.get("maxAmount"), "阶梯最大金额"),
+                decimal(tier.get("feeRate"), "阶梯比例手续费"),
+                decimal(tier.get("fixedFee"), "阶梯固定手续费")));
+      }
+      return List.copyOf(result);
+    } catch (com.fasterxml.jackson.core.JsonProcessingException
+        | IllegalArgumentException exception) {
+      throw unavailable("渠道运行配置中的阶梯手续费无效");
+    }
+  }
+
   private ResponseStatusException unavailable(String message) {
     return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, message);
   }
+
+  public record ResolvedPaymentConfiguration(
+      ChannelRuntimeContext runtime,
+      String pricingRuleId,
+      BigDecimal feeRate,
+      BigDecimal fixedFee,
+      BigDecimal extraFee,
+      BigDecimal minFee,
+      BigDecimal maxFee,
+      String feeType,
+      List<FeeTier> tiers,
+      String feeMode,
+      String configVersion) {
+    public ResolvedPaymentConfiguration {
+      if (feeType == null || feeType.isBlank()) feeType = "COMBINED";
+      if (!List.of("FIXED", "PERCENTAGE", "TIERED", "COMBINED").contains(feeType)) {
+        throw new IllegalArgumentException("渠道运行配置中的手续费类型无效");
+      }
+      tiers = tiers == null ? List.of() : List.copyOf(tiers);
+      extraFee = extraFee == null ? BigDecimal.ZERO : extraFee;
+      if (extraFee.signum() < 0
+          || (minFee != null && minFee.signum() < 0)
+          || (maxFee != null && maxFee.signum() < 0)
+          || (minFee != null && maxFee != null && minFee.compareTo(maxFee) > 0)) {
+        throw new IllegalArgumentException("渠道运行配置中的手续费限制无效");
+      }
+      if ("TIERED".equals(feeType) && tiers.isEmpty()) {
+        throw new IllegalArgumentException("渠道运行配置中的阶梯手续费不能为空");
+      }
+      if (!List.of("PAYER_BEAR", "MERCHANT_BEAR", "INCLUSIVE", "EXCLUSIVE").contains(feeMode)) {
+        throw new IllegalArgumentException("渠道运行配置中的费率模式无效");
+      }
+    }
+
+    public ResolvedPaymentConfiguration(
+        ChannelRuntimeContext runtime,
+        String pricingRuleId,
+        BigDecimal feeRate,
+        BigDecimal fixedFee,
+        String feeMode,
+        String configVersion) {
+      this(
+          runtime,
+          pricingRuleId,
+          feeRate,
+          fixedFee,
+          BigDecimal.ZERO,
+          null,
+          null,
+          "COMBINED",
+          List.of(),
+          feeMode,
+          configVersion);
+    }
+
+    public ResolvedPaymentConfiguration(
+        ChannelRuntimeContext runtime,
+        String pricingRuleId,
+        BigDecimal feeRate,
+        BigDecimal fixedFee,
+        String feeType,
+        List<FeeTier> tiers,
+        String feeMode,
+        String configVersion) {
+      this(
+          runtime,
+          pricingRuleId,
+          feeRate,
+          fixedFee,
+          BigDecimal.ZERO,
+          null,
+          null,
+          feeType,
+          tiers,
+          feeMode,
+          configVersion);
+    }
+  }
+
+  public record FeeTier(
+      BigDecimal minAmount, BigDecimal maxAmount, BigDecimal feeRate, BigDecimal fixedFee) {}
 }

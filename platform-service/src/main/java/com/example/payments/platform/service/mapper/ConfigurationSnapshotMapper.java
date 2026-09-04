@@ -45,6 +45,7 @@ public interface ConfigurationSnapshotMapper {
       @Param("version") long version,
       @Param("productCode") String productCode,
       @Param("merchantId") String merchantId,
+      @Param("channelId") String channelId,
       @Param("currency") String currency,
       @Param("amount") BigDecimal amount);
 

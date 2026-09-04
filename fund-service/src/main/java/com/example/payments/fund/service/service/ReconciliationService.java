@@ -10,7 +10,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -18,25 +21,105 @@ public class ReconciliationService {
   private final ReconciliationMapper mapper;
   private final MeterRegistry metrics;
 
+  @Transactional
   public Map<String, Object> importBill(BillRequest request) {
     var id =
         request.billId() == null || request.billId().isBlank()
             ? "bill-" + UUID.randomUUID()
             : request.billId();
-    mapper.upsertBill(id, request.channelId(), request.billDate(), request.currency(), request.totalAmount(), request.totalCount(), Instant.now());
+    return saveBill(id, request);
+  }
+
+  @Transactional
+  public Map<String, Object> updateBill(String billId, BillRequest request) {
+    var existing = mapper.selectSettlementBill(billId);
+    if (existing == null) throw new IllegalArgumentException("账单不存在");
+    if ("MATCHED".equals(existing.status())) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "已匹配账单不可编辑");
+    }
+    if (request.billId() != null
+        && !request.billId().isBlank()
+        && !billId.equals(request.billId())) {
+      throw new IllegalArgumentException("账单 ID 不可修改");
+    }
+    return saveBill(billId, request);
+  }
+
+  private Map<String, Object> saveBill(String id, BillRequest request) {
+    validateBill(request);
+    mapper.upsertBill(
+        id,
+        request.channelId().trim(),
+        request.billDate(),
+        request.currency().trim().toUpperCase(java.util.Locale.ROOT),
+        request.totalAmount(),
+        request.totalCount(),
+        Instant.now());
     mapper.deleteBillLines(id);
-    if (request.lines() != null) {
-      for (BillLineRequest line : request.lines()) {
-        mapper.insertBillLine(id, line.channelOrderId(), line.merchantId(), line.orderId(), line.transactionType(), line.status(), line.amount(), line.currency());
-      }
+    for (BillLineRequest line : request.lines()) {
+      mapper.insertBillLine(
+          id,
+          line.channelOrderId().trim(),
+          line.merchantId(),
+          line.orderId(),
+          line.transactionType().trim().toUpperCase(java.util.Locale.ROOT),
+          line.status().trim().toUpperCase(java.util.Locale.ROOT),
+          line.amount(),
+          line.currency().trim().toUpperCase(java.util.Locale.ROOT));
     }
     return Map.of("billId", id, "status", "IMPORTED");
   }
 
+  private void validateBill(BillRequest request) {
+    if (request.channelId() == null || request.channelId().isBlank()) {
+      throw new IllegalArgumentException("渠道 ID 不能为空");
+    }
+    if (request.currency() == null || !request.currency().matches("[A-Za-z]{3}")) {
+      throw new IllegalArgumentException("账单币种必须为三位字母代码");
+    }
+    try {
+      LocalDate.parse(request.billDate());
+    } catch (RuntimeException exception) {
+      throw new IllegalArgumentException("账期必须为 YYYY-MM-DD");
+    }
+    if (request.totalAmount() == null
+        || request.totalAmount().signum() < 0
+        || request.totalCount() < 0) {
+      throw new IllegalArgumentException("账单金额或笔数无效");
+    }
+    if (request.lines() == null || request.lines().isEmpty()) {
+      throw new IllegalArgumentException("账单必须包含逐笔明细");
+    }
+    if (request.totalCount() != request.lines().size()) {
+      throw new IllegalArgumentException("账单笔数必须与逐笔明细数量一致");
+    }
+    var lineTotal = BigDecimal.ZERO;
+    for (BillLineRequest line : request.lines()) {
+      if (line == null
+          || line.channelOrderId() == null
+          || line.channelOrderId().isBlank()
+          || line.transactionType() == null
+          || line.transactionType().isBlank()
+          || line.status() == null
+          || line.status().isBlank()
+          || line.amount() == null
+          || line.amount().signum() < 0
+          || line.currency() == null
+          || !line.currency().matches("[A-Za-z]{3}")) {
+        throw new IllegalArgumentException("逐笔明细字段无效");
+      }
+      if (!request.currency().equalsIgnoreCase(line.currency())) {
+        throw new IllegalArgumentException("逐笔明细币种必须与账单币种一致");
+      }
+      lineTotal = lineTotal.add(line.amount());
+    }
+    if (lineTotal.compareTo(request.totalAmount()) != 0) {
+      throw new IllegalArgumentException("账单总金额必须与逐笔明细金额之和一致");
+    }
+  }
+
   public Map<String, Object> differences() {
-    return Map.of(
-        "items",
-        mapper.selectOpenDifferences());
+    return Map.of("items", mapper.selectOpenDifferences());
   }
 
   public Map<String, Object> bills(int page, int pageSize) {
@@ -92,7 +175,8 @@ public class ReconciliationService {
       var actualRows =
           orderId == null
               ? List.<Map<String, Object>>of()
-              : mapper.selectLedgerEntries(orderId, "REFUND".equalsIgnoreCase(type) ? "REFUND_REVERSAL" : "PAYMENT_SUCCESS");
+              : mapper.selectLedgerEntries(
+                  orderId, "REFUND".equalsIgnoreCase(type) ? "REFUND_REVERSAL" : "PAYMENT_SUCCESS");
       String difference = null;
       BigDecimal actualAmount = null;
       if (actualRows.size() > 1) difference = "DUPLICATE";

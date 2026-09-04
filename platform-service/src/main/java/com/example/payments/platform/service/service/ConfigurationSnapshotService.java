@@ -48,7 +48,13 @@ public class ConfigurationSnapshotService {
 
     var pricing =
         java.util.Optional.ofNullable(
-                mapper.selectPricing(version, productCode, merchantId, currency, amount))
+                mapper.selectPricing(
+                    version,
+                    productCode,
+                    merchantId,
+                    selectedChannel.channelId(),
+                    currency,
+                    amount))
             .orElseThrow(() -> unavailable("没有匹配的费率规则"));
 
     var risk =
@@ -197,10 +203,30 @@ public class ConfigurationSnapshotService {
     }
   }
 
-  public record Pricing(String ruleId, BigDecimal feeRate, BigDecimal fixedFee, String mode) {
+  public record Pricing(
+      String ruleId,
+      BigDecimal feeRate,
+      BigDecimal fixedFee,
+      BigDecimal extraFee,
+      BigDecimal minFee,
+      BigDecimal maxFee,
+      String feeType,
+      String tieredFees,
+      String mode) {
     Map<String, Object> asMap() {
-      return Map.of(
-          "ruleId", ruleId, "feeRate", feeRate, "fixedFee", fixedFee, "mode", mode, "scale", 2);
+      var pricing = new LinkedHashMap<String, Object>();
+      pricing.put("ruleId", ruleId);
+      pricing.put("feeRate", feeRate);
+      pricing.put("fixedFee", fixedFee);
+      pricing.put("extraFee", extraFee == null ? BigDecimal.ZERO : extraFee);
+      pricing.put("minFee", minFee);
+      pricing.put("maxFee", maxFee);
+      pricing.put(
+          "feeType", feeType == null || feeType.isBlank() ? PricingFeeRules.COMBINED : feeType);
+      pricing.put("tiers", tieredFees == null ? "[]" : tieredFees);
+      pricing.put("mode", mode);
+      pricing.put("scale", 2);
+      return pricing;
     }
   }
 
