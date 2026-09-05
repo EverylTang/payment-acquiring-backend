@@ -374,18 +374,19 @@ public class PaymentAttemptService {
       var redactedFields = new java.util.LinkedHashMap<String, String>();
       fields.forEach(
           (key, value) -> redactedFields.put(key, isSensitive(key) ? "[REDACTED]" : value));
-      return objectMapper.writeValueAsString(
-          java.util.Map.of(
-              "amount", order.amount().toPlainString(),
-              "payerPayableAmount", order.payerPayableAmount().toPlainString(),
-              "feeAmount", order.feeAmount().toPlainString(),
-              "feeBearer", order.feeBearer(),
-              "currency", order.currency(),
-              "channelId", runtime.channelId(),
-              "provider", runtime.provider(),
-              "requestUrl", runtime.requestUrl(),
-              "signatureProfile", runtime.signatureProfile(),
-              "channelRequest", redactedFields));
+      var snapshot = new java.util.LinkedHashMap<String, Object>();
+      snapshot.put("amount", order.amount().toPlainString());
+      snapshot.put("payerPayableAmount", order.payerPayableAmount().toPlainString());
+      snapshot.put("feeAmount", order.feeAmount().toPlainString());
+      snapshot.put("feeBearer", order.feeBearer());
+      snapshot.put("currency", order.currency());
+      snapshot.put("channelId", runtime.channelId());
+      snapshot.put("schemaVersion", runtime.schemaVersion());
+      snapshot.put("provider", runtime.provider());
+      snapshot.put("requestUrl", runtime.requestUrl());
+      snapshot.put("signatureProfile", runtime.signatureProfile());
+      snapshot.put("channelRequest", redactedFields);
+      return objectMapper.writeValueAsString(snapshot);
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("无法记录渠道运行配置", exception);
     }
@@ -403,13 +404,19 @@ public class PaymentAttemptService {
           || "null".equals(signatureProfile)) {
         throw new IllegalStateException("支付尝试缺少渠道签名快照");
       }
+      int schemaVersion = 1;
+      Object versionValue = snapshot.get("schemaVersion");
+      if (versionValue instanceof Number number) {
+        schemaVersion = number.intValue();
+      }
       return new ChannelRuntimeContext(
           currentRuntime.channelId(),
           provider,
           currentRuntime.requestUrl(),
           signatureProfile,
           currentRuntime.settings(),
-          currentRuntime.credentials());
+          currentRuntime.credentials(),
+          schemaVersion);
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("支付尝试缺少渠道运行配置", exception);
     }

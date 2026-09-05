@@ -49,7 +49,8 @@ class SimulatedChannelAdapterTest {
             "https://example.test/pay",
             "SIMULATED_SHA256_PREFIX_V1",
             Map.of(),
-            Map.of("callbackVerifyKey", "runtime-secret"));
+            Map.of("callbackVerifyKey", "runtime-secret"),
+            1);
     var payload = "refund-1|SUCCESS";
     var timestamp = System.currentTimeMillis() / 1000;
     var signed = timestamp + ".nonce-1." + payload;

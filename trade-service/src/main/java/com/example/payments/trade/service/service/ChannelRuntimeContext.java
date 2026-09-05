@@ -8,7 +8,8 @@ public record ChannelRuntimeContext(
     String requestUrl,
     String signatureProfile,
     Map<String, Object> settings,
-    Map<String, String> credentials) {
+    Map<String, String> credentials,
+    int schemaVersion) {
   public java.util.Optional<String> secret(String credentialRole) {
     return java.util.Optional.ofNullable(credentials.get(credentialRole))
         .filter(value -> !value.isBlank());

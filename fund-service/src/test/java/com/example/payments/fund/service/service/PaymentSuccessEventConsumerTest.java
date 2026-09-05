@@ -27,14 +27,20 @@ class PaymentSuccessEventConsumerTest {
       new LedgerEntryApplicationService(ledgerMapper);
   private final PaymentEventConsumptionMapper consumptionMapper =
       org.mockito.Mockito.mock(PaymentEventConsumptionMapper.class);
+  private final MerchantSettlementService settlementService =
+      org.mockito.Mockito.mock(MerchantSettlementService.class);
   private final PaymentSuccessEventConsumer consumer =
-      new PaymentSuccessEventConsumer(ledgerService, consumptionMapper, OBJECT_MAPPER, SIGNING_SECRET);
+      new PaymentSuccessEventConsumer(
+          ledgerService, settlementService, consumptionMapper, OBJECT_MAPPER, SIGNING_SECRET);
 
   @Test
   void recordsPaymentSuccessOnce() {
     consumer.onMessage(event("PAYIN"));
     verify(ledgerMapper).insert(any(LedgerEntryEntity.class));
     verify(consumptionMapper).insert(any(PaymentEventConsumptionEntity.class));
+    verify(settlementService)
+        .createSettlementDetail(
+            "order-1", "merchant-1", new BigDecimal("10.25"), BigDecimal.ZERO, "USD");
   }
 
   @Test
@@ -59,6 +65,16 @@ class PaymentSuccessEventConsumerTest {
   void invalidEventIsRejected() {
     assertThatThrownBy(() -> consumer.onMessage("{\"eventId\":\"event-1\"}"))
         .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void zeroAmountEventIsRejectedBeforeAnyFundWrite() {
+    assertThatThrownBy(
+            () -> consumer.onMessage(event("PAYIN", BigDecimal.ZERO, BigDecimal.ZERO)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("invalid payment amount or fee amount");
+
+    org.mockito.Mockito.verifyNoInteractions(ledgerMapper, consumptionMapper, settlementService);
   }
 
   @Test
@@ -100,6 +116,10 @@ class PaymentSuccessEventConsumerTest {
   }
 
   private static String event(String orderType, BigDecimal feeAmount) {
+    return event(orderType, new BigDecimal("10.25"), feeAmount);
+  }
+
+  private static String event(String orderType, BigDecimal amount, BigDecimal feeAmount) {
     try {
       ObjectNode event = OBJECT_MAPPER.createObjectNode();
       event.put("schemaVersion", 1);
@@ -108,7 +128,7 @@ class PaymentSuccessEventConsumerTest {
       event.put("eventId", "event-1");
       event.put("orderId", "order-1");
       event.put("merchantId", "merchant-1");
-      event.put("amount", new BigDecimal("10.25"));
+      event.put("amount", amount);
       event.put("feeAmount", feeAmount);
       event.put("currency", "USD");
       event.put("eventSignature", hmac(OBJECT_MAPPER.writeValueAsString(event)));

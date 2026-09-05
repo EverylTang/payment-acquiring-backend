@@ -31,6 +31,7 @@ public class OrderService {
   private final MerchantNotificationOutboxService merchantNotificationOutboxService;
   private final OrderExpirationProperties expirationProperties;
   private final PaymentAttemptRepository attemptRepository;
+  private final RedisDistributedLockService lockService;
 
   @Autowired
   public OrderService(
@@ -41,7 +42,8 @@ public class OrderService {
       MerchantCallbackUrlPolicy callbackUrlPolicy,
       MerchantNotificationOutboxService merchantNotificationOutboxService,
       OrderExpirationProperties expirationProperties,
-      PaymentAttemptRepository attemptRepository) {
+      PaymentAttemptRepository attemptRepository,
+      RedisDistributedLockService lockService) {
     this.repository = repository;
     this.channelConfiguration = channelConfiguration;
     this.objectMapper = objectMapper;
@@ -50,6 +52,7 @@ public class OrderService {
     this.merchantNotificationOutboxService = merchantNotificationOutboxService;
     this.expirationProperties = expirationProperties;
     this.attemptRepository = attemptRepository;
+    this.lockService = lockService;
   }
 
   OrderService(
@@ -68,6 +71,7 @@ public class OrderService {
         callbackUrlPolicy,
         merchantNotificationOutboxService,
         expirationProperties,
+        null,
         null);
   }
 
@@ -80,6 +84,7 @@ public class OrderService {
         new MerchantCallbackUrlPolicy(false),
         null,
         OrderExpirationProperties.defaults(),
+        null,
         null);
   }
 
@@ -95,11 +100,38 @@ public class OrderService {
         new MerchantCallbackUrlPolicy(false),
         null,
         OrderExpirationProperties.defaults(),
+        null,
         null);
   }
 
   @Transactional
   public PaymentOrder create(CreateOrderCommand command) {
+    if (lockService == null) {
+      return createOrderInternal(command);
+    }
+    String lockKey =
+        "order:create:"
+            + command.merchantId()
+            + ":"
+            + (command.idempotencyKey() != null
+                ? command.idempotencyKey()
+                : command.merchantOrderNo());
+    String requestId = java.util.UUID.randomUUID().toString();
+
+    try {
+      return lockService.executeWithLock(
+          lockKey,
+          requestId,
+          Duration.ofSeconds(30),
+          Duration.ofSeconds(10),
+          () -> createOrderInternal(command));
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException("Order creation interrupted", e);
+    }
+  }
+
+  private PaymentOrder createOrderInternal(CreateOrderCommand command) {
     final var resolvedOrderType =
         channelConfiguration == null
             ? OrderType.PAYIN

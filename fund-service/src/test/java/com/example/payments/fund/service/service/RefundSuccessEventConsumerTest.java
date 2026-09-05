@@ -25,9 +25,12 @@ class RefundSuccessEventConsumerTest {
   private final LedgerEntryMapper ledgerMapper = org.mockito.Mockito.mock(LedgerEntryMapper.class);
   private final RefundEventConsumptionMapper consumptionMapper =
       org.mockito.Mockito.mock(RefundEventConsumptionMapper.class);
+  private final MerchantSettlementService settlementService =
+      org.mockito.Mockito.mock(MerchantSettlementService.class);
   private final RefundSuccessEventConsumer consumer =
       new RefundSuccessEventConsumer(
           new LedgerEntryApplicationService(ledgerMapper),
+          settlementService,
           OBJECT_MAPPER,
           consumptionMapper,
           new SimpleMeterRegistry(),
@@ -43,6 +46,8 @@ class RefundSuccessEventConsumerTest {
 
     verify(ledgerMapper).insert(any(LedgerEntryEntity.class));
     verify(consumptionMapper).insert(any(RefundEventConsumptionEntity.class));
+    verify(settlementService)
+        .applyRefund("refund-1", "order-1", new BigDecimal("2.125"), "USD");
   }
 
   @Test
@@ -52,7 +57,20 @@ class RefundSuccessEventConsumerTest {
         .hasMessageContaining("invalid refund success event signature");
   }
 
+  @Test
+  void zeroAmountEventIsRejectedBeforeAnyFundWrite() {
+    assertThatThrownBy(() -> consumer.onMessage(event(BigDecimal.ZERO)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("invalid refund amount");
+
+    org.mockito.Mockito.verifyNoInteractions(ledgerMapper, consumptionMapper, settlementService);
+  }
+
   private static String event() {
+    return event(new BigDecimal("2.125"));
+  }
+
+  private static String event(BigDecimal amount) {
     try {
       ObjectNode event = OBJECT_MAPPER.createObjectNode();
       event.put("schemaVersion", 1);
@@ -62,7 +80,7 @@ class RefundSuccessEventConsumerTest {
       event.put("refundId", "refund-1");
       event.put("orderId", "order-1");
       event.put("merchantId", "merchant-1");
-      event.put("amount", new BigDecimal("2.125"));
+      event.put("amount", amount);
       event.put("currency", "USD");
       event.put("eventSignature", hmac(OBJECT_MAPPER.writeValueAsString(event)));
       return OBJECT_MAPPER.writeValueAsString(event);

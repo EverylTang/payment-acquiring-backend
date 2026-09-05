@@ -171,13 +171,19 @@ public class PlatformChannelConfigurationClient {
         || signatureProfile.isBlank()) {
       throw unavailable("渠道运行配置不完整");
     }
+    int schemaVersion = 1;
+    Object versionValue = route.get("schemaVersion");
+    if (versionValue instanceof Number number) {
+      schemaVersion = number.intValue();
+    }
     return new ChannelRuntimeContext(
         channelId,
         provider,
         requestUrl,
         signatureProfile,
         map(route.get("settings")),
-        credentials(route.get("credentials")));
+        credentials(route.get("credentials")),
+        schemaVersion);
   }
 
   private Map<String, String> credentials(Object value) {

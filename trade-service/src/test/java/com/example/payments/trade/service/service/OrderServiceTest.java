@@ -75,7 +75,8 @@ class OrderServiceTest {
             "https://payments.example.test",
             "HMAC_SHA256_V1",
             Map.of(),
-            Map.of());
+            Map.of(),
+            1);
     var configuration =
         new PlatformChannelConfigurationClient.ResolvedPaymentConfiguration(
             runtime,
@@ -106,7 +107,7 @@ class OrderServiceTest {
         "m2", "shared-order", "payout-usd", "BANK", "US", "USD", new BigDecimal("10.00"),
         "shared-key", null, null, null, null, "beneficiary-ref", null);
     var runtime = new ChannelRuntimeContext(
-        "payout-bank-us", "SIMULATED", "https://payments.example.test", "HMAC_SHA256_V1", Map.of(), Map.of());
+        "payout-bank-us", "SIMULATED", "https://payments.example.test", "HMAC_SHA256_V1", Map.of(), Map.of(), 1);
     var configuration = new PlatformChannelConfigurationClient.ResolvedPaymentConfiguration(
         runtime, "price-payout-usd", BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, null, null,
         "COMBINED", List.of(), "EXCLUSIVE", "14", null, "PASS", "PAYOUT");
@@ -146,7 +147,7 @@ class OrderServiceTest {
             "m3", "o4", "p1", "CARD", "US", "USD", new BigDecimal("150.00"), "key-4", null, null, null, null, null, null);
     var runtime =
         new ChannelRuntimeContext(
-            "antom-card-us", "ANTOM", "https://payments.example.test", "HMAC_SHA256_V1", Map.of(), Map.of());
+            "antom-card-us", "ANTOM", "https://payments.example.test", "HMAC_SHA256_V1", Map.of(), Map.of(), 1);
     var configuration =
         new PlatformChannelConfigurationClient.ResolvedPaymentConfiguration(
             runtime,

@@ -36,6 +36,7 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
   private static final String EVENT_TYPE = "PAYMENT_SUCCEEDED";
   private static final long PROCESSING_LEASE_SECONDS = 60;
   private final LedgerEntryApplicationService ledgerService;
+  private final MerchantSettlementService settlementService;
   private final PaymentEventConsumptionMapper consumptionMapper;
   private final ObjectMapper objectMapper;
   private final String signingSecret;
@@ -43,6 +44,7 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
 
   public PaymentSuccessEventConsumer(
       LedgerEntryApplicationService ledgerService,
+      MerchantSettlementService settlementService,
       PaymentEventConsumptionMapper consumptionMapper,
       ObjectMapper objectMapper,
       @Value("${fund.payment-success.signing-secret:}") String signingSecret) {
@@ -50,6 +52,7 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
       throw new IllegalStateException("PAYMENT_SUCCESS_EVENT_SIGNING_SECRET must be configured");
     }
     this.ledgerService = ledgerService;
+    this.settlementService = settlementService;
     this.consumptionMapper = consumptionMapper;
     this.objectMapper = objectMapper;
     this.signingSecret = signingSecret;
@@ -72,8 +75,9 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
     String orderId = required(event, "orderId");
     String merchantId = required(event, "merchantId");
     String currency = required(event, "currency");
-    BigDecimal amount = event.required("amount").decimalValue();
+    BigDecimal amount = decimal(event, "amount");
     BigDecimal feeAmount = decimalOrZero(event, "feeAmount");
+    validateAmounts(amount, feeAmount);
     String hash = sha256(message);
     LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
     PaymentEventConsumptionEntity record = consumptionMapper.findByEvent(eventId, EVENT_TYPE);
@@ -93,6 +97,7 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
     if ("PROCESSED".equals(record.getStatus()) || "DUPLICATE".equals(record.getStatus())) {
       ledgerService.recordPaymentSuccess(
           idempotencyKey(orderId), orderId, merchantId, amount, feeAmount, currency);
+      settlementService.createSettlementDetail(orderId, merchantId, amount, feeAmount, currency);
       return;
     }
     if ("FAILED".equals(record.getStatus()) || "REPLAYING".equals(record.getStatus())) {
@@ -122,6 +127,7 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
       var result =
           ledgerService.recordPaymentSuccess(
               idempotencyKey(orderId), orderId, merchantId, amount, feeAmount, currency);
+      settlementService.createSettlementDetail(orderId, merchantId, amount, feeAmount, currency);
       record.setStatus(result.duplicate() ? "DUPLICATE" : "PROCESSED");
       record.setProcessedAt(LocalDateTime.now(ZoneOffset.UTC));
       record.setLastError(null);
@@ -279,6 +285,22 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
     if (value == null || value.isNull()) return BigDecimal.ZERO;
     if (!value.isNumber()) throw new IllegalArgumentException("invalid " + field);
     return value.decimalValue();
+  }
+
+  private static BigDecimal decimal(JsonNode event, String field) {
+    JsonNode value = event.get(field);
+    if (value == null || !value.isNumber()) throw new IllegalArgumentException("invalid " + field);
+    return value.decimalValue();
+  }
+
+  private static void validateAmounts(BigDecimal amount, BigDecimal feeAmount) {
+    if (amount.signum() <= 0
+        || amount.scale() > 4
+        || feeAmount.signum() < 0
+        || feeAmount.scale() > 4
+        || feeAmount.compareTo(amount) > 0) {
+      throw new IllegalArgumentException("invalid payment amount or fee amount");
+    }
   }
 
   private static String truncate(String value) {

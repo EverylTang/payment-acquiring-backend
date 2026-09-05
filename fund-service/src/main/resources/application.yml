@@ -37,6 +37,9 @@ fund:
     topic: ${FUND_REFUND_SUCCESS_TOPIC:REFUND_SUCCEEDED}
     consumer-group: ${FUND_REFUND_SUCCESS_CONSUMER_GROUP:fund-refund-success}
     signing-secret: ${PAYMENT_SUCCESS_EVENT_SIGNING_SECRET:}
+  settlement:
+    cron: ${FUND_SETTLEMENT_CRON:0 0 1 * * *}
+    zone: ${FUND_SETTLEMENT_ZONE:UTC}
 management:
   tracing:
     enabled: ${OTEL_TRACING_ENABLED:false}

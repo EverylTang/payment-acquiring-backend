@@ -47,6 +47,7 @@ class ChannelRequestSignerTest {
         "https://example.test/pay",
         profile,
         Map.of("signatureFields", "amount,orderId"),
-        Map.of("requestSigningKey", secret));
+        Map.of("requestSigningKey", secret),
+        1);
   }
 }

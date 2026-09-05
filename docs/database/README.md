@@ -28,3 +28,9 @@ docker exec -i local-mysql mysql -uroot -p < docs/database/payment-acquiring-com
 已有生产库不能直接重跑完整初始化 SQL。涉及产品字段、主数据表或废弃 `country_master.iso3_code` 列的历史环境，应基于备份、现有表结构和发布审计，由受控数据库发布流程生成并评审专用变更；删除 `iso3_code` 属于不可恢复操作。
 
 生产环境应使用受控数据库发布 Job、备份和回滚方案执行完整 SQL，并保存执行版本、校验哈希和结果。
+
+已有环境新增商户结算能力时，使用 [`settlement-v1-upgrade.sql`](./settlement-v1-upgrade.sql) 完成受控升级；不得重跑完整初始化脚本。
+
+## 商户结算
+
+支付成功事件会为已启用收款的商户创建结算明细。上线或启用商户产品前，必须为每个商户/币种配置一条当前生效的 `ACTIVE` 结算规则；缺少规则的事件会保留为失败状态，待规则补齐后可通过既有事件重放流程恢复。默认每日 01:00 UTC 处理到期结算，支持通过 `FUND_SETTLEMENT_CRON` 和 `FUND_SETTLEMENT_ZONE` 调整。

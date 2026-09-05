@@ -65,14 +65,18 @@ public class MerchantNotificationDeliveryWorker {
       }
       String body = publicPayload(notification);
       var signature = signatureClient.sign(order.merchantId(), body);
-      int statusCode =
+      MerchantNotificationResponse response =
           httpClient.post(
               URI.create(callbackUrlPolicy.validate(notification.notifyUrl(), "notifyUrl")),
               notification.eventId(),
               body,
               signature);
-      if (statusCode < 200 || statusCode >= 300) {
-        throw new IllegalStateException("merchant notification returned HTTP " + statusCode);
+      if (!response.isSuccessStatusCode()) {
+        throw new IllegalStateException(
+            "merchant notification returned HTTP " + response.statusCode());
+      }
+      if (!response.isAcknowledged()) {
+        throw new IllegalStateException("merchant response explicitly rejected the notification");
       }
       if (outboxRepository.markPublished(event.getEventId(), event.getClaimToken())) {
         notificationOutboxService.delivered(event);

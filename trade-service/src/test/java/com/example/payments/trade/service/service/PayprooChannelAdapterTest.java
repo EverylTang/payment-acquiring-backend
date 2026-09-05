@@ -31,7 +31,8 @@ class PayprooChannelAdapterTest {
                 "merchantPrivateKey",
                 Base64.getEncoder().encodeToString(pair.getPrivate().getEncoded()),
                 "platformPublicKey",
-                Base64.getEncoder().encodeToString(pair.getPublic().getEncoded())));
+                Base64.getEncoder().encodeToString(pair.getPublic().getEncoded())),
+            1);
     var values = new LinkedHashMap<String, Object>();
     values.put("z", "last");
     values.put("a", "first");
@@ -70,7 +71,8 @@ class PayprooChannelAdapterTest {
                 "0",
                 "integerAmount",
                 "true"),
-            Map.of());
+            Map.of(),
+            1);
     var request =
         new PaymentChannelAdapter.PaymentChannelRequest(
             "attempt-1",
@@ -118,7 +120,8 @@ class PayprooChannelAdapterTest {
                 "merchantPrivateKey",
                 Base64.getEncoder().encodeToString(pair.getPrivate().getEncoded()),
                 "platformPublicKey",
-                Base64.getEncoder().encodeToString(pair.getPublic().getEncoded())));
+                Base64.getEncoder().encodeToString(pair.getPublic().getEncoded())),
+            1);
     var payload = new LinkedHashMap<String, Object>();
     payload.put("appId", "1054");
     payload.put("orderId", "another-order");

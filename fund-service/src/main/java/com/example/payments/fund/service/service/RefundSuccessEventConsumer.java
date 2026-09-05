@@ -31,6 +31,7 @@ import org.springframework.stereotype.Component;
 public class RefundSuccessEventConsumer implements RocketMQListener<String> {
   private static final String EVENT_TYPE = "REFUND_SUCCEEDED";
   private final LedgerEntryApplicationService ledger;
+  private final MerchantSettlementService settlementService;
   private final ObjectMapper mapper;
   private final RefundEventConsumptionMapper consumption;
   private final MeterRegistry metrics;
@@ -38,6 +39,7 @@ public class RefundSuccessEventConsumer implements RocketMQListener<String> {
 
   public RefundSuccessEventConsumer(
       LedgerEntryApplicationService ledger,
+      MerchantSettlementService settlementService,
       ObjectMapper mapper,
       RefundEventConsumptionMapper consumption,
       MeterRegistry metrics,
@@ -46,6 +48,7 @@ public class RefundSuccessEventConsumer implements RocketMQListener<String> {
       throw new IllegalStateException("REFUND_SUCCESS_EVENT_SIGNING_SECRET must be configured");
     }
     this.ledger = ledger;
+    this.settlementService = settlementService;
     this.mapper = mapper;
     this.consumption = consumption;
     this.metrics = metrics;
@@ -72,6 +75,7 @@ public class RefundSuccessEventConsumer implements RocketMQListener<String> {
       String merchantId = required(e, "merchantId");
       String currency = required(e, "currency");
       BigDecimal amount = decimal(e, "amount");
+      validateAmount(amount);
       String hash = sha256(message);
       RefundEventConsumptionEntity record =
           consumption.selectOne(
@@ -97,6 +101,7 @@ public class RefundSuccessEventConsumer implements RocketMQListener<String> {
         }
       }
       ledger.recordRefundReversal(refundId, orderId, merchantId, amount, currency);
+      settlementService.applyRefund(refundId, orderId, amount, currency);
       record.setStatus("PROCESSED");
       record.setProcessedAt(LocalDateTime.now(ZoneOffset.UTC));
       record.setLastError(null);
@@ -195,6 +200,12 @@ public class RefundSuccessEventConsumer implements RocketMQListener<String> {
       throw new IllegalArgumentException("missing or invalid " + field);
     }
     return value.decimalValue();
+  }
+
+  private static void validateAmount(BigDecimal amount) {
+    if (amount.signum() <= 0 || amount.scale() > 4) {
+      throw new IllegalArgumentException("invalid refund amount");
+    }
   }
 
   private static String sha256(String value) {

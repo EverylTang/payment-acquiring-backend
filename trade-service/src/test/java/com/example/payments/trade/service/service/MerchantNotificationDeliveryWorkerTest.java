@@ -69,7 +69,7 @@ class MerchantNotificationDeliveryWorkerTest {
     when(signatureClient.sign(eq("merchant-1"), any(String.class)))
         .thenReturn(new MerchantNotificationSignatureClient.Signature("key-1", 1L, "nonce", "signature"));
     when(httpClient.post(any(URI.class), eq("event-1"), any(String.class), any()))
-        .thenReturn(204);
+        .thenReturn(new MerchantNotificationResponse(204, ""));
     when(repository.markPublished("event-1", "claim-1")).thenReturn(true);
 
     worker.deliver(event, now);
@@ -89,7 +89,7 @@ class MerchantNotificationDeliveryWorkerTest {
     when(signatureClient.sign(eq("merchant-1"), any(String.class)))
         .thenReturn(new MerchantNotificationSignatureClient.Signature("key-1", 1L, "nonce", "signature"));
     when(httpClient.post(any(URI.class), eq("event-1"), any(String.class), any()))
-        .thenReturn(500);
+        .thenReturn(new MerchantNotificationResponse(500, ""));
     when(repository.markFailed(
             eq("event-1"),
             eq("claim-1"),
@@ -107,6 +107,37 @@ class MerchantNotificationDeliveryWorkerTest {
   }
 
   @Test
+  void explicitMerchantRejectionIsRetried() throws Exception {
+    Instant now = Instant.parse("2026-09-05T10:00:00Z");
+    PaymentOutboxEventEntity event = event(now);
+    when(orderRepository.findById("order-1")).thenReturn(Optional.of(successfulOrder()));
+    when(callbackUrlPolicy.validate("https://merchant.example/notify", "notifyUrl"))
+        .thenReturn("https://merchant.example/notify");
+    when(signatureClient.sign(eq("merchant-1"), any(String.class)))
+        .thenReturn(new MerchantNotificationSignatureClient.Signature("key-1", 1L, "nonce", "signature"));
+    when(httpClient.post(any(URI.class), eq("event-1"), any(String.class), any()))
+        .thenReturn(new MerchantNotificationResponse(200, "{\"success\":false}"));
+    when(repository.markFailed(
+            eq("event-1"),
+            eq("claim-1"),
+            eq(now.plusSeconds(5)),
+            eq("IllegalStateException: merchant response explicitly rejected the notification"),
+            eq("MERCHANT_NOTIFICATION_DELIVERY"),
+            eq(3),
+            eq(false)))
+        .thenReturn(true);
+
+    worker.deliver(event, now);
+
+    verify(notificationOutbox)
+        .deliveryFailed(
+            event,
+            "IllegalStateException: merchant response explicitly rejected the notification",
+            3,
+            false);
+  }
+
+  @Test
   void notificationBeyondRetryWindowMovesToDead() throws Exception {
     Instant now = Instant.parse("2026-09-05T10:00:00Z");
     PaymentOutboxEventEntity event = event(now);
@@ -118,7 +149,7 @@ class MerchantNotificationDeliveryWorkerTest {
     when(signatureClient.sign(eq("merchant-1"), any(String.class)))
         .thenReturn(new MerchantNotificationSignatureClient.Signature("key-1", 1L, "nonce", "signature"));
     when(httpClient.post(any(URI.class), eq("event-1"), any(String.class), any()))
-        .thenReturn(500);
+        .thenReturn(new MerchantNotificationResponse(500, ""));
     when(repository.markFailed(
             eq("event-1"),
             eq("claim-1"),

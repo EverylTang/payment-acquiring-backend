@@ -15,7 +15,7 @@ public class MerchantNotificationHttpClient {
           .followRedirects(HttpClient.Redirect.NEVER)
           .build();
 
-  public int post(
+  public MerchantNotificationResponse post(
       URI uri, String eventId, String body, MerchantNotificationSignatureClient.Signature signature)
       throws Exception {
     HttpRequest request =
@@ -29,6 +29,7 @@ public class MerchantNotificationHttpClient {
             .header("X-Payment-Signature", signature.signature())
             .POST(HttpRequest.BodyPublishers.ofString(body))
             .build();
-    return client.send(request, HttpResponse.BodyHandlers.discarding()).statusCode();
+    HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+    return new MerchantNotificationResponse(response.statusCode(), response.body());
   }
 }
