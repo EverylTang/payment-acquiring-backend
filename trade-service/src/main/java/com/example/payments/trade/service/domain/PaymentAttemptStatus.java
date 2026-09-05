@@ -10,7 +10,9 @@ public enum PaymentAttemptStatus {
   UNKNOWN;
 
   public boolean isTerminal() {
-    return this == SUCCESS || this == FAILED || this == TIMEOUT || this == CANCELED;
+    // A provider can complete after our local query window. Keep TIMEOUT recoverable so a
+    // verified late notification can still settle the order.
+    return this == SUCCESS || this == FAILED || this == CANCELED;
   }
 
   public boolean canTransitionTo(PaymentAttemptStatus next) {
@@ -20,8 +22,8 @@ public enum PaymentAttemptStatus {
       case CREATED -> this == CREATED;
       case PROCESSING -> this == CREATED || this == UNKNOWN;
       case SUCCESS, FAILED, TIMEOUT, CANCELED ->
-          this == CREATED || this == PROCESSING || this == UNKNOWN;
-      case UNKNOWN -> this == CREATED || this == PROCESSING;
+          this == CREATED || this == PROCESSING || this == UNKNOWN || this == TIMEOUT;
+      case UNKNOWN -> this == CREATED || this == PROCESSING || this == TIMEOUT;
     };
   }
 }

@@ -13,8 +13,9 @@ public class MerchantCallbackUrlPolicy {
   private final boolean allowHttp;
 
   public MerchantCallbackUrlPolicy(Environment environment) {
-    allowHttp = Arrays.stream(environment.getActiveProfiles())
-        .anyMatch(profile -> "local".equals(profile) || "test".equals(profile));
+    allowHttp =
+        Arrays.stream(environment.getActiveProfiles())
+            .anyMatch(profile -> "local".equals(profile) || "test".equals(profile));
   }
 
   MerchantCallbackUrlPolicy(boolean allowHttp) {
@@ -29,7 +30,10 @@ public class MerchantCallbackUrlPolicy {
     } catch (IllegalArgumentException exception) {
       throw invalid(field);
     }
-    if (!uri.isAbsolute() || uri.getHost() == null || uri.getUserInfo() != null || uri.getFragment() != null
+    if (!uri.isAbsolute()
+        || uri.getHost() == null
+        || uri.getUserInfo() != null
+        || uri.getFragment() != null
         || (!"https".equalsIgnoreCase(uri.getScheme())
             && !(allowHttp && "http".equalsIgnoreCase(uri.getScheme())))) {
       throw invalid(field);
@@ -46,8 +50,11 @@ public class MerchantCallbackUrlPolicy {
 
   private static boolean blocked(InetAddress address) {
     byte[] bytes = address.getAddress();
-    if (address.isAnyLocalAddress() || address.isLoopbackAddress() || address.isLinkLocalAddress()
-        || address.isSiteLocalAddress() || address.isMulticastAddress()) return true;
+    if (address.isAnyLocalAddress()
+        || address.isLoopbackAddress()
+        || address.isLinkLocalAddress()
+        || address.isSiteLocalAddress()
+        || address.isMulticastAddress()) return true;
     if (bytes.length == 4) {
       int first = Byte.toUnsignedInt(bytes[0]);
       int second = Byte.toUnsignedInt(bytes[1]);
@@ -57,6 +64,7 @@ public class MerchantCallbackUrlPolicy {
   }
 
   private static ResponseStatusException invalid(String field) {
-    return new ResponseStatusException(HttpStatus.BAD_REQUEST, field + " is not a permitted callback URL");
+    return new ResponseStatusException(
+        HttpStatus.BAD_REQUEST, field + " is not a permitted callback URL");
   }
 }

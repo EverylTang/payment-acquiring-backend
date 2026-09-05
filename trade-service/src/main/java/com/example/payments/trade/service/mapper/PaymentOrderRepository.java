@@ -72,7 +72,8 @@ public class PaymentOrderRepository {
   }
 
   public Optional<PaymentOrder> findByIdempotency(String merchantId, String key, String orderType) {
-    return Optional.ofNullable(mapper.findByIdempotency(merchantId, key, orderType)).map(this::toDomain);
+    return Optional.ofNullable(mapper.findByIdempotency(merchantId, key, orderType))
+        .map(this::toDomain);
   }
 
   public boolean updateStatus(
@@ -116,7 +117,10 @@ public class PaymentOrderRepository {
                 merchantId)
             .eq(status != null && !status.isBlank(), PaymentOrderEntity::getStatus, status)
             .eq(currency != null && !currency.isBlank(), PaymentOrderEntity::getCurrency, currency)
-            .eq(orderType != null && !orderType.isBlank(), PaymentOrderEntity::getOrderType, orderType)
+            .eq(
+                orderType != null && !orderType.isBlank(),
+                PaymentOrderEntity::getOrderType,
+                orderType)
             .orderByDesc(PaymentOrderEntity::getCreatedAt)
             .last("LIMIT " + pageSize + " OFFSET " + ((page - 1) * pageSize));
     return mapper.selectList(wrapper).stream().map(this::toDomain).toList();
@@ -131,7 +135,10 @@ public class PaymentOrderRepository {
                 merchantId)
             .eq(status != null && !status.isBlank(), PaymentOrderEntity::getStatus, status)
             .eq(currency != null && !currency.isBlank(), PaymentOrderEntity::getCurrency, currency)
-            .eq(orderType != null && !orderType.isBlank(), PaymentOrderEntity::getOrderType, orderType);
+            .eq(
+                orderType != null && !orderType.isBlank(),
+                PaymentOrderEntity::getOrderType,
+                orderType);
     return mapper.selectCount(wrapper);
   }
 

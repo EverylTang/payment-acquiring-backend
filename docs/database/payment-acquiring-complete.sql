@@ -392,6 +392,16 @@ INSERT IGNORE INTO currency_master(currency_code,currency_name,symbol,decimal_pl
 INSERT IGNORE INTO country_currency_master(country_code,currency_code,status,created_at,updated_at) VALUES
   ('US','USD','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('CN','CNY','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('GB','GBP','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('SG','SGD','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)), ('HK','HKD','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3));
 
+INSERT IGNORE INTO country_master(country_code,country_name,region,status,created_at,updated_at) VALUES
+  ('TW','中国台湾','亚太','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)),
+  ('KR','韩国','亚太','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3));
+INSERT IGNORE INTO currency_master(currency_code,currency_name,symbol,decimal_places,status,created_at,updated_at) VALUES
+  ('TWD','新台币','NT$',0,'ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)),
+  ('KRW','韩元','₩',0,'ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3));
+INSERT IGNORE INTO country_currency_master(country_code,currency_code,status,created_at,updated_at) VALUES
+  ('TW','TWD','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)),
+  ('KR','KRW','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3));
+
 INSERT IGNORE INTO logical_product (product_code, name, product_type, access_mode, default_country, default_currency, description, statement_descriptor, status, created_at, updated_at)
 VALUES ('CARD-US-USD', '美国卡支付', 'PAYIN', 'DIRECT', 'US', 'USD', '面向美国市场的银行卡收款产品', 'DEMO PAYMENT', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
@@ -407,6 +417,20 @@ VALUES ('simulated-channel', '模拟渠道', 'SIMULATED', 'https://simulated.loc
 UPDATE channel SET request_url = 'https://simulated.local' WHERE channel_id = 'simulated-channel' AND request_url = '';
 
 UPDATE channel SET signature_profile = 'SIMULATED_SHA256_PREFIX_V1' WHERE channel_id = 'simulated-channel' AND signature_profile = 'DEFAULT';
+
+-- These inactive templates intentionally contain no production credentials. Activate only after
+-- the merchant appId and the three credential values are populated through channel administration.
+INSERT IGNORE INTO channel (channel_id, name, provider, request_url, signature_profile, status, config_json, created_at, updated_at)
+VALUES
+  ('payproo-twd-v1', 'PayProo 台湾收单', 'PAYPROO', 'https://api.payproo.tech/twd/collect/apply', 'PAYPROO_RSA_SHA256_V1', 'INACTIVE',
+   JSON_OBJECT('settings', JSON_OBJECT('appId','','queryUrl','https://api.payproo.tech/twd/collect/query','amountScale','0','integerAmount','true','connectTimeoutMs','3000','readTimeoutMs','10000','maxOrderValiditySeconds','604800','requirePayUrl','true','callbackSuccessResponse','SUCCESS','requestFields','appId,orderId,name,phone,email,amount,payType,payModel,callBackUrl,subject,userId,subMerchantId,subMerchantName,body,language','requiredFields','appId,orderId,name,phone,email,amount,payType,payModel,callBackUrl,subject','methodMappings',JSON_OBJECT('TWD_VA',JSON_OBJECT('payType','VA','payModel','BANKTRANSFER'),'TWD_OTC',JSON_OBJECT('payType','OTC','payModel','OTC_STORE'),'TWD_JKO',JSON_OBJECT('payType','EWALLET','payModel','JKOPAY','requiredFields',JSON_ARRAY('userId','subMerchantId')),'TWD_CARD',JSON_OBJECT('payType','CARD','payModel','CREDIT_CARD'),'TWD_APPLEPAY',JSON_OBJECT('payType','CARD','payModel','APPLEPAY'))),'credentials',JSON_OBJECT('merchantSecretKey','','merchantPrivateKey','','platformPublicKey','')),
+   CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  ('payproo-krw-v1', 'PayProo 韩国收单', 'PAYPROO', 'https://api.payproo.tech/krw/collect/apply', 'PAYPROO_RSA_SHA256_V1', 'INACTIVE',
+   JSON_OBJECT('settings', JSON_OBJECT('appId','','queryUrl','https://api.payproo.tech/krw/collect/query','amountScale','4','integerAmount','false','connectTimeoutMs','3000','readTimeoutMs','10000','maxOrderValiditySeconds','86400','requirePayUrl','true','callbackSuccessResponse','SUCCESS','requestFields','appId,orderId,name,firstName,lastName,phone,email,amount,payType,payModel,callBackUrl,userId,subject,body','requiredFields','appId,orderId,name,amount,payType,payModel,callBackUrl,userId,subject','methodMappings',JSON_OBJECT('KR_NAVERPAY',JSON_OBJECT('payType','EWALLET','payModel','NAVERPAY'),'KR_KAKAOPAY',JSON_OBJECT('payType','EWALLET','payModel','KAKAOPAY'),'KR_SAMSUNPAY',JSON_OBJECT('payType','EWALLET','payModel','SAMSUNPAY'),'KR_TOSS',JSON_OBJECT('payType','EWALLET','payModel','TOSS'),'KR_PAYCO',JSON_OBJECT('payType','EWALLET','payModel','PAYCO'),'KR_BANK_TRANSFER',JSON_OBJECT('payType','BANK_TRANSFER','payModel','BANKTRANSFER'),'KR_VIRTUAL_ACCOUNT',JSON_OBJECT('payType','BANK_TRANSFER','payModel','VIRTUALACCOUNT'),'KR_LOCAL_CARD',JSON_OBJECT('payType','CARD','payModel','LOCALCARD'))),'credentials',JSON_OBJECT('merchantSecretKey','','merchantPrivateKey','','platformPublicKey','')),
+   CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  ('payproo-hkd-v1', 'PayProo 香港收单', 'PAYPROO', 'https://api.payproo.tech/hkd/collect/apply', 'PAYPROO_RSA_SHA256_V1', 'INACTIVE',
+   JSON_OBJECT('settings', JSON_OBJECT('appId','','queryUrl','https://api.payproo.tech/hkd/collect/query','amountScale','4','integerAmount','false','connectTimeoutMs','3000','readTimeoutMs','10000','maxOrderValiditySeconds','86400','requirePayUrl','true','callbackSuccessResponse','SUCCESS','requestFields','appId,orderId,name,firstName,lastName,phone,email,amount,payType,payModel,callBackUrl,userId,subject,body','requiredFields','appId,orderId,name,amount,payType,payModel,callBackUrl,userId,subject','methodMappings',JSON_OBJECT('HK_WECHAT',JSON_OBJECT('payType','EWALLET','payModel','WECHAT'),'HK_ALIPAY',JSON_OBJECT('payType','EWALLET','payModel','ALIPAY'),'HK_OCTOPUS',JSON_OBJECT('payType','EWALLET','payModel','OCTOPUS'))),'credentials',JSON_OBJECT('merchantSecretKey','','merchantPrivateKey','','platformPublicKey','')),
+   CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
 INSERT IGNORE INTO channel_secret_binding (binding_id, channel_id, credential_role, secret_ref, key_version, status, created_at, updated_at)
 VALUES
@@ -843,6 +867,32 @@ CREATE TABLE IF NOT EXISTS payment_attempt (
   KEY idx_attempt_order (order_id, attempt_no)
 );
 
+ALTER TABLE payment_attempt
+  ADD COLUMN IF NOT EXISTS payment_url VARCHAR(2048) NULL COMMENT '支付跳转地址' AFTER failure_code;
+ALTER TABLE payment_attempt
+  ADD COLUMN IF NOT EXISTS qr_code TEXT NULL COMMENT '支付二维码原文' AFTER payment_url;
+
+-- Provider contracts may accept four fractional digits. Channel settings still enforce the
+-- provider/currency-specific scale (for example TWD remains integer-only).
+ALTER TABLE pricing_rule
+  MODIFY COLUMN fixed_fee DECIMAL(20, 4) NOT NULL,
+  MODIFY COLUMN extra_fee DECIMAL(20, 4) NOT NULL DEFAULT 0,
+  MODIFY COLUMN min_fee DECIMAL(20, 4) NULL,
+  MODIFY COLUMN max_fee DECIMAL(20, 4) NULL,
+  MODIFY COLUMN min_amount DECIMAL(20, 4) NULL,
+  MODIFY COLUMN max_amount DECIMAL(20, 4) NULL;
+ALTER TABLE product_capability
+  MODIFY COLUMN min_amount DECIMAL(20, 4) NOT NULL,
+  MODIFY COLUMN max_amount DECIMAL(20, 4) NOT NULL;
+ALTER TABLE channel_capability
+  MODIFY COLUMN min_amount DECIMAL(20, 4) NOT NULL,
+  MODIFY COLUMN max_amount DECIMAL(20, 4) NOT NULL;
+ALTER TABLE payment_order
+  MODIFY COLUMN amount DECIMAL(20, 4) NOT NULL,
+  MODIFY COLUMN fee_amount DECIMAL(20, 4) NOT NULL DEFAULT 0,
+  MODIFY COLUMN payer_payable_amount DECIMAL(20, 4) NOT NULL,
+  MODIFY COLUMN net_amount DECIMAL(20, 4) NOT NULL;
+
 -- SOURCE: consolidated trade-service V2
 
 CREATE TABLE IF NOT EXISTS payment_callback_record (
@@ -960,7 +1010,7 @@ CREATE TABLE IF NOT EXISTS payment_refund (
   order_id VARCHAR(64) NOT NULL COMMENT '订单ID',
   merchant_id VARCHAR(64) NOT NULL COMMENT '商户ID',
   idempotency_key VARCHAR(128) NOT NULL COMMENT '幂等键',
-  amount DECIMAL(20, 2) NOT NULL COMMENT '金额',
+  amount DECIMAL(20, 4) NOT NULL COMMENT '金额',
   currency VARCHAR(3) NOT NULL COMMENT '币种',
   status VARCHAR(32) NOT NULL COMMENT '业务状态',
   reason VARCHAR(512) COMMENT '原因说明',
@@ -1013,6 +1063,9 @@ ALTER TABLE payment_refund
   ADD COLUMN processing_until DATETIME(3) NULL AFTER processing_owner;
 CREATE INDEX idx_refund_execution ON payment_refund (status, next_attempt_at, processing_until);
 
+-- Keep Trade precision aligned with channels that accept four fractional digits.
+ALTER TABLE payment_refund MODIFY COLUMN amount DECIMAL(20, 4) NOT NULL;
+
 -- FUND SERVICE
 USE pay_fund;
 
@@ -1026,7 +1079,7 @@ CREATE TABLE IF NOT EXISTS ledger_entry (
   refund_id VARCHAR(64) COMMENT '退款ID',
   entry_type VARCHAR(32) NOT NULL COMMENT '分录类型',
   debit_credit VARCHAR(8) NOT NULL COMMENT '借贷方向',
-  amount DECIMAL(20, 2) NOT NULL COMMENT '金额',
+  amount DECIMAL(20, 4) NOT NULL COMMENT '金额',
   currency VARCHAR(3) NOT NULL COMMENT '币种',
   available_at DATETIME(3) COMMENT '可用时间',
   idempotency_key VARCHAR(128) NOT NULL COMMENT '幂等键',
@@ -1047,7 +1100,7 @@ CREATE TABLE IF NOT EXISTS payment_event_consumption (
   order_id VARCHAR(64) NOT NULL COMMENT '订单ID',
   attempt_id VARCHAR(64) COMMENT '尝试ID',
   merchant_id VARCHAR(64) NOT NULL COMMENT '商户ID',
-  amount DECIMAL(20, 2) NOT NULL COMMENT '金额',
+  amount DECIMAL(20, 4) NOT NULL COMMENT '金额',
   currency VARCHAR(3) NOT NULL COMMENT '币种',
   payload JSON NOT NULL COMMENT '事件数据',
   payload_hash CHAR(64) NOT NULL COMMENT '数据哈希',
@@ -1140,6 +1193,10 @@ CREATE TABLE IF NOT EXISTS refund_event_consumption (
   processed_at DATETIME(3) COMMENT '处理时间',
   UNIQUE KEY uk_refund_event (event_id)
 );
+
+-- Keep Fund precision aligned with Trade and channels that accept four fractional digits.
+ALTER TABLE ledger_entry MODIFY COLUMN amount DECIMAL(20, 4) NOT NULL;
+ALTER TABLE payment_event_consumption MODIFY COLUMN amount DECIMAL(20, 4) NOT NULL;
 
 -- TABLE COMMENTS
 USE pay_platform;

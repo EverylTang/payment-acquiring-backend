@@ -4,12 +4,14 @@ import com.example.payments.fund.service.mapper.PaymentEventConsumptionMapper;
 import com.example.payments.fund.service.model.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.DecimalNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.UUID;
 import javax.crypto.Mac;
@@ -71,6 +73,7 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
     String merchantId = required(event, "merchantId");
     String currency = required(event, "currency");
     BigDecimal amount = event.required("amount").decimalValue();
+    BigDecimal feeAmount = decimalOrZero(event, "feeAmount");
     String hash = sha256(message);
     LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
     PaymentEventConsumptionEntity record = consumptionMapper.findByEvent(eventId, EVENT_TYPE);
@@ -89,7 +92,7 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
     validateExisting(record, eventId, orderId, merchantId, currency, amount, hash);
     if ("PROCESSED".equals(record.getStatus()) || "DUPLICATE".equals(record.getStatus())) {
       ledgerService.recordPaymentSuccess(
-          idempotencyKey(orderId), orderId, merchantId, amount, currency);
+          idempotencyKey(orderId), orderId, merchantId, amount, feeAmount, currency);
       return;
     }
     if ("FAILED".equals(record.getStatus()) || "REPLAYING".equals(record.getStatus())) {
@@ -118,7 +121,7 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
     try {
       var result =
           ledgerService.recordPaymentSuccess(
-              idempotencyKey(orderId), orderId, merchantId, amount, currency);
+              idempotencyKey(orderId), orderId, merchantId, amount, feeAmount, currency);
       record.setStatus(result.duplicate() ? "DUPLICATE" : "PROCESSED");
       record.setProcessedAt(LocalDateTime.now(ZoneOffset.UTC));
       record.setLastError(null);
@@ -205,10 +208,12 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
     String supplied = required(event, "eventSignature");
     ObjectNode unsigned = event.deepCopy();
     unsigned.remove("eventSignature");
+    normalizeNumbers(unsigned);
     try {
       String expected = hmac(objectMapper.writeValueAsString(unsigned));
       if (!MessageDigest.isEqual(
-          expected.getBytes(StandardCharsets.US_ASCII), supplied.getBytes(StandardCharsets.US_ASCII))) {
+          expected.getBytes(StandardCharsets.US_ASCII),
+          supplied.getBytes(StandardCharsets.US_ASCII))) {
         throw new IllegalArgumentException("invalid payment success event signature");
       }
     } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
@@ -216,13 +221,45 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
     }
   }
 
+  private static void normalizeNumbers(JsonNode node) {
+    if (node instanceof ObjectNode object) {
+      var fields = new ArrayList<String>();
+      object.fieldNames().forEachRemaining(fields::add);
+      for (String field : fields) {
+        var value = object.get(field);
+        if (value.isNumber()) {
+          object.set(field, DecimalNode.valueOf(canonicalDecimal(value.decimalValue())));
+        } else {
+          normalizeNumbers(value);
+        }
+      }
+    } else if (node instanceof com.fasterxml.jackson.databind.node.ArrayNode array) {
+      for (int index = 0; index < array.size(); index++) {
+        var value = array.get(index);
+        if (value.isNumber()) {
+          array.set(index, DecimalNode.valueOf(canonicalDecimal(value.decimalValue())));
+        } else {
+          normalizeNumbers(value);
+        }
+      }
+    }
+  }
+
+  private static BigDecimal canonicalDecimal(BigDecimal value) {
+    var normalized = value.stripTrailingZeros();
+    return normalized.scale() < 0 ? normalized.setScale(0) : normalized;
+  }
+
   private String hmac(String payload) {
     try {
       var mac = Mac.getInstance("HmacSHA256");
       mac.init(new SecretKeySpec(signingSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-      return Base64.getUrlEncoder().withoutPadding().encodeToString(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
+      return Base64.getUrlEncoder()
+          .withoutPadding()
+          .encodeToString(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
     } catch (java.security.GeneralSecurityException exception) {
-      throw new IllegalStateException("payment success event signature verification failed", exception);
+      throw new IllegalStateException(
+          "payment success event signature verification failed", exception);
     }
   }
 
@@ -235,6 +272,13 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
 
   private static String idempotencyKey(String orderId) {
     return "payment-success:" + orderId;
+  }
+
+  private static BigDecimal decimalOrZero(JsonNode event, String field) {
+    JsonNode value = event.get(field);
+    if (value == null || value.isNull()) return BigDecimal.ZERO;
+    if (!value.isNumber()) throw new IllegalArgumentException("invalid " + field);
+    return value.decimalValue();
   }
 
   private static String truncate(String value) {

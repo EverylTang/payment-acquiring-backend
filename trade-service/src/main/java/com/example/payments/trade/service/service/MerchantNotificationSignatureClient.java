@@ -21,14 +21,20 @@ public class MerchantNotificationSignatureClient {
   public Signature sign(String merchantId, String body) {
     Instant now = Instant.now();
     String nonce = UUID.randomUUID().toString();
-    var result = client.post().uri("/api/internal/v1/merchant-authentication/notifications/sign")
-        .headers(headers -> headers.set("X-Internal-Token", internalToken))
-        .body(new SigningRequest(merchantId, body, nonce, now.getEpochSecond()))
-        .retrieve().body(Signature.class);
-    if (result == null || result.keyId() == null || result.signature() == null) throw new IllegalStateException("merchant notification signature is unavailable");
+    var result =
+        client
+            .post()
+            .uri("/api/internal/v1/merchant-authentication/notifications/sign")
+            .headers(headers -> headers.set("X-Internal-Token", internalToken))
+            .body(new SigningRequest(merchantId, body, nonce, now.getEpochSecond()))
+            .retrieve()
+            .body(Signature.class);
+    if (result == null || result.keyId() == null || result.signature() == null)
+      throw new IllegalStateException("merchant notification signature is unavailable");
     return result;
   }
 
   private record SigningRequest(String merchantId, String body, String nonce, long timestamp) {}
+
   public record Signature(String keyId, long timestamp, String nonce, String signature) {}
 }

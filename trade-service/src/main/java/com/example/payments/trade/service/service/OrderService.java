@@ -1,9 +1,10 @@
 package com.example.payments.trade.service.service;
 
+import com.example.payments.trade.service.config.OrderExpirationProperties;
 import com.example.payments.trade.service.domain.OrderStatus;
 import com.example.payments.trade.service.domain.OrderType;
 import com.example.payments.trade.service.domain.PaymentOrder;
-import com.example.payments.trade.service.config.OrderExpirationProperties;
+import com.example.payments.trade.service.mapper.PaymentAttemptRepository;
 import com.example.payments.trade.service.mapper.PaymentOrderRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,7 +12,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
-import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +30,7 @@ public class OrderService {
   private final MerchantCallbackUrlPolicy callbackUrlPolicy;
   private final MerchantNotificationOutboxService merchantNotificationOutboxService;
   private final OrderExpirationProperties expirationProperties;
+  private final PaymentAttemptRepository attemptRepository;
 
   @Autowired
   public OrderService(
@@ -39,7 +40,8 @@ public class OrderService {
       OrderNumberGenerator orderNumberGenerator,
       MerchantCallbackUrlPolicy callbackUrlPolicy,
       MerchantNotificationOutboxService merchantNotificationOutboxService,
-      OrderExpirationProperties expirationProperties) {
+      OrderExpirationProperties expirationProperties,
+      PaymentAttemptRepository attemptRepository) {
     this.repository = repository;
     this.channelConfiguration = channelConfiguration;
     this.objectMapper = objectMapper;
@@ -47,6 +49,26 @@ public class OrderService {
     this.callbackUrlPolicy = callbackUrlPolicy;
     this.merchantNotificationOutboxService = merchantNotificationOutboxService;
     this.expirationProperties = expirationProperties;
+    this.attemptRepository = attemptRepository;
+  }
+
+  OrderService(
+      PaymentOrderRepository repository,
+      PlatformChannelConfigurationClient channelConfiguration,
+      ObjectMapper objectMapper,
+      OrderNumberGenerator orderNumberGenerator,
+      MerchantCallbackUrlPolicy callbackUrlPolicy,
+      MerchantNotificationOutboxService merchantNotificationOutboxService,
+      OrderExpirationProperties expirationProperties) {
+    this(
+        repository,
+        channelConfiguration,
+        objectMapper,
+        orderNumberGenerator,
+        callbackUrlPolicy,
+        merchantNotificationOutboxService,
+        expirationProperties,
+        null);
   }
 
   OrderService(PaymentOrderRepository repository) {
@@ -57,7 +79,8 @@ public class OrderService {
         new OrderNumberGenerator(0, System::currentTimeMillis),
         new MerchantCallbackUrlPolicy(false),
         null,
-        OrderExpirationProperties.defaults());
+        OrderExpirationProperties.defaults(),
+        null);
   }
 
   OrderService(
@@ -71,17 +94,20 @@ public class OrderService {
         new OrderNumberGenerator(0, System::currentTimeMillis),
         new MerchantCallbackUrlPolicy(false),
         null,
-        OrderExpirationProperties.defaults());
+        OrderExpirationProperties.defaults(),
+        null);
   }
 
   @Transactional
   public PaymentOrder create(CreateOrderCommand command) {
-    final var resolvedOrderType = channelConfiguration == null
-        ? OrderType.PAYIN
-        : OrderType.fromProductType(channelConfiguration.productType(command.productCode()));
+    final var resolvedOrderType =
+        channelConfiguration == null
+            ? OrderType.PAYIN
+            : OrderType.fromProductType(channelConfiguration.productType(command.productCode()));
     var existing =
         repository
-            .findByIdempotency(command.merchantId(), command.idempotencyKey(), resolvedOrderType.name())
+            .findByIdempotency(
+                command.merchantId(), command.idempotencyKey(), resolvedOrderType.name())
             .or(
                 () ->
                     repository.findByMerchantOrder(
@@ -89,11 +115,10 @@ public class OrderService {
     if (existing.isPresent()) {
       return existing.get();
     }
-    validateExpiry(command.expireAt(), Instant.now());
+    Instant now = Instant.now();
     if (resolvedOrderType == OrderType.PAYOUT
         && (command.payoutDestinationRef() == null || command.payoutDestinationRef().isBlank())) {
-      throw new ResponseStatusException(
-          HttpStatus.BAD_REQUEST, "出款订单必须提供收款方引用");
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "出款订单必须提供收款方引用");
     }
     PaymentOrder order = draft(command);
     PlatformChannelConfigurationClient.ResolvedPaymentConfiguration configuration = null;
@@ -103,17 +128,31 @@ public class OrderService {
         throw new ResponseStatusException(HttpStatus.CONFLICT, "产品类型与路由配置不一致");
       }
     }
+    validateExpiry(
+        command.expireAt(),
+        now,
+        configuration == null
+            ? expirationProperties.maxValiditySeconds()
+            : maxValiditySeconds(configuration.runtime()));
     for (int attempt = 0; attempt < 3; attempt++) {
-      var candidate = order.withIdentity(orderNumberGenerator.next(resolvedOrderType), resolvedOrderType);
+      var candidate =
+          order.withIdentity(orderNumberGenerator.next(resolvedOrderType), resolvedOrderType);
       if (configuration != null) candidate = applyPricing(candidate, configuration);
       try {
         var inserted = repository.insert(candidate);
         if (configuration != null) channelConfiguration.recordRiskDecision(inserted, configuration);
         return inserted;
       } catch (DuplicateKeyException duplicate) {
-        var raced = repository
-            .findByIdempotency(command.merchantId(), command.idempotencyKey(), resolvedOrderType.name())
-            .or(() -> repository.findByMerchantOrder(command.merchantId(), command.merchantOrderNo(), resolvedOrderType.name()));
+        var raced =
+            repository
+                .findByIdempotency(
+                    command.merchantId(), command.idempotencyKey(), resolvedOrderType.name())
+                .or(
+                    () ->
+                        repository.findByMerchantOrder(
+                            command.merchantId(),
+                            command.merchantOrderNo(),
+                            resolvedOrderType.name()));
         if (raced.isPresent()) return raced.get();
       }
     }
@@ -122,11 +161,23 @@ public class OrderService {
 
   private PaymentOrder draft(CreateOrderCommand command) {
     return PaymentOrder.create(
-        "draft", OrderType.PAYIN, command.merchantId(), command.merchantOrderNo(), command.productCode(),
-        command.paymentMethod(), command.country(), command.currency(), command.amount(),
-        command.idempotencyKey(), merchantRequestSnapshot(command), command.expireAt(),
-        callbackUrlPolicy.validate(command.notifyUrl(), "notifyUrl"), callbackUrlPolicy.validate(command.returnUrl(), "returnUrl"),
-        command.customerReference(), command.payoutDestinationRef(), command.description());
+        "draft",
+        OrderType.PAYIN,
+        command.merchantId(),
+        command.merchantOrderNo(),
+        command.productCode(),
+        command.paymentMethod(),
+        command.country(),
+        command.currency(),
+        command.amount(),
+        command.idempotencyKey(),
+        merchantRequestSnapshot(command),
+        command.expireAt(),
+        callbackUrlPolicy.validate(command.notifyUrl(), "notifyUrl"),
+        callbackUrlPolicy.validate(command.returnUrl(), "returnUrl"),
+        command.customerReference(),
+        command.payoutDestinationRef(),
+        command.description());
   }
 
   public PaymentOrder get(String orderId) {
@@ -212,6 +263,10 @@ public class OrderService {
     if (!current.expireAt().isAfter(Instant.now())) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "expired order cannot be canceled");
     }
+    if (attemptRepository != null && attemptRepository.hasOpenAttemptByOrderId(orderId)) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "payment attempt is still pending channel reconciliation");
+    }
     repository.updateStatus(orderId, current.status(), OrderStatus.CANCELED, null);
     return get(orderId);
   }
@@ -267,10 +322,25 @@ public class OrderService {
     return !order.expireAt().isAfter(now);
   }
 
-  private void validateExpiry(Instant expireAt, Instant now) {
+  private void validateExpiry(Instant expireAt, Instant now, long maximumValiditySeconds) {
     if (!expireAt.isAfter(now.plusSeconds(expirationProperties.minValiditySeconds()))
-        || expireAt.isAfter(now.plusSeconds(expirationProperties.maxValiditySeconds()))) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "expireAt is outside the permitted validity window");
+        || expireAt.isAfter(now.plusSeconds(maximumValiditySeconds))) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "expireAt is outside the permitted validity window");
+    }
+  }
+
+  private long maxValiditySeconds(ChannelRuntimeContext runtime) {
+    String configured = runtime.setting("maxOrderValiditySeconds");
+    if (configured.isBlank()) return expirationProperties.maxValiditySeconds();
+    try {
+      long seconds = Long.parseLong(configured);
+      if (seconds < expirationProperties.minValiditySeconds() || seconds > 604_800) {
+        throw new NumberFormatException();
+      }
+      return seconds;
+    } catch (NumberFormatException exception) {
+      throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "渠道订单有效期配置无效");
     }
   }
 
@@ -289,6 +359,7 @@ public class OrderService {
       fields.put("returnUrl", command.returnUrl());
       fields.put("customerReference", command.customerReference());
       fields.put("description", command.description());
+      fields.put("payer", command.payer());
       return (objectMapper == null ? new ObjectMapper() : objectMapper).writeValueAsString(fields);
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("无法记录商户请求参数", exception);
@@ -300,7 +371,7 @@ public class OrderService {
     var fee = calculateFee(order.amount(), config).add(config.extraFee());
     if (config.minFee() != null && fee.compareTo(config.minFee()) < 0) fee = config.minFee();
     if (config.maxFee() != null && fee.compareTo(config.maxFee()) > 0) fee = config.maxFee();
-    fee = fee.setScale(2, RoundingMode.HALF_UP);
+    fee = fee.setScale(channelAmountScale(config.runtime()), RoundingMode.HALF_UP);
     var normalizedBearer =
         "MERCHANT_BEAR".equals(config.feeMode()) || "INCLUSIVE".equals(config.feeMode())
             ? "MERCHANT"
@@ -334,17 +405,22 @@ public class OrderService {
       pricing.put("tiers", config.tiers());
       pricing.put("mode", config.feeMode());
       pricing.put("feeBearer", normalizedBearer);
+      pricing.put("supportsRefund", config.supportsRefund());
       pricing.put("feeAmount", fee);
       pricing.put("payerPayableAmount", payerPayable);
       pricing.put("netAmount", net);
       pricing.put("configVersion", config.configVersion());
       var pricingSnapshot = objectMapper.writeValueAsString(pricing);
-      return order.withPricing(fee, payerPayable, net, normalizedBearer, routeSnapshot, pricingSnapshot);
+      if (payerPayable.compareTo(config.channelMinAmount()) < 0
+          || payerPayable.compareTo(config.channelMaxAmount()) > 0) {
+        throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "含手续费后的支付金额超出渠道范围");
+      }
+      return order.withPricing(
+          fee, payerPayable, net, normalizedBearer, routeSnapshot, pricingSnapshot);
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("无法记录订单费率快照", exception);
     }
   }
-
 
   private BigDecimal calculateFee(
       BigDecimal amount, PlatformChannelConfigurationClient.ResolvedPaymentConfiguration config) {
@@ -367,6 +443,18 @@ public class OrderService {
     };
   }
 
+  private int channelAmountScale(ChannelRuntimeContext runtime) {
+    String configured = runtime.setting("amountScale");
+    if (configured.isBlank()) return 2;
+    try {
+      int scale = Integer.parseInt(configured);
+      if (scale < 0 || scale > 4) throw new NumberFormatException();
+      return scale;
+    } catch (NumberFormatException exception) {
+      throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "渠道金额精度配置无效");
+    }
+  }
+
   public record CreateOrderCommand(
       String merchantId,
       String merchantOrderNo,
@@ -381,9 +469,44 @@ public class OrderService {
       String returnUrl,
       String customerReference,
       String payoutDestinationRef,
-      String description) {
+      String description,
+      Map<String, String> payer) {
     public CreateOrderCommand {
       if (expireAt == null) expireAt = Instant.now().plus(Duration.ofMinutes(30));
+      payer = payer == null ? Map.of() : Map.copyOf(payer);
+    }
+
+    public CreateOrderCommand(
+        String merchantId,
+        String merchantOrderNo,
+        String productCode,
+        String paymentMethod,
+        String country,
+        String currency,
+        java.math.BigDecimal amount,
+        String idempotencyKey,
+        Instant expireAt,
+        String notifyUrl,
+        String returnUrl,
+        String customerReference,
+        String payoutDestinationRef,
+        String description) {
+      this(
+          merchantId,
+          merchantOrderNo,
+          productCode,
+          paymentMethod,
+          country,
+          currency,
+          amount,
+          idempotencyKey,
+          expireAt,
+          notifyUrl,
+          returnUrl,
+          customerReference,
+          payoutDestinationRef,
+          description,
+          Map.of());
     }
   }
 }

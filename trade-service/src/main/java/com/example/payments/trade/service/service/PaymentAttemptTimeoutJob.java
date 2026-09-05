@@ -1,7 +1,6 @@
 package com.example.payments.trade.service.service;
 
 import com.example.payments.trade.service.config.AttemptQueryProperties;
-import com.example.payments.trade.service.domain.PaymentAttemptStatus;
 import com.example.payments.trade.service.mapper.PaymentAttemptRepository;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
@@ -27,8 +26,12 @@ public class PaymentAttemptTimeoutJob {
   private void compensate(PaymentAttemptRepository.PaymentAttemptQueryClaim claim, Instant now) {
     int nextCount = claim.queryCount() + 1;
     try {
+      if (service.isOrderExpired(claim.attempt(), now)) {
+        service.timeout(claim.attempt().attemptId());
+        return;
+      }
       var result = service.query(claim.attempt().attemptId());
-      if (result.status() == PaymentAttemptStatus.PROCESSING) {
+      if (!result.status().isTerminal()) {
         if (nextCount >= properties.maxCount()) {
           service.timeout(claim.attempt().attemptId());
         } else {
@@ -40,11 +43,15 @@ public class PaymentAttemptTimeoutJob {
         }
       }
     } catch (RuntimeException exception) {
-      repository.releaseQueryClaim(
-          claim.attempt().attemptId(),
-          claim.claimToken(),
-          now,
-          now.plusSeconds(delaySeconds(nextCount)));
+      if (nextCount >= properties.maxCount()) {
+        service.timeout(claim.attempt().attemptId());
+      } else {
+        repository.releaseQueryClaim(
+            claim.attempt().attemptId(),
+            claim.claimToken(),
+            now,
+            now.plusSeconds(delaySeconds(nextCount)));
+      }
     }
   }
 

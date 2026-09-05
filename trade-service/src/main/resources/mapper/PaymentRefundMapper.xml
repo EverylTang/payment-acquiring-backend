@@ -6,7 +6,7 @@
     SET status = 'PROCESSING', attempt_count = attempt_count + 1, processing_owner = #{owner}, processing_until = #{until}, updated_at = #{now}
     WHERE refund_id = #{refundId} AND ((status IN ('CREATED', 'FAILED')
     AND next_attempt_at &lt;= #{now}) OR (status = 'PROCESSING'
-    AND processing_until &lt; #{now}))
+    AND (processing_until IS NULL OR processing_until &lt; #{now}))
   </update>
   <select id="refundedAmount" resultType="java.math.BigDecimal">
     SELECT COALESCE(SUM(amount), 0)

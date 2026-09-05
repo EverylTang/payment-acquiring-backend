@@ -14,6 +14,8 @@ trade:
     internal-token: ${GATEWAY_INTERNAL_TOKEN:}
   payment-success-event:
     signing-secret: ${PAYMENT_SUCCESS_EVENT_SIGNING_SECRET:}
+  channel-callback:
+    base-url: ${TRADE_CHANNEL_CALLBACK_BASE_URL:}
   outbox:
     batch-size: ${TRADE_OUTBOX_BATCH_SIZE:50}
     max-attempts: ${TRADE_OUTBOX_MAX_ATTEMPTS:8}
@@ -39,6 +41,9 @@ trade:
       lock-seconds: ${TRADE_ATTEMPT_QUERY_LOCK_SECONDS:60}
       retry-base-seconds: ${TRADE_ATTEMPT_QUERY_RETRY_BASE_SECONDS:30}
       retry-max-seconds: ${TRADE_ATTEMPT_QUERY_RETRY_MAX_SECONDS:300}
+  refund:
+    execute-ms: ${TRADE_REFUND_EXECUTE_MS:5000}
+    callback-timeout-seconds: ${TRADE_REFUND_CALLBACK_TIMEOUT_SECONDS:600}
 spring:
   application:
     name: trade-service

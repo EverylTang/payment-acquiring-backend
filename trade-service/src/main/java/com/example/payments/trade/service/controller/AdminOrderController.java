@@ -1,11 +1,12 @@
 package com.example.payments.trade.service.controller;
 
-import com.example.payments.trade.service.service.OrderService;
 import com.example.payments.trade.service.service.MerchantNotificationOutboxService;
+import com.example.payments.trade.service.service.OrderService;
 import com.example.payments.trade.service.service.PaymentAttemptService;
 import jakarta.validation.Valid;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
@@ -76,10 +76,21 @@ public class AdminOrderController {
     return OrderDtos.OrderResponse.from(
         orderService.create(
             new OrderService.CreateOrderCommand(
-                request.merchantId(), request.merchantOrderNo(), request.productCode(),
-                request.paymentMethod(), request.country(), request.currency(), request.amount(),
-                idempotencyKey, request.expireAt(), request.notifyUrl(), request.returnUrl(),
-                request.customerReference(), request.payoutDestinationRef(), request.description())));
+                request.merchantId(),
+                request.merchantOrderNo(),
+                request.productCode(),
+                request.paymentMethod(),
+                request.country(),
+                request.currency(),
+                request.amount(),
+                idempotencyKey,
+                request.expireAt(),
+                request.notifyUrl(),
+                request.returnUrl(),
+                request.customerReference(),
+                request.payoutDestinationRef(),
+                request.description(),
+                request.payer() == null ? java.util.Map.of() : request.payer().asMap())));
   }
 
   @PostMapping("/{orderId}/cancel")
@@ -112,23 +123,27 @@ public class AdminOrderController {
       @RequestHeader("X-User-Id") String operator,
       @RequestHeader("X-Permissions") String permissions) {
     authorizer.authorize(gatewayToken, operator, permissions, "order:manage");
-    var attempt = paymentAttemptService.create(orderService.markPaying(orderId));
+    var attempt = paymentAttemptService.create(orderService.requireActive(orderId));
     return attemptResponse(attempt);
   }
 
   @PostMapping("/{orderId}/attempts/{attemptId}/query")
   public Map<String, Object> queryAttempt(
-      @PathVariable String orderId, @PathVariable String attemptId,
+      @PathVariable String orderId,
+      @PathVariable String attemptId,
       @RequestHeader("X-Gateway-Token") String gatewayToken,
       @RequestHeader("X-User-Id") String operator,
       @RequestHeader("X-Permissions") String permissions) {
     authorizer.authorize(gatewayToken, operator, permissions, "order:manage");
-    return attemptResponse(paymentAttemptService.query(paymentAttemptService.get(attemptId, orderId).attemptId()));
+    return attemptResponse(
+        paymentAttemptService.requestQuery(
+            paymentAttemptService.get(attemptId, orderId).attemptId()));
   }
 
   @PostMapping("/{orderId}/attempts/{attemptId}/cancel")
   public Map<String, Object> cancelAttempt(
-      @PathVariable String orderId, @PathVariable String attemptId,
+      @PathVariable String orderId,
+      @PathVariable String attemptId,
       @RequestHeader("X-Gateway-Token") String gatewayToken,
       @RequestHeader("X-User-Id") String operator,
       @RequestHeader("X-Permissions") String permissions) {
@@ -139,7 +154,8 @@ public class AdminOrderController {
 
   @PostMapping("/{orderId}/attempts/{attemptId}/retry")
   public Map<String, Object> retryAttempt(
-      @PathVariable String orderId, @PathVariable String attemptId,
+      @PathVariable String orderId,
+      @PathVariable String attemptId,
       @RequestHeader("X-Gateway-Token") String gatewayToken,
       @RequestHeader("X-User-Id") String operator,
       @RequestHeader("X-Permissions") String permissions) {
@@ -149,11 +165,23 @@ public class AdminOrderController {
 
   private static Map<String, Object> attemptResponse(
       com.example.payments.trade.service.domain.PaymentAttempt attempt) {
-    return Map.of("attemptId", attempt.attemptId(), "orderId", attempt.orderId(),
-        "channelId", attempt.channelId(), "channelOrderId", attempt.channelRequestNo(),
-        "attemptNo", attempt.attemptNo(), "status", attempt.status().name(),
-        "requestSnapshot", attempt.requestSnapshot() == null ? "" : attempt.requestSnapshot(),
-        "responseSnapshot", attempt.responseSnapshot() == null ? "" : attempt.responseSnapshot());
+    return Map.of(
+        "attemptId",
+        attempt.attemptId(),
+        "orderId",
+        attempt.orderId(),
+        "channelId",
+        attempt.channelId(),
+        "channelOrderId",
+        attempt.channelRequestNo(),
+        "attemptNo",
+        attempt.attemptNo(),
+        "status",
+        attempt.status().name(),
+        "requestSnapshot",
+        attempt.requestSnapshot() == null ? "" : attempt.requestSnapshot(),
+        "responseSnapshot",
+        attempt.responseSnapshot() == null ? "" : attempt.responseSnapshot());
   }
 
   public record ResendNotificationRequest(@jakarta.validation.constraints.NotBlank String reason) {}
@@ -165,12 +193,13 @@ public class AdminOrderController {
       @jakarta.validation.constraints.NotBlank String paymentMethod,
       String country,
       @jakarta.validation.constraints.NotBlank String currency,
-      @jakarta.validation.constraints.NotNull
-          @jakarta.validation.constraints.DecimalMin("0.01") java.math.BigDecimal amount,
+      @jakarta.validation.constraints.NotNull @jakarta.validation.constraints.DecimalMin("0.01")
+          java.math.BigDecimal amount,
       java.time.Instant expireAt,
       String notifyUrl,
       String returnUrl,
       String customerReference,
       String payoutDestinationRef,
-      String description) {}
+      String description,
+      OrderDtos.Payer payer) {}
 }

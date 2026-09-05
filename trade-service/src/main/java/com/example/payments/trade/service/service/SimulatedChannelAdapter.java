@@ -41,20 +41,31 @@ public class SimulatedChannelAdapter implements PaymentChannelAdapter {
         "SUCCESS",
         "{\"status\":\"SUCCESS\"}",
         null,
-        "https://simulated.local/pay/" + channelOrderId);
+        "https://simulated.local/pay/" + channelOrderId,
+        null);
+  }
+
+  @Override
+  public boolean supportsCancellation() {
+    return true;
+  }
+
+  @Override
+  public boolean supportsRefund() {
+    return true;
   }
 
   @Override
   public PaymentChannelResult queryPayment(PaymentChannelQuery request) {
     String behavior = request.channelOrderId().contains("processing") ? "PROCESSING" : "SUCCESS";
     return new PaymentChannelResult(
-        request.channelOrderId(), behavior, "{\"status\":\"" + behavior + "\"}", null, null);
+        request.channelOrderId(), behavior, "{\"status\":\"" + behavior + "\"}", null, null, null);
   }
 
   @Override
   public PaymentChannelResult cancelPayment(PaymentChannelQuery request) {
     return new PaymentChannelResult(
-        request.channelOrderId(), "CANCELED", "{\"status\":\"CANCELED\"}", null, null);
+        request.channelOrderId(), "CANCELED", "{\"status\":\"CANCELED\"}", null, null, null);
   }
 
   @Override

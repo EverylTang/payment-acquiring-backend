@@ -14,4 +14,6 @@ public record PaymentAttempt(
     String failureCode,
     Instant startedAt,
     Instant completedAt,
-    long version) {}
+    long version,
+    String paymentUrl,
+    String qrCode) {}

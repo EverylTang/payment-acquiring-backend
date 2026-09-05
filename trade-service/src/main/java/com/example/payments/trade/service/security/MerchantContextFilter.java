@@ -20,15 +20,21 @@ public class MerchantContextFilter extends OncePerRequestFilter {
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) {
     String path = request.getRequestURI();
-    return !path.startsWith("/api/v1/payments/orders") || path.endsWith("/callback") || path.endsWith("/health");
+    return !path.startsWith("/api/v1/payments/orders")
+        || path.endsWith("/callback")
+        || path.endsWith("/health");
   }
 
   @Override
-  protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+  protected void doFilterInternal(
+      HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws java.io.IOException, jakarta.servlet.ServletException {
     String supplied = request.getHeader("X-Gateway-Token");
     String merchantId = request.getHeader("X-Merchant-Id");
-    if (gatewayToken.length == 0 || supplied == null || merchantId == null || merchantId.isBlank()
+    if (gatewayToken.length == 0
+        || supplied == null
+        || merchantId == null
+        || merchantId.isBlank()
         || !MessageDigest.isEqual(gatewayToken, supplied.getBytes(StandardCharsets.UTF_8))) {
       response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
       return;

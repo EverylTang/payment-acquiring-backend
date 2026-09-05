@@ -29,9 +29,10 @@ public class ConfigurationSnapshotService {
     requireAvailable(mapper.countActiveMerchant(merchantId), "商户不可用");
     requireAvailable(mapper.countActiveProduct(productCode), "产品不可用");
     requireBinding(merchantId, productCode);
-    var productType = java.util.Optional.ofNullable(mapper.selectProductType(productCode))
-        .filter(type -> type.equals("PAYIN") || type.equals("PAYOUT"))
-        .orElseThrow(() -> unavailable("产品类型无效"));
+    var productType =
+        java.util.Optional.ofNullable(mapper.selectProductType(productCode))
+            .filter(type -> type.equals("PAYIN") || type.equals("PAYOUT"))
+            .orElseThrow(() -> unavailable("产品类型无效"));
 
     var product =
         java.util.Optional.ofNullable(
@@ -61,7 +62,9 @@ public class ConfigurationSnapshotService {
             .orElseThrow(() -> unavailable("没有匹配的费率规则"));
 
     var risk =
-        java.util.Optional.ofNullable(mapper.selectRiskPolicy(version, merchantId, productCode, country, currency, amount))
+        java.util.Optional.ofNullable(
+                mapper.selectRiskPolicy(
+                    version, merchantId, productCode, country, currency, amount))
             .orElse(RiskPolicy.pass());
 
     var result = new LinkedHashMap<String, Object>();
@@ -75,9 +78,7 @@ public class ConfigurationSnapshotService {
     result.put("amount", amount);
     result.put("configVersion", version);
     result.put("product", product.asMap());
-    result.put(
-        "route",
-        selectedChannel.asMap(channelRuntime));
+    result.put("route", selectedChannel.asMap(channelRuntime));
     result.put("pricing", pricing.asMap());
     result.put("risk", risk.asMap());
     result.put("candidates", candidates.stream().map(ChannelCandidate::channelId).toList());
@@ -173,11 +174,29 @@ public class ConfigurationSnapshotService {
     }
   }
 
-  public record ChannelCandidate(String channelId, int scopeRank, int priority, int weight) {
+  public record ChannelCandidate(
+      String channelId,
+      int scopeRank,
+      int priority,
+      int weight,
+      BigDecimal minAmount,
+      BigDecimal maxAmount) {
+    public ChannelCandidate(String channelId, int scopeRank, int priority, int weight) {
+      this(
+          channelId,
+          scopeRank,
+          priority,
+          weight,
+          BigDecimal.ZERO,
+          new BigDecimal("9999999999999999"));
+    }
+
     Map<String, Object> asMap(ChannelRuntime runtime) {
       var route = new LinkedHashMap<>(channelRuntime(runtime));
       route.put("priority", priority);
       route.put("weight", weight);
+      route.put("minAmount", minAmount);
+      route.put("maxAmount", maxAmount);
       return route;
     }
   }
@@ -190,22 +209,32 @@ public class ConfigurationSnapshotService {
       String configuration) {
     Map<String, Object> settings() {
       try {
-        var document = new com.fasterxml.jackson.databind.ObjectMapper().readValue(configuration, Map.class);
+        var document =
+            new com.fasterxml.jackson.databind.ObjectMapper().readValue(configuration, Map.class);
         return document.get("settings") instanceof Map<?, ?> settings ? map(settings) : document;
       } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
         throw new IllegalStateException("渠道运行参数不是合法 JSON", exception);
       }
     }
+
     Map<String, String> credentials() {
       try {
-        var document = new com.fasterxml.jackson.databind.ObjectMapper().readValue(configuration, Map.class);
+        var document =
+            new com.fasterxml.jackson.databind.ObjectMapper().readValue(configuration, Map.class);
         return document.get("credentials") instanceof Map<?, ?> credentials
-            ? map(credentials).entrySet().stream().collect(java.util.stream.Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue()), (left, right) -> right, LinkedHashMap::new))
+            ? map(credentials).entrySet().stream()
+                .collect(
+                    java.util.stream.Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> String.valueOf(entry.getValue()),
+                        (left, right) -> right,
+                        LinkedHashMap::new))
             : Map.of();
       } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
         throw new IllegalStateException("渠道凭据不是合法 JSON", exception);
       }
     }
+
     private static Map<String, Object> map(Map<?, ?> source) {
       var result = new LinkedHashMap<String, Object>();
       source.forEach((key, value) -> result.put(String.valueOf(key), value));

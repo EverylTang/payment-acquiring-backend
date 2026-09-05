@@ -53,7 +53,8 @@ public class OrderController {
                 request.returnUrl(),
                 request.customerReference(),
                 request.payoutDestinationRef(),
-                request.description()));
+                request.description(),
+                request.payer() == null ? java.util.Map.of() : request.payer().asMap()));
     return OrderDtos.MerchantOrderResponse.from(order);
   }
 
@@ -65,7 +66,9 @@ public class OrderController {
   }
 
   @GetMapping("/{orderId}/status")
-  public Map<String, String> status(@PathVariable(name = "orderId") String orderId, @RequestHeader("X-Merchant-Id") String merchantId) {
+  public Map<String, String> status(
+      @PathVariable(name = "orderId") String orderId,
+      @RequestHeader("X-Merchant-Id") String merchantId) {
     return Map.of("orderId", orderId, "status", owned(orderId, merchantId).status().name());
   }
 
@@ -82,14 +85,15 @@ public class OrderController {
       @PathVariable(name = "orderId") String orderId,
       @RequestHeader("X-Merchant-Id") String merchantId) {
     owned(orderId, merchantId);
-    var order = orderService.markPaying(orderId);
-    var attempt = paymentAttemptService.create(order);
+    var attempt = paymentAttemptService.create(orderService.requireActive(orderId));
     return OrderDtos.MerchantAttemptResponse.from(attempt);
   }
 
   @GetMapping("/{orderId}/attempts/{attemptId}")
   public OrderDtos.MerchantAttemptResponse getAttempt(
-      @PathVariable String orderId, @PathVariable String attemptId, @RequestHeader("X-Merchant-Id") String merchantId) {
+      @PathVariable String orderId,
+      @PathVariable String attemptId,
+      @RequestHeader("X-Merchant-Id") String merchantId) {
     owned(orderId, merchantId);
     var attempt = paymentAttemptService.get(attemptId, orderId);
     return attemptResponse(attempt);
@@ -97,15 +101,20 @@ public class OrderController {
 
   @PostMapping("/{orderId}/attempts/{attemptId}/query")
   public OrderDtos.MerchantAttemptResponse queryAttempt(
-      @PathVariable String orderId, @PathVariable String attemptId, @RequestHeader("X-Merchant-Id") String merchantId) {
+      @PathVariable String orderId,
+      @PathVariable String attemptId,
+      @RequestHeader("X-Merchant-Id") String merchantId) {
     owned(orderId, merchantId);
     return attemptResponse(
-        paymentAttemptService.query(paymentAttemptService.get(attemptId, orderId).attemptId()));
+        paymentAttemptService.requestQuery(
+            paymentAttemptService.get(attemptId, orderId).attemptId()));
   }
 
   @PostMapping("/{orderId}/attempts/{attemptId}/cancel")
   public OrderDtos.MerchantAttemptResponse cancelAttempt(
-      @PathVariable String orderId, @PathVariable String attemptId, @RequestHeader("X-Merchant-Id") String merchantId) {
+      @PathVariable String orderId,
+      @PathVariable String attemptId,
+      @RequestHeader("X-Merchant-Id") String merchantId) {
     owned(orderId, merchantId);
     paymentAttemptService.get(attemptId, orderId);
     return attemptResponse(paymentAttemptService.cancel(attemptId));
@@ -113,7 +122,9 @@ public class OrderController {
 
   @PostMapping("/{orderId}/attempts/{attemptId}/retry")
   public OrderDtos.MerchantAttemptResponse retryAttempt(
-      @PathVariable String orderId, @PathVariable String attemptId, @RequestHeader("X-Merchant-Id") String merchantId) {
+      @PathVariable String orderId,
+      @PathVariable String attemptId,
+      @RequestHeader("X-Merchant-Id") String merchantId) {
     var order = owned(orderId, merchantId);
     return attemptResponse(paymentAttemptService.retry(attemptId, order));
   }
@@ -123,9 +134,11 @@ public class OrderController {
     return OrderDtos.MerchantAttemptResponse.from(attempt);
   }
 
-  private com.example.payments.trade.service.domain.PaymentOrder owned(String orderId, String merchantId) {
+  private com.example.payments.trade.service.domain.PaymentOrder owned(
+      String orderId, String merchantId) {
     var order = orderService.get(orderId);
-    if (!merchantId.equals(order.merchantId())) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "order not found");
+    if (!merchantId.equals(order.merchantId()))
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "order not found");
     return order;
   }
 

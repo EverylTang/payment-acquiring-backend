@@ -25,10 +25,10 @@ class PaymentStateTransitionTest {
   }
 
   @Test
-  void terminalAttemptCannotTransition() {
+  void successfulAttemptCannotTransitionButTimeoutCanRecover() {
     assertThat(PaymentAttemptStatus.SUCCESS.canTransitionTo(PaymentAttemptStatus.FAILED)).isFalse();
     assertThat(PaymentAttemptStatus.TIMEOUT.canTransitionTo(PaymentAttemptStatus.SUCCESS))
-        .isFalse();
+        .isTrue();
   }
 
   @Test

@@ -1,7 +1,7 @@
 package com.example.payments.trade.service.controller;
 
-import com.example.payments.trade.service.domain.PaymentOrder;
 import com.example.payments.trade.service.domain.PaymentAttempt;
+import com.example.payments.trade.service.domain.PaymentOrder;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -23,7 +23,24 @@ public final class OrderDtos {
       String returnUrl,
       String customerReference,
       String payoutDestinationRef,
-      String description) {}
+      String description,
+      Payer payer) {}
+
+  /** Channel-required payer data. It is never returned by merchant order or attempt projections. */
+  public record Payer(
+      String userId, String name, String firstName, String lastName, String phone, String email) {
+    public java.util.Map<String, String> asMap() {
+      var values = new java.util.LinkedHashMap<String, String>();
+      values.put("userId", userId);
+      values.put("name", name);
+      values.put("firstName", firstName);
+      values.put("lastName", lastName);
+      values.put("phone", phone);
+      values.put("email", email);
+      values.values().removeIf(value -> value == null || value.isBlank());
+      return java.util.Map.copyOf(values);
+    }
+  }
 
   /** Merchant-facing order projection. Internal snapshots and operational state stay admin-only. */
   public record MerchantOrderResponse(
@@ -46,20 +63,26 @@ public final class OrderDtos {
     }
   }
 
-  /** Merchant-facing attempt projection. Channel snapshots are retained for protected operations. */
+  /**
+   * Merchant-facing attempt projection. Channel snapshots are retained for protected operations.
+   */
   public record MerchantAttemptResponse(
       String attemptId,
       String orderId,
       String channelOrderId,
       String status,
-      String failureCode) {
+      String failureCode,
+      String paymentUrl,
+      String qrCode) {
     public static MerchantAttemptResponse from(PaymentAttempt attempt) {
       return new MerchantAttemptResponse(
           attempt.attemptId(),
           attempt.orderId(),
           attempt.channelRequestNo(),
           attempt.status().name(),
-          attempt.failureCode());
+          attempt.failureCode(),
+          attempt.paymentUrl(),
+          attempt.qrCode());
     }
   }
 
@@ -99,7 +122,7 @@ public final class OrderDtos {
       Integer callbackAttemptCount,
       Instant callbackLastNotifiedAt,
       String callbackLastError) {
-  public static OrderResponse from(PaymentOrder order) {
+    public static OrderResponse from(PaymentOrder order) {
       return from(order, null);
     }
 

@@ -13,6 +13,8 @@ public interface PaymentAttemptMapper extends BaseMapper<PaymentAttemptEntity> {
 
   int countByOrderId(@Param("orderId") String orderId);
 
+  int countOpenByOrderId(@Param("orderId") String orderId);
+
   java.util.List<PaymentAttemptEntity> findQueryable(
       @Param("now") java.time.LocalDateTime now,
       @Param("maxQueryCount") int maxQueryCount,
@@ -38,14 +40,20 @@ public interface PaymentAttemptMapper extends BaseMapper<PaymentAttemptEntity> {
       @Param("now") java.time.LocalDateTime now,
       @Param("nextQueryAt") java.time.LocalDateTime nextQueryAt);
 
+  int requestImmediateQuery(
+      @Param("attemptId") String attemptId, @Param("now") java.time.LocalDateTime now);
+
   PaymentAttemptEntity findByChannelOrderId(@Param("channelOrderId") String channelOrderId);
 
   int updateAttempt(
       @Param("attemptId") String attemptId,
       @Param("expected") String expected,
       @Param("expectedVersion") Long expectedVersion,
+      @Param("channelRequestNo") String channelRequestNo,
       @Param("next") String next,
       @Param("responseSummary") String responseSummary,
       @Param("failureCode") String failureCode,
+      @Param("paymentUrl") String paymentUrl,
+      @Param("qrCode") String qrCode,
       @Param("completedAt") java.time.LocalDateTime completedAt);
 }

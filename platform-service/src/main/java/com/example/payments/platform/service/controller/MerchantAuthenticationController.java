@@ -36,7 +36,11 @@ public class MerchantAuthenticationController {
   @PostMapping("/notifications/sign")
   public MerchantNotificationSigningService.SignedNotification signNotification(
       @Valid @RequestBody SignNotificationRequest request) {
-    return notificationSigningService.sign(request.merchantId(), request.body(), request.nonce(), java.time.Instant.ofEpochSecond(request.timestamp()));
+    return notificationSigningService.sign(
+        request.merchantId(),
+        request.body(),
+        request.nonce(),
+        java.time.Instant.ofEpochSecond(request.timestamp()));
   }
 
   public record VerifyRequest(

@@ -19,7 +19,8 @@ class OrderDtosTest {
   @Test
   void merchantAttemptResponseDoesNotExposeChannelSnapshots() {
     assertEquals(
-        Arrays.asList("attemptId", "orderId", "channelOrderId", "status", "failureCode"),
+        Arrays.asList(
+            "attemptId", "orderId", "channelOrderId", "status", "failureCode", "paymentUrl", "qrCode"),
         Arrays.stream(OrderDtos.MerchantAttemptResponse.class.getRecordComponents())
             .map(component -> component.getName())
             .toList());

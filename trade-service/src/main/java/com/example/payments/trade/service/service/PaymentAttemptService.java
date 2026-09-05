@@ -7,9 +7,11 @@ import com.example.payments.trade.service.mapper.PaymentAttemptRepository;
 import com.example.payments.trade.service.mapper.PaymentCallbackRecordRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URI;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,47 +33,12 @@ public class PaymentAttemptService {
   private final ObjectMapper objectMapper;
   private final PaymentSuccessEventSigner paymentSuccessEventSigner;
 
+  @Value("${trade.channel-callback.base-url:}")
+  private String channelCallbackBaseUrl;
+
   @Transactional
   public PaymentAttempt create(PaymentOrder order) {
-    order = orderService.requireActive(order.orderId());
-    if (order.orderType() == com.example.payments.trade.service.domain.OrderType.PAYOUT) {
-      throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "出款订单必须通过已配置的出款渠道执行");
-    }
-    String attemptId = UUID.randomUUID().toString();
-    var runtime = channelConfiguration.resolve(order);
-    var channel = channelAdapters.required(runtime.provider(), runtime.signatureProfile());
-    var fields = requestFields(order, runtime, attemptId);
-    var request =
-        new PaymentChannelAdapter.PaymentChannelRequest(
-            attemptId,
-            order.orderId(),
-            order.merchantId(),
-            order.currency(),
-            order.paymentMethod(),
-            order.payerPayableAmount().toPlainString(),
-            runtime,
-            channelRequestSigner.sign(runtime, fields));
-    var result = channel.createPayment(request);
-    PaymentAttemptStatus status = statusOf(result.status());
-    Instant now = Instant.now();
-    var attempt =
-        repository.insert(
-            new PaymentAttempt(
-                attemptId,
-                order.orderId(),
-                runtime.channelId(),
-                result.channelOrderId(),
-                1,
-                status,
-                requestSnapshot(order, runtime, fields),
-                result.responseSnapshot(),
-                result.failureCode(),
-                now,
-                status.isTerminal() ? now : null,
-                0));
-    coordinateOrder(attempt);
-    return attempt;
+    return create(order, 1);
   }
 
   @Transactional
@@ -81,16 +48,22 @@ public class PaymentAttemptService {
     var currentChannel =
         channelAdapters.required(currentRuntime.provider(), currentRuntime.signatureProfile());
     var channelOrderId = currentChannel.callbackChannelOrderId(rawPayload);
-    var attempt =
-        repository
-            .findByChannelRequestNo(channelId, channelOrderId)
-            .orElseThrow(
-                () ->
-                    new ResponseStatusException(HttpStatus.NOT_FOUND, "payment attempt not found"));
-    if (orderService.get(attempt.orderId()).orderType()
-        == com.example.payments.trade.service.domain.OrderType.PAYOUT) {
-      throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "遗留出款尝试已隔离，需通过出款渠道迁移处理");
+    var attempt = repository.findByChannelRequestNo(channelId, channelOrderId).orElse(null);
+    if (attempt == null) {
+      String merchantOrderId = currentChannel.callbackMerchantOrderId(rawPayload);
+      attempt =
+          repository
+              .findLatestByOrderId(merchantOrderId)
+              .filter(candidate -> candidate.channelId().equals(channelId))
+              .filter(this::isProvisional)
+              .orElseThrow(
+                  () ->
+                      new ResponseStatusException(
+                          HttpStatus.NOT_FOUND, "payment attempt not found"));
+    }
+    var order = orderService.get(attempt.orderId());
+    if (order.orderType() == com.example.payments.trade.service.domain.OrderType.PAYOUT) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "遗留出款尝试已隔离，需通过出款渠道迁移处理");
     }
     var runtime = callbackRuntime(attempt, currentRuntime);
     var callback =
@@ -98,7 +71,13 @@ public class PaymentAttemptService {
             .required(runtime.provider(), runtime.signatureProfile())
             .verifyCallback(
                 new PaymentChannelAdapter.PaymentCallbackRequest(
-                    rawPayload, signature, callbackId, runtime));
+                    rawPayload,
+                    signature,
+                    callbackId,
+                    order.orderId(),
+                    order.currency(),
+                    order.payerPayableAmount().toPlainString(),
+                    runtime));
     if (!channelOrderId.equals(callback.channelOrderId())) {
       throw new IllegalArgumentException("callback channel order id mismatch");
     }
@@ -123,7 +102,7 @@ public class PaymentAttemptService {
             attempt.attemptId(),
             attempt.orderId(),
             attempt.channelId(),
-            attempt.channelRequestNo(),
+            callback.channelOrderId(),
             attempt.attemptNo(),
             nextStatus,
             attempt.requestSnapshot(),
@@ -131,7 +110,9 @@ public class PaymentAttemptService {
             null,
             attempt.startedAt(),
             nextStatus.isTerminal() ? Instant.now() : null,
-            attempt.version() + 1);
+            attempt.version() + 1,
+            attempt.paymentUrl(),
+            attempt.qrCode());
     if (!attempt.status().canTransitionTo(next.status())) {
       callbackRepository.markProcessed(
           callbackId,
@@ -141,7 +122,7 @@ public class PaymentAttemptService {
           Instant.now());
       return attempt;
     }
-    if (!repository.update(attempt.status(), next)) {
+    if (!repository.update(attempt.status(), attempt.version(), next)) {
       return repository.findByAttemptId(attempt.attemptId()).orElse(next);
     }
     callbackRepository.markProcessed(
@@ -171,6 +152,21 @@ public class PaymentAttemptService {
     return repository.findLatestByOrderId(orderId);
   }
 
+  /** Queues a merchant-requested refresh without bypassing channel query throttling. */
+  @Transactional
+  public PaymentAttempt requestQuery(String attemptId) {
+    var attempt =
+        repository
+            .findByAttemptId(attemptId)
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(HttpStatus.NOT_FOUND, "payment attempt not found"));
+    if (!attempt.status().isTerminal()) {
+      repository.requestImmediateQuery(attemptId, Instant.now());
+    }
+    return repository.findByAttemptId(attemptId).orElse(attempt);
+  }
+
   @Transactional
   public PaymentAttempt query(String attemptId) {
     var attempt =
@@ -180,11 +176,18 @@ public class PaymentAttemptService {
                 () ->
                     new ResponseStatusException(HttpStatus.NOT_FOUND, "payment attempt not found"));
     if (attempt.status().isTerminal()) return attempt;
+    var runtime = channelConfiguration.resolve(attempt.channelId());
     var result =
-        adapterFor(attempt)
+        channelAdapters
+            .required(runtime.provider(), runtime.signatureProfile())
             .queryPayment(
                 new PaymentChannelAdapter.PaymentChannelQuery(
-                    attempt.attemptId(), attempt.channelRequestNo()));
+                    attempt.attemptId(),
+                    attempt.orderId(),
+                    attempt.channelRequestNo(),
+                    orderService.get(attempt.orderId()).currency(),
+                    orderService.get(attempt.orderId()).payerPayableAmount().toPlainString(),
+                    runtime));
     return applyResult(attempt, result);
   }
 
@@ -199,20 +202,28 @@ public class PaymentAttemptService {
     if (attempt.status().isTerminal()) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "terminal attempt cannot be canceled");
     }
+    var runtime = channelConfiguration.resolve(attempt.channelId());
+    var channel = channelAdapters.required(runtime.provider(), runtime.signatureProfile());
+    if (!channel.supportsCancellation()) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "当前支付渠道未提供取消支付能力，请等待支付结果查询完成");
+    }
     return applyResult(
         attempt,
-        adapterFor(attempt)
-            .cancelPayment(
-                new PaymentChannelAdapter.PaymentChannelQuery(
-                    attempt.attemptId(), attempt.channelRequestNo())));
+        channel.cancelPayment(
+            new PaymentChannelAdapter.PaymentChannelQuery(
+                attempt.attemptId(),
+                attempt.orderId(),
+                attempt.channelRequestNo(),
+                orderService.get(attempt.orderId()).currency(),
+                orderService.get(attempt.orderId()).payerPayableAmount().toPlainString(),
+                runtime)));
   }
 
   @Transactional
   public PaymentAttempt retry(String attemptId, PaymentOrder order) {
     order = orderService.requireActive(order.orderId());
     if (order.orderType() == com.example.payments.trade.service.domain.OrderType.PAYOUT) {
-      throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "出款订单必须通过已配置的出款渠道执行");
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "出款订单必须通过已配置的出款渠道执行");
     }
     var previous =
         repository
@@ -224,6 +235,10 @@ public class PaymentAttemptService {
         || previous.status() == PaymentAttemptStatus.TIMEOUT
         || previous.status() == PaymentAttemptStatus.UNKNOWN)) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "attempt is not retryable");
+    }
+    var runtime = channelConfiguration.resolve(previous.channelId());
+    if ("PAYPROO".equalsIgnoreCase(runtime.provider())) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "PayProo 要求订单号全局唯一，请查询原支付尝试");
     }
     int attemptNo = repository.countByOrderId(order.orderId()) + 1;
     return create(order, attemptNo);
@@ -244,27 +259,50 @@ public class PaymentAttemptService {
             order.paymentMethod(),
             order.payerPayableAmount().toPlainString(),
             runtime,
-            channelRequestSigner.sign(runtime, fields));
-    var result = channel.createPayment(request);
-    var status = statusOf(result.status());
+            channel.ownsRequestSignature()
+                ? new ChannelRequestSigner.ChannelRequestSignature(java.util.Map.of(), "sign", "")
+                : channelRequestSigner.sign(runtime, fields),
+            channelCallbackUrl(runtime),
+            order.description(),
+            payer(order));
+    try {
+      channel.validateCreate(request);
+    } catch (IllegalArgumentException exception) {
+      throw new ResponseStatusException(
+          HttpStatus.UNPROCESSABLE_ENTITY, exception.getMessage(), exception);
+    }
     Instant now = Instant.now();
-    var attempt =
+    var provisional =
         repository.insert(
             new PaymentAttempt(
                 attemptId,
                 order.orderId(),
                 runtime.channelId(),
-                result.channelOrderId(),
+                provisionalChannelOrderId(attemptId),
                 attemptNo,
-                status,
+                PaymentAttemptStatus.PROCESSING,
                 requestSnapshot(order, runtime, fields),
-                result.responseSnapshot(),
-                result.failureCode(),
+                "{\"state\":\"CREATE_PENDING\"}",
+                null,
                 now,
-                status.isTerminal() ? now : null,
-                0));
-    coordinateOrder(attempt);
-    return attempt;
+                null,
+                0,
+                null,
+                null));
+    coordinateOrder(provisional);
+    try {
+      return applyResult(provisional, channel.createPayment(request));
+    } catch (ChannelRequestAmbiguousException exception) {
+      return applyResult(
+          provisional,
+          new PaymentChannelAdapter.PaymentChannelResult(
+              provisional.channelRequestNo(),
+              "UNKNOWN",
+              "{\"state\":\"CREATE_UNKNOWN\"}",
+              "CREATE_TRANSPORT_AMBIGUOUS",
+              null,
+              null));
+    }
   }
 
   @Transactional
@@ -283,7 +321,12 @@ public class PaymentAttemptService {
             "TIMEOUT",
             "{\"status\":\"TIMEOUT\"}",
             "QUERY_LIMIT_EXCEEDED",
+            null,
             null));
+  }
+
+  public boolean isOrderExpired(PaymentAttempt attempt, Instant now) {
+    return !orderService.get(attempt.orderId()).expireAt().isAfter(now);
   }
 
   private PaymentAttempt applyResult(
@@ -294,7 +337,9 @@ public class PaymentAttemptService {
             attempt.attemptId(),
             attempt.orderId(),
             attempt.channelId(),
-            attempt.channelRequestNo(),
+            result.channelOrderId() == null || result.channelOrderId().isBlank()
+                ? attempt.channelRequestNo()
+                : result.channelOrderId(),
             attempt.attemptNo(),
             status,
             attempt.requestSnapshot(),
@@ -302,7 +347,9 @@ public class PaymentAttemptService {
             result.failureCode(),
             attempt.startedAt(),
             status.isTerminal() ? Instant.now() : null,
-            attempt.version() + 1);
+            attempt.version() + 1,
+            result.paymentUrl() == null ? attempt.paymentUrl() : result.paymentUrl(),
+            result.qrCode() == null ? attempt.qrCode() : result.qrCode());
     if (!attempt.status().canTransitionTo(next.status())) return attempt;
     if (!repository.update(attempt.status(), attempt.version(), next)) {
       return repository.findByAttemptId(attempt.attemptId()).orElse(attempt);
@@ -346,7 +393,53 @@ public class PaymentAttemptService {
 
   private ChannelRuntimeContext callbackRuntime(
       PaymentAttempt attempt, ChannelRuntimeContext currentRuntime) {
-    return currentRuntime;
+    try {
+      var snapshot = objectMapper.readValue(attempt.requestSnapshot(), java.util.Map.class);
+      String provider = String.valueOf(snapshot.get("provider"));
+      String signatureProfile = String.valueOf(snapshot.get("signatureProfile"));
+      if (provider.isBlank()
+          || "null".equals(provider)
+          || signatureProfile.isBlank()
+          || "null".equals(signatureProfile)) {
+        throw new IllegalStateException("支付尝试缺少渠道签名快照");
+      }
+      return new ChannelRuntimeContext(
+          currentRuntime.channelId(),
+          provider,
+          currentRuntime.requestUrl(),
+          signatureProfile,
+          currentRuntime.settings(),
+          currentRuntime.credentials());
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("支付尝试缺少渠道运行配置", exception);
+    }
+  }
+
+  private String channelCallbackUrl(ChannelRuntimeContext runtime) {
+    String configured = runtime.setting("callbackBaseUrl");
+    String base = configured.isBlank() ? channelCallbackBaseUrl : configured;
+    if (base == null || base.isBlank()) return null;
+    try {
+      URI uri = URI.create(base.trim());
+      if (!uri.isAbsolute()
+          || uri.getHost() == null
+          || uri.getUserInfo() != null
+          || !"https".equalsIgnoreCase(uri.getScheme())) {
+        throw new IllegalArgumentException();
+      }
+      String normalized = uri.toASCIIString().replaceFirst("/+$", "");
+      return normalized + "/api/v1/payments/channels/" + runtime.channelId() + "/callback";
+    } catch (IllegalArgumentException exception) {
+      throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "渠道回调基础地址无效", exception);
+    }
+  }
+
+  private boolean isProvisional(PaymentAttempt attempt) {
+    return attempt.channelRequestNo().startsWith("pending:") && !attempt.status().isTerminal();
+  }
+
+  private static String provisionalChannelOrderId(String attemptId) {
+    return "pending:" + attemptId;
   }
 
   private String callbackResponseSnapshot(String rawPayload) {
@@ -398,6 +491,24 @@ public class PaymentAttemptService {
         || normalized.contains("api_key");
   }
 
+  @SuppressWarnings("unchecked")
+  private java.util.Map<String, String> payer(PaymentOrder order) {
+    try {
+      var snapshot = objectMapper.readValue(order.merchantRequestSnapshot(), java.util.Map.class);
+      if (!(snapshot.get("payer") instanceof java.util.Map<?, ?> source)) return java.util.Map.of();
+      var payer = new java.util.LinkedHashMap<String, String>();
+      source.forEach(
+          (key, value) -> {
+            if (key != null && value != null && !String.valueOf(value).isBlank()) {
+              payer.put(String.valueOf(key), String.valueOf(value));
+            }
+          });
+      return java.util.Map.copyOf(payer);
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("无法读取付款人资料", exception);
+    }
+  }
+
   private void coordinateOrder(PaymentAttempt attempt) {
     var orderStatus =
         switch (attempt.status()) {
@@ -432,6 +543,7 @@ public class PaymentAttemptService {
                   attempt.attemptId(),
                   order.merchantId(),
                   order.amount(),
+                  merchantFeeAmount(order),
                   order.currency(),
                   order.orderType().name()));
       outboxRepository.insert(eventId, attempt.orderId(), "PAYMENT_SUCCEEDED", payload);
@@ -452,8 +564,13 @@ public class PaymentAttemptService {
       String attemptId,
       String merchantId,
       java.math.BigDecimal amount,
+      java.math.BigDecimal feeAmount,
       String currency,
       String orderType) {}
+
+  static java.math.BigDecimal merchantFeeAmount(PaymentOrder order) {
+    return "MERCHANT".equals(order.feeBearer()) ? order.feeAmount() : java.math.BigDecimal.ZERO;
+  }
 
   private static PaymentAttemptStatus statusOf(String value) {
     try {

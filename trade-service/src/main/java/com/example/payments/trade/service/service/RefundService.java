@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,12 +33,16 @@ public class RefundService {
   private final ChannelAdapterRegistry channelAdapters;
   private final PlatformChannelConfigurationClient channelConfiguration;
   private final PaymentOutboxEventRepository outbox;
-  private final ObjectMapper objectMapper;
   private final RefundCallbackRecordMapper callbackMapper;
   private final RefundAttemptMapper attemptMapper;
   private final PaymentAttemptMapper paymentAttemptMapper;
   private final MeterRegistry metrics;
+  private final PaymentSuccessEventSigner eventSigner;
+  private final ObjectMapper objectMapper;
   private final String workerId = UUID.randomUUID().toString();
+
+  @Value("${trade.refund.callback-timeout-seconds:600}")
+  private long refundCallbackTimeoutSeconds;
 
   @Transactional
   public PaymentRefundEntity create(
@@ -47,11 +52,6 @@ public class RefundService {
       throw new IllegalStateException("出款订单不支持退款，请走出款冲正流程");
     }
     if (!"SUCCESS".equals(order.status().name())) throw new IllegalStateException("只有支付成功订单允许退款");
-    if (amount.signum() <= 0) throw new IllegalArgumentException("退款金额必须大于 0");
-    if (mapper.lockOrder(orderId) == null) throw new IllegalArgumentException("订单不存在: " + orderId);
-    var refunded = mapper.refundedAmount(orderId);
-    if (refunded.add(amount).compareTo(order.amount()) > 0)
-      throw new IllegalStateException("退款金额超过可退余额");
     var existing =
         mapper.selectOne(
             new LambdaQueryWrapper<PaymentRefundEntity>()
@@ -63,6 +63,18 @@ public class RefundService {
         throw new IllegalStateException("幂等键与原退款请求不一致");
       return existing;
     }
+    if (!supportsRefund(order)) throw new IllegalStateException("订单产品能力不支持退款");
+    var runtime = channelConfiguration.resolve(order);
+    if (!channelAdapters
+        .required(runtime.provider(), runtime.signatureProfile())
+        .supportsRefund()) {
+      throw new IllegalStateException("当前支付渠道未提供退款能力");
+    }
+    if (amount.signum() <= 0) throw new IllegalArgumentException("退款金额必须大于 0");
+    if (mapper.lockOrder(orderId) == null) throw new IllegalArgumentException("订单不存在: " + orderId);
+    var refunded = mapper.refundedAmount(orderId);
+    if (refunded.add(amount).compareTo(order.amount()) > 0)
+      throw new IllegalStateException("退款金额超过可退余额");
     var now = LocalDateTime.now(ZoneOffset.UTC);
     var entity = new PaymentRefundEntity();
     entity.setRefundId(UUID.randomUUID().toString());
@@ -112,11 +124,15 @@ public class RefundService {
     }
     if (RefundStatus.SUCCESS.name().equals(refund.getStatus())
         || RefundStatus.CANCELED.name().equals(refund.getStatus())) return refund;
+    boolean callbackTimedOut = RefundStatus.PROCESSING.name().equals(refund.getStatus());
     var now = LocalDateTime.now(ZoneOffset.UTC);
     if (mapper.claimForExecution(refundId, workerId, now, now.plusMinutes(2)) != 1)
       return get(refundId);
     refund = get(refundId);
     try {
+      if (callbackTimedOut) {
+        return markCallbackTimeout(refund);
+      }
       var attemptNo =
           attemptMapper
                   .selectCount(
@@ -166,7 +182,14 @@ public class RefundService {
               : null);
       refund.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
       refund.setProcessingOwner(null);
-      refund.setProcessingUntil(null);
+      refund.setProcessingUntil(
+          RefundStatus.PROCESSING.name().equals(refund.getStatus())
+              ? LocalDateTime.now(ZoneOffset.UTC).plusSeconds(refundCallbackTimeoutSeconds)
+              : null);
+      refund.setNextAttemptAt(
+          RefundStatus.FAILED.name().equals(refund.getStatus())
+              ? LocalDateTime.now(ZoneOffset.UTC)
+              : null);
       mapper.updateById(refund);
       if (RefundStatus.SUCCESS.name().equals(refund.getStatus())) publishReversal(refund);
       return refund;
@@ -210,9 +233,13 @@ public class RefundService {
                         .or(
                             x ->
                                 x.eq(PaymentRefundEntity::getStatus, RefundStatus.PROCESSING.name())
-                                    .lt(
-                                        PaymentRefundEntity::getProcessingUntil,
-                                        LocalDateTime.now(ZoneOffset.UTC))))
+                                    .and(
+                                        y ->
+                                            y.isNull(PaymentRefundEntity::getProcessingUntil)
+                                                .or()
+                                                .lt(
+                                                    PaymentRefundEntity::getProcessingUntil,
+                                                    LocalDateTime.now(ZoneOffset.UTC)))))
             .last("LIMIT " + Math.min(limit, 100)));
   }
 
@@ -264,13 +291,18 @@ public class RefundService {
         throw new IllegalStateException("退款回调标识冲突", duplicate);
       return get(refundId);
     }
-    refund.setStatus(RefundStatus.valueOf(status.toUpperCase()).name());
+    var nextStatus = RefundStatus.valueOf(status.toUpperCase());
+    refund.setStatus(nextStatus.name());
     refund.setCallbackId(callbackId);
-    refund.setCompletedAt(
-        RefundStatus.SUCCESS.name().equals(refund.getStatus())
-            ? LocalDateTime.now(ZoneOffset.UTC)
+    var now = LocalDateTime.now(ZoneOffset.UTC);
+    refund.setCompletedAt(nextStatus == RefundStatus.SUCCESS ? now : null);
+    refund.setNextAttemptAt(nextStatus == RefundStatus.FAILED ? now : null);
+    refund.setProcessingOwner(null);
+    refund.setProcessingUntil(
+        nextStatus == RefundStatus.PROCESSING
+            ? now.plusSeconds(refundCallbackTimeoutSeconds)
             : null);
-    refund.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
+    refund.setUpdatedAt(now);
     mapper.updateById(refund);
     record.setStatus("PROCESSED");
     record.setProcessedAt(LocalDateTime.now(ZoneOffset.UTC));
@@ -297,30 +329,55 @@ public class RefundService {
     }
   }
 
-  private void publishReversal(PaymentRefundEntity refund) {
+  private boolean supportsRefund(com.example.payments.trade.service.domain.PaymentOrder order) {
     try {
-      outbox.insert(
-          "refund-succeeded-" + refund.getRefundId(),
-          refund.getRefundId(),
-          "REFUND_SUCCEEDED",
-          objectMapper.writeValueAsString(
-              java.util.Map.of(
-                  "schemaVersion",
-                  1,
-                  "eventId",
-                  "refund-succeeded-" + refund.getRefundId(),
-                  "refundId",
-                  refund.getRefundId(),
-                  "orderId",
-                  refund.getOrderId(),
-                  "merchantId",
-                  refund.getMerchantId(),
-                  "amount",
-                  refund.getAmount(),
-                  "currency",
-                  refund.getCurrency())));
-    } catch (JsonProcessingException ex) {
-      throw new IllegalStateException("refund event serialization failed", ex);
+      var pricing = objectMapper.readValue(order.pricingSnapshot(), java.util.Map.class);
+      if (pricing.containsKey("supportsRefund")) {
+        return Boolean.TRUE.equals(pricing.get("supportsRefund"));
+      }
+      // Orders created before this snapshot field use the currently published capability.
+      return channelConfiguration.resolveConfiguration(order).supportsRefund();
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("订单缺少可验证的退款能力快照", exception);
     }
+  }
+
+  private PaymentRefundEntity markCallbackTimeout(PaymentRefundEntity refund) {
+    refund.setStatus(RefundStatus.DEAD.name());
+    refund.setLastError("channel refund callback timed out; manual reconciliation required");
+    refund.setNextAttemptAt(null);
+    refund.setProcessingOwner(null);
+    refund.setProcessingUntil(null);
+    refund.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
+    mapper.updateById(refund);
+    metrics.counter("payment.refund.dead", "service", "trade").increment();
+    return refund;
+  }
+
+  private void publishReversal(PaymentRefundEntity refund) {
+    outbox.insert(
+        "refund-succeeded-" + refund.getRefundId(),
+        refund.getRefundId(),
+        "REFUND_SUCCEEDED",
+        eventSigner.signedPayload(
+            java.util.Map.of(
+                "schemaVersion",
+                1,
+                "eventType",
+                "REFUND_SUCCEEDED",
+                "orderType",
+                "PAYIN",
+                "eventId",
+                "refund-succeeded-" + refund.getRefundId(),
+                "refundId",
+                refund.getRefundId(),
+                "orderId",
+                refund.getOrderId(),
+                "merchantId",
+                refund.getMerchantId(),
+                "amount",
+                refund.getAmount(),
+                "currency",
+                refund.getCurrency())));
   }
 }

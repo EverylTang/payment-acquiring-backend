@@ -5,13 +5,13 @@ import com.example.payments.platform.service.mapper.ConfigurationAdminMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
+import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -35,7 +35,8 @@ public class ConfigurationAdminService {
           "SHA256_KEY_SUFFIX_V1",
           "HMAC_SHA256_V1",
           "HMAC_SHA512_V1",
-          "RSA_SHA256_V1");
+          "RSA_SHA256_V1",
+          "PAYPROO_RSA_SHA256_V1");
   private final ConfigurationAdminMapper mapper;
   private final OperationAuditService auditService;
   private final ObjectMapper objectMapper;
@@ -102,6 +103,8 @@ public class ConfigurationAdminService {
   public void createChannel(ChannelRequest request, Authentication authentication) {
     validateSignatureProfile(request.signatureProfile());
     validateProvider(request.provider(), request.signatureProfile());
+    validateChannelConfiguration(
+        request.provider(), request.requestUrl(), request.configuration(), request.credentials());
     var now = Instant.now();
     mapper.insertChannel(
         request.channelId(),
@@ -138,6 +141,8 @@ public class ConfigurationAdminService {
       String channelId, ChannelUpdateRequest request, Authentication authentication) {
     validateSignatureProfile(request.signatureProfile());
     validateProvider(request.provider(), request.signatureProfile());
+    validateChannelConfiguration(
+        request.provider(), request.requestUrl(), request.configuration(), request.credentials());
     if (mapper.updateChannel(
             channelId,
             request.name(),
@@ -166,6 +171,16 @@ public class ConfigurationAdminService {
   @Transactional
   public void updateChannelStatus(
       String channelId, StatusRequest request, Authentication authentication) {
+    if ("ACTIVE".equals(request.status())) {
+      var channel =
+          java.util.Optional.ofNullable(mapper.selectChannelById(channelId))
+              .orElseThrow(() -> new IllegalArgumentException("渠道不存在: " + channelId));
+      validateChannelConfiguration(
+          channel.provider(),
+          channel.requestUrl(),
+          channelSettings(channel.configuration()),
+          channelCredentials(channel.configuration()));
+    }
     mapper.updateChannelStatus(channelId, request.status(), Instant.now());
     audit(authentication.getName(), "CHANGE_STATUS", "CHANNEL", channelId, request);
   }
@@ -421,7 +436,8 @@ public class ConfigurationAdminService {
         signatureProfile,
         "configurationKeys",
         configuration.keySet(),
-        "credentialKeys", credentials.keySet());
+        "credentialKeys",
+        credentials.keySet());
   }
 
   private Map<String, Object> channelDocument(
@@ -452,6 +468,72 @@ public class ConfigurationAdminService {
     if ((simulated || simulatedSignature) && !simulationProfile()) {
       throw new IllegalArgumentException(
           "SIMULATED channels are only permitted in local or test profiles");
+    }
+    if ("PAYPROO".equalsIgnoreCase(provider)
+        && !"PAYPROO_RSA_SHA256_V1".equalsIgnoreCase(signatureProfile)) {
+      throw new IllegalArgumentException("PayProo 渠道必须使用 PAYPROO_RSA_SHA256_V1 签名方案");
+    }
+  }
+
+  private void validateChannelConfiguration(
+      String provider,
+      String requestUrl,
+      Map<String, Object> settings,
+      Map<String, Object> credentials) {
+    if (!"PAYPROO".equalsIgnoreCase(provider)) return;
+    requireHttps(requestUrl, "requestUrl");
+    requireText(settings, "appId");
+    requireHttps(String.valueOf(settings.get("queryUrl")), "settings.queryUrl");
+    int amountScale = parseInteger(settings, "amountScale", 0, 4);
+    if (amountScale < 0) throw new IllegalArgumentException("PayProo amountScale 无效");
+    requireText(settings, "requestFields");
+    requireText(settings, "requiredFields");
+    if (!(settings.get("methodMappings") instanceof Map<?, ?> mappings) || mappings.isEmpty()) {
+      throw new IllegalArgumentException("PayProo 必须配置 methodMappings");
+    }
+    requireText(credentials, "merchantSecretKey");
+    requireText(credentials, "merchantPrivateKey");
+    requireText(credentials, "platformPublicKey");
+    parseOptionalInteger(settings, "connectTimeoutMs", 100, 120_000);
+    parseOptionalInteger(settings, "readTimeoutMs", 100, 120_000);
+    parseOptionalInteger(settings, "maxOrderValiditySeconds", 60, 604_800);
+  }
+
+  private static void requireHttps(String value, String field) {
+    try {
+      var uri = URI.create(value);
+      if (!uri.isAbsolute()
+          || !"https".equalsIgnoreCase(uri.getScheme())
+          || uri.getHost() == null) {
+        throw new IllegalArgumentException();
+      }
+    } catch (IllegalArgumentException exception) {
+      throw new IllegalArgumentException(field + " 必须是 HTTPS 地址", exception);
+    }
+  }
+
+  private static void requireText(Map<String, ?> values, String key) {
+    Object value = values.get(key);
+    if (value == null || String.valueOf(value).isBlank()) {
+      throw new IllegalArgumentException("PayProo 缺少 " + key);
+    }
+  }
+
+  private static int parseInteger(Map<String, ?> values, String key, int minimum, int maximum) {
+    try {
+      int value = Integer.parseInt(String.valueOf(values.get(key)));
+      if (value < minimum || value > maximum) throw new NumberFormatException();
+      return value;
+    } catch (NumberFormatException exception) {
+      throw new IllegalArgumentException("PayProo " + key + " 无效", exception);
+    }
+  }
+
+  private static void parseOptionalInteger(
+      Map<String, ?> values, String key, int minimum, int maximum) {
+    Object value = values.get(key);
+    if (value != null && !String.valueOf(value).isBlank()) {
+      parseInteger(values, key, minimum, maximum);
     }
   }
 
@@ -572,7 +654,6 @@ public class ConfigurationAdminService {
       String signatureProfile,
       String status,
       String configuration) {}
-
 
   public record RoutingRuleRequest(
       @NotBlank String ruleId,

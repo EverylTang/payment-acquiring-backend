@@ -12,4 +12,6 @@ public interface LedgerEntryMapper extends BaseMapper<LedgerEntryEntity> {
   BigDecimal sumRefundReversals(String orderId);
 
   BigDecimal originalPaymentAmount(String orderId);
+
+  BigDecimal originalPaymentAmountForUpdate(String orderId);
 }

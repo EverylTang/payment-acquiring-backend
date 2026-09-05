@@ -21,6 +21,8 @@ public interface ConfigurationAdminMapper {
 
   long countChannels();
 
+  ChannelRow selectChannelById(@Param("channelId") String channelId);
+
   long countRoutingRules();
 
   long countRiskPolicies();

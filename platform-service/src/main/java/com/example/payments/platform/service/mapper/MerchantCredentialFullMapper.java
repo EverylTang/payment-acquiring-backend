@@ -1,7 +1,7 @@
 package com.example.payments.platform.service.mapper;
 
-import com.example.payments.platform.service.model.MerchantCredentialFullModel;
 import com.example.payments.platform.service.model.MerchantApiCredentialModel;
+import com.example.payments.platform.service.model.MerchantCredentialFullModel;
 import java.time.Instant;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;

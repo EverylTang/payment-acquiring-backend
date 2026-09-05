@@ -87,6 +87,8 @@ scrape_configs:
 
 所有依赖服务由本地 Docker 或基础设施平台独立维护，应用仓库不再提供 Compose 启动文件。启动服务前请确认 MySQL、Redis、Nacos、RocketMQ NameServer、RocketMQ Broker 和 MinIO 已运行，并接入同一网络或开放对应端口。
 
+接入需要异步通知的真实支付渠道时，必须为 Trade 配置 `TRADE_CHANNEL_CALLBACK_BASE_URL`，其值应是渠道可访问的 HTTPS 公网地址，例如 `https://pay.example.com`。系统会向渠道传递 `${TRADE_CHANNEL_CALLBACK_BASE_URL}/api/v1/payments/channels/{channelId}/callback`，该地址与商户的 `returnUrl`、`notifyUrl` 独立。
+
 本地 Vault 部署、默认模拟渠道密钥和 Trade 服务接入方式见 [`docs/local-vault.md`](docs/local-vault.md)。
 
 数据库初始化：

@@ -36,6 +36,7 @@ fund:
   refund-success:
     topic: ${FUND_REFUND_SUCCESS_TOPIC:REFUND_SUCCEEDED}
     consumer-group: ${FUND_REFUND_SUCCESS_CONSUMER_GROUP:fund-refund-success}
+    signing-secret: ${PAYMENT_SUCCESS_EVENT_SIGNING_SECRET:}
 management:
   tracing:
     enabled: ${OTEL_TRACING_ENABLED:false}

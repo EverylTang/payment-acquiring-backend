@@ -41,10 +41,14 @@ public class ExpiredPaymentSuccessExceptionService {
   }
 
   public List<ExpiredPaymentSuccessExceptionEntity> list(String status, int limit) {
-    if (limit < 1 || limit > 100) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid limit");
+    if (limit < 1 || limit > 100)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid limit");
     return mapper.selectList(
         new LambdaQueryWrapper<ExpiredPaymentSuccessExceptionEntity>()
-            .eq(status != null && !status.isBlank(), ExpiredPaymentSuccessExceptionEntity::getStatus, status)
+            .eq(
+                status != null && !status.isBlank(),
+                ExpiredPaymentSuccessExceptionEntity::getStatus,
+                status)
             .orderByAsc(ExpiredPaymentSuccessExceptionEntity::getDetectedAt)
             .last("LIMIT " + limit));
   }
@@ -55,9 +59,13 @@ public class ExpiredPaymentSuccessExceptionService {
     if (resolution == null || resolution.isBlank() || resolution.length() > 512) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "resolution is required");
     }
-    var exception = mapper.selectOne(new LambdaQueryWrapper<ExpiredPaymentSuccessExceptionEntity>()
-        .eq(ExpiredPaymentSuccessExceptionEntity::getExceptionId, exceptionId).last("LIMIT 1"));
-    if (exception == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "exception not found");
+    var exception =
+        mapper.selectOne(
+            new LambdaQueryWrapper<ExpiredPaymentSuccessExceptionEntity>()
+                .eq(ExpiredPaymentSuccessExceptionEntity::getExceptionId, exceptionId)
+                .last("LIMIT 1"));
+    if (exception == null)
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "exception not found");
     if (!"OPEN".equals(exception.getStatus())) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "exception is already resolved");
     }

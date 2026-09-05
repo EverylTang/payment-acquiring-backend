@@ -38,4 +38,13 @@
     ORDER BY id
     LIMIT 1
   </select>
+  <select id="originalPaymentAmountForUpdate" resultType="java.math.BigDecimal">
+    SELECT amount
+    FROM ledger_entry
+    WHERE order_id = #{orderId}
+    AND entry_type = 'PAYMENT_SUCCESS'
+    AND debit_credit = 'CREDIT'
+    ORDER BY id
+    LIMIT 1 FOR UPDATE
+  </select>
 </mapper>

@@ -40,7 +40,8 @@ public class ConfigurationController {
 
   @GetMapping("/products/{productCode}/type")
   public Map<String, String> productType(@PathVariable String productCode) {
-    return Map.of("productCode", productCode, "productType", snapshotService.productType(productCode));
+    return Map.of(
+        "productCode", productCode, "productType", snapshotService.productType(productCode));
   }
 
   @GetMapping("/channels/{channelId}/runtime")
@@ -51,7 +52,8 @@ public class ConfigurationController {
   @PostMapping("/risk-events")
   public void riskEvent(
       @jakarta.validation.Valid @RequestBody
-          com.example.payments.platform.service.service.RiskAdminService.RiskDecisionRequest request) {
+          com.example.payments.platform.service.service.RiskAdminService.RiskDecisionRequest
+              request) {
     riskAdminService.recordDecision(request);
   }
 }

@@ -17,7 +17,7 @@ class SimulatedChannelAdapterTest {
     var result =
         adapter.createPayment(
             new PaymentChannelAdapter.PaymentChannelRequest(
-                "a1", "o1", "m1", "USD", "CARD", "10.00", null, null));
+                "a1", "o1", "m1", "USD", "CARD", "10.00", null, null, null, null, java.util.Map.of()));
     assertThat(result.status()).isEqualTo("SUCCESS");
     assertThat(result.channelOrderId()).isEqualTo("sim-a1");
   }

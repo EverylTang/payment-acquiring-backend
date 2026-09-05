@@ -93,8 +93,13 @@ public class PaymentOrderEntity {
     this.productCode = productCode;
   }
 
-  public String getOrderType() { return orderType; }
-  public void setOrderType(String value) { orderType = value; }
+  public String getOrderType() {
+    return orderType;
+  }
+
+  public void setOrderType(String value) {
+    orderType = value;
+  }
 
   public String getPaymentMethod() {
     return paymentMethod;
@@ -140,10 +145,21 @@ public class PaymentOrderEntity {
     return netAmount;
   }
 
-  public BigDecimal getPayerPayableAmount() { return payerPayableAmount; }
-  public void setPayerPayableAmount(BigDecimal value) { payerPayableAmount = value; }
-  public String getFeeBearer() { return feeBearer; }
-  public void setFeeBearer(String value) { feeBearer = value; }
+  public BigDecimal getPayerPayableAmount() {
+    return payerPayableAmount;
+  }
+
+  public void setPayerPayableAmount(BigDecimal value) {
+    payerPayableAmount = value;
+  }
+
+  public String getFeeBearer() {
+    return feeBearer;
+  }
+
+  public void setFeeBearer(String value) {
+    feeBearer = value;
+  }
 
   public void setNetAmount(BigDecimal netAmount) {
     this.netAmount = netAmount;
@@ -165,11 +181,21 @@ public class PaymentOrderEntity {
     this.idempotencyKey = idempotencyKey;
   }
 
-  public String getPayoutDestinationRef() { return payoutDestinationRef; }
-  public void setPayoutDestinationRef(String value) { payoutDestinationRef = value; }
+  public String getPayoutDestinationRef() {
+    return payoutDestinationRef;
+  }
 
-  public String getMerchantRequestSnapshot() { return merchantRequestSnapshot; }
-  public void setMerchantRequestSnapshot(String value) { merchantRequestSnapshot = value; }
+  public void setPayoutDestinationRef(String value) {
+    payoutDestinationRef = value;
+  }
+
+  public String getMerchantRequestSnapshot() {
+    return merchantRequestSnapshot;
+  }
+
+  public void setMerchantRequestSnapshot(String value) {
+    merchantRequestSnapshot = value;
+  }
 
   public String getRouteSnapshotJson() {
     return routeSnapshotJson;
@@ -219,24 +245,77 @@ public class PaymentOrderEntity {
     this.paymentToken = paymentToken;
   }
 
-  public String getNotifyUrl() { return notifyUrl; }
-  public void setNotifyUrl(String value) { notifyUrl = value; }
-  public String getReturnUrl() { return returnUrl; }
-  public void setReturnUrl(String value) { returnUrl = value; }
-  public String getCustomerReference() { return customerReference; }
-  public void setCustomerReference(String value) { customerReference = value; }
-  public String getDescription() { return description; }
-  public void setDescription(String value) { description = value; }
-  public String getCallbackStatus() { return callbackStatus; }
-  public void setCallbackStatus(String value) { callbackStatus = value; }
-  public String getCallbackEventId() { return callbackEventId; }
-  public void setCallbackEventId(String value) { callbackEventId = value; }
-  public Integer getCallbackAttemptCount() { return callbackAttemptCount; }
-  public void setCallbackAttemptCount(Integer value) { callbackAttemptCount = value; }
-  public LocalDateTime getCallbackLastNotifiedAt() { return callbackLastNotifiedAt; }
-  public void setCallbackLastNotifiedAt(LocalDateTime value) { callbackLastNotifiedAt = value; }
-  public String getCallbackLastError() { return callbackLastError; }
-  public void setCallbackLastError(String value) { callbackLastError = value; }
+  public String getNotifyUrl() {
+    return notifyUrl;
+  }
+
+  public void setNotifyUrl(String value) {
+    notifyUrl = value;
+  }
+
+  public String getReturnUrl() {
+    return returnUrl;
+  }
+
+  public void setReturnUrl(String value) {
+    returnUrl = value;
+  }
+
+  public String getCustomerReference() {
+    return customerReference;
+  }
+
+  public void setCustomerReference(String value) {
+    customerReference = value;
+  }
+
+  public String getDescription() {
+    return description;
+  }
+
+  public void setDescription(String value) {
+    description = value;
+  }
+
+  public String getCallbackStatus() {
+    return callbackStatus;
+  }
+
+  public void setCallbackStatus(String value) {
+    callbackStatus = value;
+  }
+
+  public String getCallbackEventId() {
+    return callbackEventId;
+  }
+
+  public void setCallbackEventId(String value) {
+    callbackEventId = value;
+  }
+
+  public Integer getCallbackAttemptCount() {
+    return callbackAttemptCount;
+  }
+
+  public void setCallbackAttemptCount(Integer value) {
+    callbackAttemptCount = value;
+  }
+
+  public LocalDateTime getCallbackLastNotifiedAt() {
+    return callbackLastNotifiedAt;
+  }
+
+  public void setCallbackLastNotifiedAt(LocalDateTime value) {
+    callbackLastNotifiedAt = value;
+  }
+
+  public String getCallbackLastError() {
+    return callbackLastError;
+  }
+
+  public void setCallbackLastError(String value) {
+    callbackLastError = value;
+  }
 
   public Long getVersion() {
     return version;

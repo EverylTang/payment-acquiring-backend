@@ -9,11 +9,12 @@
   <select id="countActiveChannelsByProvider" resultType="long">SELECT COUNT(*) FROM channel WHERE status='ACTIVE' AND UPPER(provider)=UPPER(#{provider})</select>
   <select id="countPendingReleases" resultType="long">SELECT COUNT(*) FROM config_release WHERE status IN ('DRAFT','IN_REVIEW','APPROVED')</select>
   <select id="countChannels" resultType="long">SELECT COUNT(*) FROM channel</select>
+  <select id="selectChannelById" resultMap="channel">SELECT channel_id,name,provider,request_url,signature_profile,status,CAST(config_json AS CHAR) AS config_json FROM channel WHERE channel_id=#{channelId} LIMIT 1</select>
   <select id="countRoutingRules" resultType="long">SELECT COUNT(*) FROM routing_rule</select>
   <select id="countRiskPolicies" resultType="long">SELECT COUNT(*) FROM risk_policy</select>
   <select id="selectChannels" resultMap="channel">SELECT channel_id,name,provider,request_url,signature_profile,status,CAST(config_json AS CHAR) AS config_json FROM channel ORDER BY created_at DESC LIMIT #{limit} OFFSET #{offset}</select>
-  <insert id="insertChannel">INSERT INTO channel(channel_id,name,provider,request_url,signature_profile,status,config_json,created_at,updated_at) VALUES(#{id},#{name},#{provider},#{requestUrl},#{signatureProfile},'ACTIVE',#{config},#{now},#{now})</insert>
-  <insert id="insertChannelCapability">INSERT INTO channel_capability(capability_id,channel_id,country,currency,payment_method,min_amount,max_amount,status) VALUES(#{id},#{channel},#{country},#{currency},#{method},#{min},#{max},'ACTIVE')</insert>
+  <insert id="insertChannel">INSERT INTO channel(channel_id,name,provider,request_url,signature_profile,status,config_json,created_at,updated_at) VALUES(#{id},#{name},#{provider},#{requestUrl},#{signatureProfile},'DISABLED',#{config},#{now},#{now})</insert>
+  <insert id="insertChannelCapability">INSERT INTO channel_capability(capability_id,channel_id,country,currency,payment_method,min_amount,max_amount,status) VALUES(#{id},#{channel},#{country},#{currency},#{method},#{min},#{max},'DISABLED')</insert>
   <update id="updateChannel">UPDATE channel SET name=#{name},provider=#{provider},request_url=#{requestUrl},signature_profile=#{signatureProfile},config_json=#{config},updated_at=#{now} WHERE channel_id=#{id}</update>
   <update id="updateChannelStatus">UPDATE channel SET status=#{status},updated_at=#{now} WHERE channel_id=#{id}</update>
   <select id="selectRoutingRules" resultMap="routingRule">SELECT rule_id,release_version,product_code,merchant_id,payment_method,country,currency,channel_id,priority,weight,status FROM routing_rule ORDER BY release_version DESC,priority LIMIT #{limit} OFFSET #{offset}</select>

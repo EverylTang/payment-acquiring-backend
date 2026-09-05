@@ -12,6 +12,8 @@
     <result property="requestSummary" column="request_summary" />
     <result property="responseSummary" column="response_summary" />
     <result property="failureCode" column="failure_code" />
+    <result property="paymentUrl" column="payment_url" />
+    <result property="qrCode" column="qr_code" />
     <result property="startedAt" column="started_at" />
     <result property="completedAt" column="completed_at" />
     <result property="version" column="version" />
@@ -25,7 +27,7 @@
   <select id="findQueryable" resultMap="AttemptResultMap">
     SELECT *
     FROM payment_attempt
-    WHERE status = 'PROCESSING'
+    WHERE status IN ('PROCESSING', 'UNKNOWN')
     AND query_count &lt; #{maxQueryCount}
     AND next_query_at &lt;= #{now} AND (query_lock_until IS NULL
     OR query_lock_until &lt; #{now})
@@ -52,7 +54,7 @@
     UPDATE payment_attempt
     SET query_lock_owner = #{owner}, query_claim_token = #{claimToken}, query_lock_until = #{lockUntil}
     WHERE attempt_id = #{attemptId}
-    AND status = 'PROCESSING'
+    AND status IN ('PROCESSING', 'UNKNOWN')
     AND query_count &lt; #{maxQueryCount}
     AND next_query_at &lt;= #{now} AND (query_lock_until IS NULL
     OR query_lock_until &lt; #{now})
@@ -61,17 +63,24 @@
     UPDATE payment_attempt
     SET query_count = query_count + 1, last_query_at = #{now}, next_query_at = #{nextQueryAt}, query_lock_owner = NULL, query_lock_until = NULL, query_claim_token = NULL
     WHERE attempt_id = #{attemptId}
-    AND status = 'PROCESSING'
+    AND status IN ('PROCESSING', 'UNKNOWN')
     AND query_claim_token = #{claimToken}
     AND query_lock_until &gt;= #{now}
   </update>
   <update id="releaseQueryClaim">
     UPDATE payment_attempt
-    SET next_query_at = #{nextQueryAt}, query_lock_owner = NULL, query_lock_until = NULL, query_claim_token = NULL
+    SET query_count = query_count + 1, next_query_at = #{nextQueryAt}, query_lock_owner = NULL, query_lock_until = NULL, query_claim_token = NULL
     WHERE attempt_id = #{attemptId}
-    AND status = 'PROCESSING'
+    AND status IN ('PROCESSING', 'UNKNOWN')
     AND query_claim_token = #{claimToken}
     AND query_lock_until &gt;= #{now}
+  </update>
+  <update id="requestImmediateQuery">
+    UPDATE payment_attempt
+    SET next_query_at = #{now}
+    WHERE attempt_id = #{attemptId}
+    AND status IN ('PROCESSING', 'UNKNOWN')
+    AND (query_lock_until IS NULL OR query_lock_until &lt; #{now})
   </update>
   <select id="findByChannelOrderId" resultMap="AttemptResultMap">
     SELECT *
@@ -84,9 +93,15 @@
     FROM payment_attempt
     WHERE order_id = #{orderId}
   </select>
+  <select id="countOpenByOrderId" resultType="int">
+    SELECT COUNT(*)
+    FROM payment_attempt
+    WHERE order_id = #{orderId}
+    AND status IN ('CREATED', 'PROCESSING', 'UNKNOWN', 'TIMEOUT')
+  </select>
   <update id="updateAttempt">
     UPDATE payment_attempt
-    SET status = #{next}, response_summary = #{responseSummary}, failure_code = #{failureCode}, completed_at = #{completedAt}, version = version + 1, query_lock_owner = CASE WHEN #{next} = 'PROCESSING' THEN query_lock_owner ELSE NULL END, query_lock_until = CASE WHEN #{next} = 'PROCESSING' THEN query_lock_until ELSE NULL END, query_claim_token = CASE WHEN #{next} = 'PROCESSING' THEN query_claim_token ELSE NULL END
+    SET channel_request_no = #{channelRequestNo}, status = #{next}, response_summary = #{responseSummary}, failure_code = #{failureCode}, payment_url = #{paymentUrl}, qr_code = #{qrCode}, completed_at = #{completedAt}, version = version + 1, query_lock_owner = CASE WHEN #{next} IN ('PROCESSING', 'UNKNOWN') THEN query_lock_owner ELSE NULL END, query_lock_until = CASE WHEN #{next} IN ('PROCESSING', 'UNKNOWN') THEN query_lock_until ELSE NULL END, query_claim_token = CASE WHEN #{next} IN ('PROCESSING', 'UNKNOWN') THEN query_claim_token ELSE NULL END
     WHERE attempt_id = #{attemptId}
     AND status = #{expected}
     AND version = #{expectedVersion}

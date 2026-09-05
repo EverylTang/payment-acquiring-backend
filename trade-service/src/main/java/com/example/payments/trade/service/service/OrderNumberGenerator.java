@@ -4,8 +4,8 @@ import com.example.payments.trade.service.domain.OrderType;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.function.LongSupplier;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.LongSupplier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -35,7 +35,9 @@ public class OrderNumberGenerator {
       throw new IllegalArgumentException("trade.order-id.node-id must be between 0 and 99");
     }
     this.nodeId = nodeId;
-    this.startupId = String.format("%5s", Long.toString(ThreadLocalRandom.current().nextLong(60_466_176L), 36)).replace(' ', '0');
+    this.startupId =
+        String.format("%5s", Long.toString(ThreadLocalRandom.current().nextLong(60_466_176L), 36))
+            .replace(' ', '0');
     this.currentTimeMillis = currentTimeMillis;
   }
 
@@ -51,7 +53,12 @@ public class OrderNumberGenerator {
       sequence = 0;
     }
     lastMillis = now;
-    return "%s%s%02d%s%05d".formatted(
-        type.numberPrefix(), TIME_FORMAT.format(Instant.ofEpochMilli(now)), nodeId, startupId, sequence++);
+    return "%s%s%02d%s%05d"
+        .formatted(
+            type.numberPrefix(),
+            TIME_FORMAT.format(Instant.ofEpochMilli(now)),
+            nodeId,
+            startupId,
+            sequence++);
   }
 }

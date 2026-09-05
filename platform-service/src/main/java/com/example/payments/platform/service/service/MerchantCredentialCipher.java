@@ -28,7 +28,8 @@ public class MerchantCredentialCipher {
     try {
       decoded = Base64.getDecoder().decode(encryptionKey);
     } catch (IllegalArgumentException exception) {
-      throw new IllegalStateException("merchant credential encryption key must be base64", exception);
+      throw new IllegalStateException(
+          "merchant credential encryption key must be base64", exception);
     }
     if (decoded.length != 32) {
       throw new IllegalStateException("merchant credential encryption key must be 32 bytes");
@@ -44,7 +45,11 @@ public class MerchantCredentialCipher {
       cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(128, nonce));
       byte[] encrypted = cipher.doFinal(value.getBytes(StandardCharsets.UTF_8));
       return Base64.getEncoder()
-          .encodeToString(ByteBuffer.allocate(nonce.length + encrypted.length).put(nonce).put(encrypted).array());
+          .encodeToString(
+              ByteBuffer.allocate(nonce.length + encrypted.length)
+                  .put(nonce)
+                  .put(encrypted)
+                  .array());
     } catch (java.security.GeneralSecurityException exception) {
       throw new IllegalStateException("merchant credential encryption failed", exception);
     }
@@ -53,10 +58,13 @@ public class MerchantCredentialCipher {
   public String decrypt(String value) {
     try {
       byte[] payload = Base64.getDecoder().decode(value);
-      if (payload.length <= NONCE_BYTES) throw new IllegalArgumentException("invalid credential ciphertext");
+      if (payload.length <= NONCE_BYTES)
+        throw new IllegalArgumentException("invalid credential ciphertext");
       var cipher = Cipher.getInstance("AES/GCM/NoPadding");
       cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, payload, 0, NONCE_BYTES));
-      return new String(cipher.doFinal(payload, NONCE_BYTES, payload.length - NONCE_BYTES), StandardCharsets.UTF_8);
+      return new String(
+          cipher.doFinal(payload, NONCE_BYTES, payload.length - NONCE_BYTES),
+          StandardCharsets.UTF_8);
     } catch (java.security.GeneralSecurityException | IllegalArgumentException exception) {
       throw new IllegalStateException("merchant credential decryption failed", exception);
     }

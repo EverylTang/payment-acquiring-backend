@@ -85,10 +85,7 @@ public class MerchantNotificationDeliveryWorker {
   private void scheduleRetry(PaymentOutboxEventEntity event, Instant now, String error) {
     int attemptCount = event.getAttemptCount() == null ? 0 : event.getAttemptCount();
     boolean expired = retryWindowExpired(event, now);
-    long delay =
-        Math.min(
-            retryMaxSeconds,
-            retryBaseSeconds * (1L << Math.min(attemptCount, 30)));
+    long delay = Math.min(retryMaxSeconds, retryBaseSeconds * (1L << Math.min(attemptCount, 30)));
     if (outboxRepository.markFailed(
         event.getEventId(),
         event.getClaimToken(),
@@ -103,7 +100,8 @@ public class MerchantNotificationDeliveryWorker {
 
   private boolean retryWindowExpired(PaymentOutboxEventEntity event, Instant now) {
     if (event.getFirstFailedAt() == null) return false;
-    Instant deadline = event.getFirstFailedAt().toInstant(ZoneOffset.UTC).plusSeconds(maxRetryAgeSeconds);
+    Instant deadline =
+        event.getFirstFailedAt().toInstant(ZoneOffset.UTC).plusSeconds(maxRetryAgeSeconds);
     return !now.isBefore(deadline);
   }
 

@@ -1,7 +1,7 @@
 package com.example.payments.trade.service.controller;
 
-import com.example.payments.trade.service.service.RefundService;
 import com.example.payments.trade.service.service.OrderService;
+import com.example.payments.trade.service.service.RefundService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -34,14 +34,16 @@ public class RefundController {
   }
 
   @GetMapping("/{refundId}")
-  public RefundResponse get(@PathVariable String refundId, @RequestHeader("X-Merchant-Id") String merchantId) {
+  public RefundResponse get(
+      @PathVariable String refundId, @RequestHeader("X-Merchant-Id") String merchantId) {
     var refund = service.get(refundId);
     owned(refund.getOrderId(), merchantId);
     return RefundResponse.from(refund);
   }
 
   @PostMapping("/{refundId}/execute")
-  public RefundResponse execute(@PathVariable String refundId, @RequestHeader("X-Merchant-Id") String merchantId) {
+  public RefundResponse execute(
+      @PathVariable String refundId, @RequestHeader("X-Merchant-Id") String merchantId) {
     var refund = service.get(refundId);
     owned(refund.getOrderId(), merchantId);
     return RefundResponse.from(service.execute(refundId));

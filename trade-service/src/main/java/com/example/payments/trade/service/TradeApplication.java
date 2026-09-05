@@ -1,8 +1,8 @@
 package com.example.payments.trade.service;
 
 import com.example.payments.trade.service.config.AttemptQueryProperties;
-import com.example.payments.trade.service.config.OutboxProperties;
 import com.example.payments.trade.service.config.OrderExpirationProperties;
+import com.example.payments.trade.service.config.OutboxProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

@@ -1,7 +1,9 @@
 package com.example.payments.fund.service.service;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -75,7 +77,29 @@ class PaymentSuccessEventConsumerTest {
         .hasMessage("invalid payment success event signature");
   }
 
+  @Test
+  void recordsTheFeeAsASeparateDebitEntry() {
+    consumer.onMessage(event("PAYIN", new BigDecimal("0.25")));
+
+    var entries =
+        org.mockito.ArgumentCaptor.forClass(LedgerEntryEntity.class);
+    verify(ledgerMapper, times(2)).insert(entries.capture());
+    assertThat(entries.getAllValues())
+        .anySatisfy(
+            entry -> {
+              org.assertj.core.api.Assertions.assertThat(entry.getEntryType())
+                  .isEqualTo("PAYMENT_FEE");
+              org.assertj.core.api.Assertions.assertThat(entry.getDebitCredit()).isEqualTo("DEBIT");
+              org.assertj.core.api.Assertions.assertThat(entry.getAmount())
+                  .isEqualByComparingTo("0.25");
+            });
+  }
+
   private static String event(String orderType) {
+    return event(orderType, BigDecimal.ZERO);
+  }
+
+  private static String event(String orderType, BigDecimal feeAmount) {
     try {
       ObjectNode event = OBJECT_MAPPER.createObjectNode();
       event.put("schemaVersion", 1);
@@ -85,6 +109,7 @@ class PaymentSuccessEventConsumerTest {
       event.put("orderId", "order-1");
       event.put("merchantId", "merchant-1");
       event.put("amount", new BigDecimal("10.25"));
+      event.put("feeAmount", feeAmount);
       event.put("currency", "USD");
       event.put("eventSignature", hmac(OBJECT_MAPPER.writeValueAsString(event)));
       return OBJECT_MAPPER.writeValueAsString(event);

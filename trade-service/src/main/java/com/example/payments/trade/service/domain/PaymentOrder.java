@@ -54,9 +54,23 @@ public record PaymentOrder(
       String payoutDestinationRef,
       String description) {
     return create(
-        UUID.randomUUID().toString(), OrderType.PAYIN, merchantId, merchantOrderNo, productCode,
-        paymentMethod, country, currency, amount, idempotencyKey, null, expireAt, notifyUrl,
-        returnUrl, customerReference, payoutDestinationRef, description);
+        UUID.randomUUID().toString(),
+        OrderType.PAYIN,
+        merchantId,
+        merchantOrderNo,
+        productCode,
+        paymentMethod,
+        country,
+        currency,
+        amount,
+        idempotencyKey,
+        null,
+        expireAt,
+        notifyUrl,
+        returnUrl,
+        customerReference,
+        payoutDestinationRef,
+        description);
   }
 
   public static PaymentOrder create(
@@ -76,9 +90,23 @@ public record PaymentOrder(
       String payoutDestinationRef,
       String description) {
     return create(
-        UUID.randomUUID().toString(), OrderType.PAYIN, merchantId, merchantOrderNo, productCode,
-        paymentMethod, country, currency, amount, idempotencyKey, merchantRequestSnapshot, expireAt,
-        notifyUrl, returnUrl, customerReference, payoutDestinationRef, description);
+        UUID.randomUUID().toString(),
+        OrderType.PAYIN,
+        merchantId,
+        merchantOrderNo,
+        productCode,
+        paymentMethod,
+        country,
+        currency,
+        amount,
+        idempotencyKey,
+        merchantRequestSnapshot,
+        expireAt,
+        notifyUrl,
+        returnUrl,
+        customerReference,
+        payoutDestinationRef,
+        description);
   }
 
   public static PaymentOrder create(
@@ -137,11 +165,38 @@ public record PaymentOrder(
 
   public PaymentOrder withIdentity(String nextOrderId, OrderType nextOrderType) {
     return new PaymentOrder(
-        nextOrderId, merchantId, merchantOrderNo, productCode, nextOrderType, paymentMethod, country,
-        currency, amount, feeAmount, payerPayableAmount, netAmount, feeBearer, status, idempotencyKey,
-        merchantRequestSnapshot, routeSnapshot, pricingSnapshot, expireAt, createdAt, paidAt, paymentToken,
-        notifyUrl, returnUrl, customerReference, payoutDestinationRef, description, callbackStatus, callbackEventId,
-        callbackAttemptCount, callbackLastNotifiedAt, callbackLastError);
+        nextOrderId,
+        merchantId,
+        merchantOrderNo,
+        productCode,
+        nextOrderType,
+        paymentMethod,
+        country,
+        currency,
+        amount,
+        feeAmount,
+        payerPayableAmount,
+        netAmount,
+        feeBearer,
+        status,
+        idempotencyKey,
+        merchantRequestSnapshot,
+        routeSnapshot,
+        pricingSnapshot,
+        expireAt,
+        createdAt,
+        paidAt,
+        paymentToken,
+        notifyUrl,
+        returnUrl,
+        customerReference,
+        payoutDestinationRef,
+        description,
+        callbackStatus,
+        callbackEventId,
+        callbackAttemptCount,
+        callbackLastNotifiedAt,
+        callbackLastError);
   }
 
   public PaymentOrder withStatus(OrderStatus nextStatus, Instant paymentTime) {

@@ -16,10 +16,7 @@ public class MerchantNotificationHttpClient {
           .build();
 
   public int post(
-      URI uri,
-      String eventId,
-      String body,
-      MerchantNotificationSignatureClient.Signature signature)
+      URI uri, String eventId, String body, MerchantNotificationSignatureClient.Signature signature)
       throws Exception {
     HttpRequest request =
         HttpRequest.newBuilder(uri)

@@ -19,7 +19,8 @@ import org.springframework.web.server.ResponseStatusException;
 public class PlatformChannelConfigurationClient {
   private final RestClient client;
   private final String internalToken;
-  private final ConcurrentHashMap<String, CachedProductType> productTypes = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, CachedProductType> productTypes =
+      new ConcurrentHashMap<>();
 
   public PlatformChannelConfigurationClient(
       @Value("${trade.routing.platform-base-url:http://127.0.0.1:8081}") String platformBaseUrl,
@@ -47,11 +48,13 @@ public class PlatformChannelConfigurationClient {
     var now = System.currentTimeMillis();
     if (cached != null && cached.expiresAtMillis() > now) return cached.productType();
     try {
-      var response = client.get()
-          .uri("/api/internal/v1/configurations/products/{productCode}/type", productCode)
-          .headers(headers -> headers.set("X-Internal-Token", internalToken))
-          .retrieve()
-          .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+      var response =
+          client
+              .get()
+              .uri("/api/internal/v1/configurations/products/{productCode}/type", productCode)
+              .headers(headers -> headers.set("X-Internal-Token", internalToken))
+              .retrieve()
+              .body(new ParameterizedTypeReference<Map<String, Object>>() {});
       var productType = response == null ? "" : text(response.get("productType"));
       if (!List.of("PAYIN", "PAYOUT").contains(productType)) throw unavailable("平台未返回有效产品类型");
       productTypes.put(productCode, new CachedProductType(productType, now + 60_000));
@@ -100,7 +103,10 @@ public class PlatformChannelConfigurationClient {
           text(snapshot.get("configVersion")),
           text(map(snapshot.get("risk")).get("policyId")),
           text(map(snapshot.get("risk")).get("decision")),
-          text(snapshot.get("productType")));
+          text(snapshot.get("productType")),
+          Boolean.TRUE.equals(map(snapshot.get("product")).get("supportsRefund")),
+          decimal(route.get("minAmount"), "渠道最小金额"),
+          decimal(route.get("maxAmount"), "渠道最大金额"));
     } catch (RestClientException exception) {
       throw unavailable("无法读取渠道运行配置");
     }
@@ -125,11 +131,29 @@ public class PlatformChannelConfigurationClient {
   public void recordRiskDecision(PaymentOrder order, ResolvedPaymentConfiguration config) {
     if ("PASS".equals(config.riskDecision())) return;
     try {
-      client.post().uri("/api/internal/v1/configurations/risk-events")
+      client
+          .post()
+          .uri("/api/internal/v1/configurations/risk-events")
           .headers(headers -> headers.set("X-Internal-Token", internalToken))
-          .body(Map.of("orderId", order.orderId(), "merchantId", order.merchantId(), "policyId", config.riskPolicyId(), "policyName", config.riskPolicyId(), "decision", config.riskDecision(), "reason", "策略命中：" + config.riskPolicyId()))
-          .retrieve().toBodilessEntity();
-    } catch (RestClientException exception) { throw unavailable("无法记录风险决策"); }
+          .body(
+              Map.of(
+                  "orderId",
+                  order.orderId(),
+                  "merchantId",
+                  order.merchantId(),
+                  "policyId",
+                  config.riskPolicyId(),
+                  "policyName",
+                  config.riskPolicyId(),
+                  "decision",
+                  config.riskDecision(),
+                  "reason",
+                  "策略命中：" + config.riskPolicyId()))
+          .retrieve()
+          .toBodilessEntity();
+    } catch (RestClientException exception) {
+      throw unavailable("无法记录风险决策");
+    }
   }
 
   ChannelRuntimeContext fromSnapshot(Map<?, ?> snapshot) {
@@ -159,11 +183,12 @@ public class PlatformChannelConfigurationClient {
   private Map<String, String> credentials(Object value) {
     if (!(value instanceof Map<?, ?> source)) return Map.of();
     var credentials = new java.util.LinkedHashMap<String, String>();
-    source.forEach((key, item) -> {
-      var role = text(key);
-      var secret = text(item);
-      if (!role.isBlank() && !secret.isBlank()) credentials.put(role, secret);
-    });
+    source.forEach(
+        (key, item) -> {
+          var role = text(key);
+          var secret = text(item);
+          if (!role.isBlank() && !secret.isBlank()) credentials.put(role, secret);
+        });
     return Map.copyOf(credentials);
   }
 
@@ -240,7 +265,10 @@ public class PlatformChannelConfigurationClient {
       String configVersion,
       String riskPolicyId,
       String riskDecision,
-      String productType) {
+      String productType,
+      boolean supportsRefund,
+      BigDecimal channelMinAmount,
+      BigDecimal channelMaxAmount) {
     public ResolvedPaymentConfiguration {
       if (feeType == null || feeType.isBlank()) feeType = "COMBINED";
       if (!List.of("FIXED", "PERCENTAGE", "TIERED", "COMBINED").contains(feeType)) {
@@ -262,6 +290,11 @@ public class PlatformChannelConfigurationClient {
       }
       if (!List.of("PASS", "REVIEW", "REJECT").contains(riskDecision)) riskDecision = "PASS";
       if (!List.of("PAYIN", "PAYOUT").contains(productType)) productType = "PAYIN";
+      if (channelMinAmount == null
+          || channelMaxAmount == null
+          || channelMinAmount.compareTo(channelMaxAmount) > 0) {
+        throw new IllegalArgumentException("渠道金额范围无效");
+      }
     }
 
     public ResolvedPaymentConfiguration(
@@ -276,7 +309,59 @@ public class PlatformChannelConfigurationClient {
         List<FeeTier> tiers,
         String feeMode,
         String configVersion) {
-      this(runtime, pricingRuleId, feeRate, fixedFee, extraFee, minFee, maxFee, feeType, tiers, feeMode, configVersion, null, "PASS", "PAYIN");
+      this(
+          runtime,
+          pricingRuleId,
+          feeRate,
+          fixedFee,
+          extraFee,
+          minFee,
+          maxFee,
+          feeType,
+          tiers,
+          feeMode,
+          configVersion,
+          null,
+          "PASS",
+          "PAYIN",
+          false,
+          BigDecimal.ZERO,
+          new BigDecimal("9999999999999999"));
+    }
+
+    public ResolvedPaymentConfiguration(
+        ChannelRuntimeContext runtime,
+        String pricingRuleId,
+        BigDecimal feeRate,
+        BigDecimal fixedFee,
+        BigDecimal extraFee,
+        BigDecimal minFee,
+        BigDecimal maxFee,
+        String feeType,
+        List<FeeTier> tiers,
+        String feeMode,
+        String configVersion,
+        String riskPolicyId,
+        String riskDecision,
+        String productType) {
+      this(
+          runtime,
+          pricingRuleId,
+          feeRate,
+          fixedFee,
+          extraFee,
+          minFee,
+          maxFee,
+          feeType,
+          tiers,
+          feeMode,
+          configVersion,
+          riskPolicyId,
+          riskDecision,
+          productType,
+          false,
+          BigDecimal.ZERO,
+          new BigDecimal("9999999999999999"));
     }
 
     public ResolvedPaymentConfiguration(
@@ -297,7 +382,13 @@ public class PlatformChannelConfigurationClient {
           "COMBINED",
           List.of(),
           feeMode,
-          configVersion, null, "PASS", "PAYIN");
+          configVersion,
+          null,
+          "PASS",
+          "PAYIN",
+          false,
+          BigDecimal.ZERO,
+          new BigDecimal("9999999999999999"));
     }
 
     public ResolvedPaymentConfiguration(
@@ -320,7 +411,13 @@ public class PlatformChannelConfigurationClient {
           feeType,
           tiers,
           feeMode,
-          configVersion, null, "PASS", "PAYIN");
+          configVersion,
+          null,
+          "PASS",
+          "PAYIN",
+          false,
+          BigDecimal.ZERO,
+          new BigDecimal("9999999999999999"));
     }
   }
 

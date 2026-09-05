@@ -19,6 +19,8 @@ public class PaymentAttemptEntity {
   private String requestSummary;
   private String responseSummary;
   private String failureCode;
+  private String paymentUrl;
+  private String qrCode;
   private LocalDateTime startedAt;
   private LocalDateTime completedAt;
   private Long version;
@@ -107,6 +109,22 @@ public class PaymentAttemptEntity {
 
   public void setFailureCode(String value) {
     failureCode = value;
+  }
+
+  public String getPaymentUrl() {
+    return paymentUrl;
+  }
+
+  public void setPaymentUrl(String value) {
+    paymentUrl = value;
+  }
+
+  public String getQrCode() {
+    return qrCode;
+  }
+
+  public void setQrCode(String value) {
+    qrCode = value;
   }
 
   public LocalDateTime getStartedAt() {

@@ -6,9 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record OrderExpirationProperties(
     int batchSize, long minValiditySeconds, long maxValiditySeconds) {
   public OrderExpirationProperties {
-    if (batchSize <= 0
-        || minValiditySeconds <= 0
-        || maxValiditySeconds < minValiditySeconds) {
+    if (batchSize <= 0 || minValiditySeconds <= 0 || maxValiditySeconds < minValiditySeconds) {
       throw new IllegalArgumentException("invalid order expiration configuration");
     }
   }

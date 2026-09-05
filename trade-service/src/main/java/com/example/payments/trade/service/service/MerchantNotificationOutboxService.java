@@ -46,16 +46,19 @@ public class MerchantNotificationOutboxService {
     var order =
         orderRepository
             .findById(orderId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "order not found"));
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "order not found"));
     if (order.status() != OrderStatus.SUCCESS) {
-      throw new ResponseStatusException(HttpStatus.CONFLICT, "only successful orders can be notified");
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "only successful orders can be notified");
     }
     if (order.notifyUrl() == null || order.notifyUrl().isBlank()) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "order has no notify URL");
     }
     String eventId = EVENT_TYPE + ":" + order.orderId() + ":MANUAL:" + UUID.randomUUID();
     enqueue(order, eventId, operator, reason);
-    outboxRepository.insertAudit(eventId, operator, reason, order.callbackStatus(), "PENDING", requestId, Instant.now());
+    outboxRepository.insertAudit(
+        eventId, operator, reason, order.callbackStatus(), "PENDING", requestId, Instant.now());
     return orderRepository.findById(orderId).orElse(order);
   }
 
@@ -63,8 +66,12 @@ public class MerchantNotificationOutboxService {
     if (!EVENT_TYPE.equals(event.getEventType())) return;
     int attempts = (event.getAttemptCount() == null ? 0 : event.getAttemptCount()) + 1;
     orderRepository.updateCallbackState(
-        event.getAggregateId(), attempts >= maxAttempts ? "DEAD" : "RETRYING", event.getEventId(),
-        attempts, null, error);
+        event.getAggregateId(),
+        attempts >= maxAttempts ? "DEAD" : "RETRYING",
+        event.getEventId(),
+        attempts,
+        null,
+        error);
   }
 
   public void deliveryFailed(
@@ -110,7 +117,8 @@ public class MerchantNotificationOutboxService {
         orderRepository.updateCallbackState(order.orderId(), "PENDING", eventId, 0, null, null);
       }
     } catch (JsonProcessingException exception) {
-      throw new IllegalStateException("merchant notification event serialization failed", exception);
+      throw new IllegalStateException(
+          "merchant notification event serialization failed", exception);
     }
   }
 

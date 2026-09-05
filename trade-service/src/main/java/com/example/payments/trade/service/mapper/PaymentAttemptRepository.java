@@ -29,14 +29,14 @@ public class PaymentAttemptRepository {
     entity.setRequestSummary(attempt.requestSnapshot());
     entity.setResponseSummary(attempt.responseSnapshot());
     entity.setFailureCode(attempt.failureCode());
+    entity.setPaymentUrl(attempt.paymentUrl());
+    entity.setQrCode(attempt.qrCode());
     entity.setStartedAt(toLocal(attempt.startedAt()));
     entity.setCompletedAt(attempt.completedAt() == null ? null : toLocal(attempt.completedAt()));
     entity.setVersion(attempt.version());
     entity.setQueryCount(0);
     entity.setNextQueryAt(
-        attempt.status() == PaymentAttemptStatus.PROCESSING
-            ? toLocal(attempt.startedAt().plusSeconds(300))
-            : null);
+        isQueryable(attempt.status()) ? toLocal(attempt.startedAt().plusSeconds(300)) : null);
     mapper.insert(entity);
     return attempt;
   }
@@ -70,6 +70,10 @@ public class PaymentAttemptRepository {
 
   public int countByOrderId(String orderId) {
     return mapper.countByOrderId(orderId);
+  }
+
+  public boolean hasOpenAttemptByOrderId(String orderId) {
+    return mapper.countOpenByOrderId(orderId) > 0;
   }
 
   public List<PaymentAttemptQueryClaim> claimQueryable(
@@ -106,6 +110,10 @@ public class PaymentAttemptRepository {
     return mapper.releaseQueryClaim(attemptId, claimToken, toLocal(now), toLocal(nextQueryAt)) == 1;
   }
 
+  public void requestImmediateQuery(String attemptId, Instant now) {
+    mapper.requestImmediateQuery(attemptId, toLocal(now));
+  }
+
   public boolean update(PaymentAttemptStatus expected, PaymentAttempt attempt) {
     return update(expected, 0L, attempt);
   }
@@ -116,9 +124,12 @@ public class PaymentAttemptRepository {
             attempt.attemptId(),
             expected.name(),
             expectedVersion,
+            attempt.channelRequestNo(),
             attempt.status().name(),
             attempt.responseSnapshot(),
             attempt.failureCode(),
+            attempt.paymentUrl(),
+            attempt.qrCode(),
             attempt.completedAt() == null ? null : toLocal(attempt.completedAt()))
         == 1;
   }
@@ -136,7 +147,9 @@ public class PaymentAttemptRepository {
         e.getFailureCode(),
         toInstant(e.getStartedAt()),
         e.getCompletedAt() == null ? null : toInstant(e.getCompletedAt()),
-        e.getVersion());
+        e.getVersion(),
+        e.getPaymentUrl(),
+        e.getQrCode());
   }
 
   public record PaymentAttemptQueryClaim(
@@ -148,5 +161,11 @@ public class PaymentAttemptRepository {
 
   private static Instant toInstant(LocalDateTime value) {
     return value.toInstant(ZoneOffset.UTC);
+  }
+
+  private static boolean isQueryable(PaymentAttemptStatus status) {
+    return status == PaymentAttemptStatus.PROCESSING
+        || status == PaymentAttemptStatus.UNKNOWN
+        || status == PaymentAttemptStatus.TIMEOUT;
   }
 }

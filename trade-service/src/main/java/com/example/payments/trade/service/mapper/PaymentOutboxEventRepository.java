@@ -38,7 +38,11 @@ public class PaymentOutboxEventRepository {
 
   public List<PaymentOutboxEventEntity> claimPending(Instant now, int limit, long lockSeconds) {
     mapper.recoverExpiredClaims(toLocal(now));
-    return claim(mapper.findPending(toLocal(now), limit, MerchantNotificationEventTypes.PAYMENT_NOTIFICATION), now, lockSeconds);
+    return claim(
+        mapper.findPending(
+            toLocal(now), limit, MerchantNotificationEventTypes.PAYMENT_NOTIFICATION),
+        now,
+        lockSeconds);
   }
 
   public List<PaymentOutboxEventEntity> claimMerchantNotifications(
@@ -86,8 +90,7 @@ public class PaymentOutboxEventRepository {
       String error,
       String failureType,
       int maxAttempts) {
-    return markFailed(
-        eventId, claimToken, nextRetryAt, error, failureType, maxAttempts, false);
+    return markFailed(eventId, claimToken, nextRetryAt, error, failureType, maxAttempts, false);
   }
 
   public boolean markFailed(
