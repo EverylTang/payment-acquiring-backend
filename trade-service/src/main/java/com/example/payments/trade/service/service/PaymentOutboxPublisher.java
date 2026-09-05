@@ -16,7 +16,6 @@ public class PaymentOutboxPublisher {
   private final PaymentOutboxEventRepository repository;
   private final RocketMQTemplate rocketMQTemplate;
   private final OutboxProperties properties;
-  private final MerchantNotificationOutboxService merchantNotificationOutboxService;
 
   @Scheduled(fixedDelayString = "${trade.outbox.publish-ms:5000}")
   public void publish() {
@@ -25,9 +24,7 @@ public class PaymentOutboxPublisher {
         repository.claimPending(now, properties.batchSize(), properties.claimTimeoutSeconds())) {
       try {
         SendResult result = rocketMQTemplate.syncSend(event.getEventType(), event.getPayload());
-        if (result != null && repository.markPublished(event.getEventId(), event.getClaimToken())) {
-          merchantNotificationOutboxService.published(event);
-        }
+        if (result != null) repository.markPublished(event.getEventId(), event.getClaimToken());
       } catch (RuntimeException exception) {
         long delay =
             Math.min(
@@ -36,16 +33,13 @@ public class PaymentOutboxPublisher {
                     * (1L
                         << Math.min(
                             event.getAttemptCount() == null ? 0 : event.getAttemptCount(), 30)));
-        if (repository.markFailed(
+        repository.markFailed(
             event.getEventId(),
             event.getClaimToken(),
             now.plusSeconds(delay),
             exception.getMessage(),
             exception.getClass().getSimpleName(),
-            properties.maxAttempts())) {
-          merchantNotificationOutboxService.failed(
-              event, exception.getMessage(), properties.maxAttempts());
-        }
+            properties.maxAttempts());
       }
     }
   }

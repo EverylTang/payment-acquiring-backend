@@ -12,7 +12,6 @@ public final class OrderDtos {
   private OrderDtos() {}
 
   public record CreateOrderRequest(
-      @NotBlank String merchantId,
       @NotBlank String merchantOrderNo,
       @NotBlank String productCode,
       @NotBlank String paymentMethod,
@@ -25,6 +24,44 @@ public final class OrderDtos {
       String customerReference,
       String payoutDestinationRef,
       String description) {}
+
+  /** Merchant-facing order projection. Internal snapshots and operational state stay admin-only. */
+  public record MerchantOrderResponse(
+      String orderId,
+      String merchantOrderNo,
+      BigDecimal amount,
+      String currency,
+      String status,
+      Instant expireAt,
+      Instant paidAt) {
+    public static MerchantOrderResponse from(PaymentOrder order) {
+      return new MerchantOrderResponse(
+          order.orderId(),
+          order.merchantOrderNo(),
+          order.amount(),
+          order.currency(),
+          order.status().name(),
+          order.expireAt(),
+          order.paidAt());
+    }
+  }
+
+  /** Merchant-facing attempt projection. Channel snapshots are retained for protected operations. */
+  public record MerchantAttemptResponse(
+      String attemptId,
+      String orderId,
+      String channelOrderId,
+      String status,
+      String failureCode) {
+    public static MerchantAttemptResponse from(PaymentAttempt attempt) {
+      return new MerchantAttemptResponse(
+          attempt.attemptId(),
+          attempt.orderId(),
+          attempt.channelRequestNo(),
+          attempt.status().name(),
+          attempt.failureCode());
+    }
+  }
 
   public record OrderResponse(
       String orderId,

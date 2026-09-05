@@ -10,7 +10,14 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface PaymentOutboxEventMapper extends BaseMapper<PaymentOutboxEventEntity> {
   List<PaymentOutboxEventEntity> findPending(
-      @Param("now") LocalDateTime now, @Param("limit") int limit);
+      @Param("now") LocalDateTime now,
+      @Param("limit") int limit,
+      @Param("excludedEventType") String excludedEventType);
+
+  List<PaymentOutboxEventEntity> findPendingByEventType(
+      @Param("now") LocalDateTime now,
+      @Param("limit") int limit,
+      @Param("eventType") String eventType);
 
   int recoverExpiredClaims(@Param("now") LocalDateTime now);
 
@@ -35,7 +42,8 @@ public interface PaymentOutboxEventMapper extends BaseMapper<PaymentOutboxEventE
       @Param("lastError") String lastError,
       @Param("failureType") String failureType,
       @Param("failedAt") LocalDateTime failedAt,
-      @Param("maxAttempts") int maxAttempts);
+      @Param("maxAttempts") int maxAttempts,
+      @Param("forceDead") boolean forceDead);
 
   PaymentOutboxEventEntity findByEventId(@Param("eventId") String eventId);
 

@@ -35,7 +35,6 @@ public interface PaymentChannelAdapter {
       String currency,
       String paymentMethod,
       String amount,
-      String behavior,
       ChannelRuntimeContext runtime,
       ChannelRequestSigner.ChannelRequestSignature signature) {}
 

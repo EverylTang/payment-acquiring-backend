@@ -12,6 +12,8 @@ trade:
   routing:
     platform-base-url: ${PLATFORM_SERVICE_URL:http://127.0.0.1:8081}
     internal-token: ${GATEWAY_INTERNAL_TOKEN:}
+  payment-success-event:
+    signing-secret: ${PAYMENT_SUCCESS_EVENT_SIGNING_SECRET:}
   outbox:
     batch-size: ${TRADE_OUTBOX_BATCH_SIZE:50}
     max-attempts: ${TRADE_OUTBOX_MAX_ATTEMPTS:8}
@@ -19,8 +21,17 @@ trade:
     retry-max-seconds: ${TRADE_OUTBOX_RETRY_MAX_SECONDS:300}
     claim-timeout-seconds: ${TRADE_OUTBOX_CLAIM_TIMEOUT_SECONDS:60}
   merchant-notification:
-    consumer-group: ${TRADE_MERCHANT_NOTIFICATION_CONSUMER_GROUP:trade-merchant-notification}
-    retry-interval-ms: ${TRADE_MERCHANT_NOTIFICATION_RETRY_INTERVAL_MS:1000}
+    delivery-ms: ${TRADE_MERCHANT_NOTIFICATION_DELIVERY_MS:1000}
+    max-attempts: ${TRADE_MERCHANT_NOTIFICATION_MAX_ATTEMPTS:8}
+    retry-base-seconds: ${TRADE_MERCHANT_NOTIFICATION_RETRY_BASE_SECONDS:5}
+    retry-max-seconds: ${TRADE_MERCHANT_NOTIFICATION_RETRY_MAX_SECONDS:300}
+    max-retry-age-seconds: ${TRADE_MERCHANT_NOTIFICATION_MAX_RETRY_AGE_SECONDS:86400}
+    claim-timeout-seconds: ${TRADE_MERCHANT_NOTIFICATION_CLAIM_TIMEOUT_SECONDS:60}
+  order-expiration:
+    sweep-ms: ${TRADE_ORDER_EXPIRATION_SWEEP_MS:5000}
+    batch-size: ${TRADE_ORDER_EXPIRATION_BATCH_SIZE:100}
+    min-validity-seconds: ${TRADE_ORDER_EXPIRATION_MIN_VALIDITY_SECONDS:60}
+    max-validity-seconds: ${TRADE_ORDER_EXPIRATION_MAX_VALIDITY_SECONDS:86400}
   attempt:
     query:
       batch-size: ${TRADE_ATTEMPT_QUERY_BATCH_SIZE:50}

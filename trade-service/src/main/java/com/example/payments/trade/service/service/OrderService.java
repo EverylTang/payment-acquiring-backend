@@ -3,6 +3,7 @@ package com.example.payments.trade.service.service;
 import com.example.payments.trade.service.domain.OrderStatus;
 import com.example.payments.trade.service.domain.OrderType;
 import com.example.payments.trade.service.domain.PaymentOrder;
+import com.example.payments.trade.service.config.OrderExpirationProperties;
 import com.example.payments.trade.service.mapper.PaymentOrderRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,28 +27,51 @@ public class OrderService {
   private final PlatformChannelConfigurationClient channelConfiguration;
   private final ObjectMapper objectMapper;
   private final OrderNumberGenerator orderNumberGenerator;
+  private final MerchantCallbackUrlPolicy callbackUrlPolicy;
+  private final MerchantNotificationOutboxService merchantNotificationOutboxService;
+  private final OrderExpirationProperties expirationProperties;
 
   @Autowired
   public OrderService(
       PaymentOrderRepository repository,
       PlatformChannelConfigurationClient channelConfiguration,
       ObjectMapper objectMapper,
-      OrderNumberGenerator orderNumberGenerator) {
+      OrderNumberGenerator orderNumberGenerator,
+      MerchantCallbackUrlPolicy callbackUrlPolicy,
+      MerchantNotificationOutboxService merchantNotificationOutboxService,
+      OrderExpirationProperties expirationProperties) {
     this.repository = repository;
     this.channelConfiguration = channelConfiguration;
     this.objectMapper = objectMapper;
     this.orderNumberGenerator = orderNumberGenerator;
+    this.callbackUrlPolicy = callbackUrlPolicy;
+    this.merchantNotificationOutboxService = merchantNotificationOutboxService;
+    this.expirationProperties = expirationProperties;
   }
 
   OrderService(PaymentOrderRepository repository) {
-    this(repository, null, null, new OrderNumberGenerator(0, System::currentTimeMillis));
+    this(
+        repository,
+        null,
+        null,
+        new OrderNumberGenerator(0, System::currentTimeMillis),
+        new MerchantCallbackUrlPolicy(false),
+        null,
+        OrderExpirationProperties.defaults());
   }
 
   OrderService(
       PaymentOrderRepository repository,
       PlatformChannelConfigurationClient channelConfiguration,
       ObjectMapper objectMapper) {
-    this(repository, channelConfiguration, objectMapper, new OrderNumberGenerator(0, System::currentTimeMillis));
+    this(
+        repository,
+        channelConfiguration,
+        objectMapper,
+        new OrderNumberGenerator(0, System::currentTimeMillis),
+        new MerchantCallbackUrlPolicy(false),
+        null,
+        OrderExpirationProperties.defaults());
   }
 
   @Transactional
@@ -65,6 +89,7 @@ public class OrderService {
     if (existing.isPresent()) {
       return existing.get();
     }
+    validateExpiry(command.expireAt(), Instant.now());
     if (resolvedOrderType == OrderType.PAYOUT
         && (command.payoutDestinationRef() == null || command.payoutDestinationRef().isBlank())) {
       throw new ResponseStatusException(
@@ -100,7 +125,7 @@ public class OrderService {
         "draft", OrderType.PAYIN, command.merchantId(), command.merchantOrderNo(), command.productCode(),
         command.paymentMethod(), command.country(), command.currency(), command.amount(),
         command.idempotencyKey(), merchantRequestSnapshot(command), command.expireAt(),
-        validatedUrl(command.notifyUrl(), "notifyUrl"), validatedUrl(command.returnUrl(), "returnUrl"),
+        callbackUrlPolicy.validate(command.notifyUrl(), "notifyUrl"), callbackUrlPolicy.validate(command.returnUrl(), "returnUrl"),
         command.customerReference(), command.payoutDestinationRef(), command.description());
   }
 
@@ -167,6 +192,10 @@ public class OrderService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "callback status is not allowed");
     }
     PaymentOrder current = get(orderId);
+    if (status == OrderStatus.SUCCESS && isExpired(current, Instant.now())) {
+      expire(current, Instant.now());
+      return get(orderId);
+    }
     if (current.status().canTransitionTo(status)) {
       repository.updateStatus(
           orderId, current.status(), status, status == OrderStatus.SUCCESS ? Instant.now() : null);
@@ -180,7 +209,7 @@ public class OrderService {
     if (current.status().isTerminal()) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "terminal order cannot be canceled");
     }
-    if (current.expireAt().isBefore(Instant.now())) {
+    if (!current.expireAt().isAfter(Instant.now())) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "expired order cannot be canceled");
     }
     repository.updateStatus(orderId, current.status(), OrderStatus.CANCELED, null);
@@ -189,10 +218,60 @@ public class OrderService {
 
   private PaymentOrder transition(String orderId, OrderStatus next) {
     PaymentOrder current = get(orderId);
+    requireActive(current, Instant.now());
     if (current.status().canTransitionTo(next)) {
       repository.updateStatus(orderId, current.status(), next, null);
     }
     return get(orderId);
+  }
+
+  public PaymentOrder requireActive(String orderId) {
+    return requireActive(get(orderId), Instant.now());
+  }
+
+  @Transactional
+  public int expireDue(Instant now, int limit) {
+    if (limit < 1 || limit > expirationProperties.batchSize()) {
+      throw new IllegalArgumentException("invalid expiration batch size");
+    }
+    int expired = 0;
+    for (PaymentOrder order : repository.findExpirable(now, limit)) {
+      if (expire(order, now)) {
+        expired++;
+      }
+    }
+    return expired;
+  }
+
+  private PaymentOrder requireActive(PaymentOrder order, Instant now) {
+    if (isExpired(order, now)) {
+      expire(order, now);
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "order has expired");
+    }
+    if (order.status().isTerminal()) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "terminal order cannot be processed");
+    }
+    return order;
+  }
+
+  private boolean expire(PaymentOrder order, Instant now) {
+    if (!repository.expire(order.orderId(), order.status(), now)) return false;
+    if (merchantNotificationOutboxService != null) {
+      merchantNotificationOutboxService.enqueueOrderExpired(
+          order.withStatus(OrderStatus.EXPIRED, null));
+    }
+    return true;
+  }
+
+  private static boolean isExpired(PaymentOrder order, Instant now) {
+    return !order.expireAt().isAfter(now);
+  }
+
+  private void validateExpiry(Instant expireAt, Instant now) {
+    if (!expireAt.isAfter(now.plusSeconds(expirationProperties.minValiditySeconds()))
+        || expireAt.isAfter(now.plusSeconds(expirationProperties.maxValiditySeconds()))) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "expireAt is outside the permitted validity window");
+    }
   }
 
   private String merchantRequestSnapshot(CreateOrderCommand command) {
@@ -266,20 +345,6 @@ public class OrderService {
     }
   }
 
-  private String validatedUrl(String value, String field) {
-    if (value == null || value.isBlank()) return null;
-    try {
-      URI uri = URI.create(value);
-      if (!uri.isAbsolute()
-          || !("https".equalsIgnoreCase(uri.getScheme()) || "http".equalsIgnoreCase(uri.getScheme()))
-          || uri.getHost() == null) {
-        throw new IllegalArgumentException();
-      }
-      return uri.toASCIIString();
-    } catch (IllegalArgumentException exception) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, field + " must be an absolute HTTP(S) URL");
-    }
-  }
 
   private BigDecimal calculateFee(
       BigDecimal amount, PlatformChannelConfigurationClient.ResolvedPaymentConfiguration config) {

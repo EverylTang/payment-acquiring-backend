@@ -64,6 +64,23 @@
     WHERE order_id = #{orderId}
     AND status = #{expected}
   </update>
+  <select id="findExpirable" resultMap="PaymentOrderResultMap">
+    SELECT
+    <include refid="allColumns" />
+    FROM payment_order
+    WHERE status IN ('CREATED', 'PAYING', 'UNKNOWN')
+    AND expire_at &lt;= #{now}
+    ORDER BY expire_at, id
+    LIMIT #{limit}
+  </select>
+  <update id="expire">
+    UPDATE payment_order
+    SET status = 'EXPIRED', version = version + 1
+    WHERE order_id = #{orderId}
+    AND status = #{expected}
+    AND status IN ('CREATED', 'PAYING', 'UNKNOWN')
+    AND expire_at &lt;= #{now}
+  </update>
   <update id="updateCallbackState">
     UPDATE payment_order
     SET callback_status = #{callbackStatus}, callback_event_id = #{callbackEventId},

@@ -27,10 +27,13 @@ public class PaymentAttemptService {
   private final com.example.payments.trade.service.mapper.PaymentOutboxEventRepository
       outboxRepository;
   private final MerchantNotificationOutboxService merchantNotificationOutboxService;
+  private final ExpiredPaymentSuccessExceptionService expiredSuccessExceptionService;
   private final ObjectMapper objectMapper;
+  private final PaymentSuccessEventSigner paymentSuccessEventSigner;
 
   @Transactional
-  public PaymentAttempt create(PaymentOrder order, String behavior) {
+  public PaymentAttempt create(PaymentOrder order) {
+    order = orderService.requireActive(order.orderId());
     if (order.orderType() == com.example.payments.trade.service.domain.OrderType.PAYOUT) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "出款订单必须通过已配置的出款渠道执行");
@@ -38,7 +41,7 @@ public class PaymentAttemptService {
     String attemptId = UUID.randomUUID().toString();
     var runtime = channelConfiguration.resolve(order);
     var channel = channelAdapters.required(runtime.provider(), runtime.signatureProfile());
-    var fields = requestFields(order, runtime, attemptId, behavior);
+    var fields = requestFields(order, runtime, attemptId);
     var request =
         new PaymentChannelAdapter.PaymentChannelRequest(
             attemptId,
@@ -47,7 +50,6 @@ public class PaymentAttemptService {
             order.currency(),
             order.paymentMethod(),
             order.payerPayableAmount().toPlainString(),
-            behavior,
             runtime,
             channelRequestSigner.sign(runtime, fields));
     var result = channel.createPayment(request);
@@ -207,6 +209,7 @@ public class PaymentAttemptService {
 
   @Transactional
   public PaymentAttempt retry(String attemptId, PaymentOrder order) {
+    order = orderService.requireActive(order.orderId());
     if (order.orderType() == com.example.payments.trade.service.domain.OrderType.PAYOUT) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "出款订单必须通过已配置的出款渠道执行");
@@ -223,14 +226,15 @@ public class PaymentAttemptService {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "attempt is not retryable");
     }
     int attemptNo = repository.countByOrderId(order.orderId()) + 1;
-    return create(order, "SUCCESS", attemptNo);
+    return create(order, attemptNo);
   }
 
-  private PaymentAttempt create(PaymentOrder order, String behavior, int attemptNo) {
+  private PaymentAttempt create(PaymentOrder order, int attemptNo) {
+    order = orderService.requireActive(order.orderId());
     String attemptId = UUID.randomUUID().toString();
     var runtime = channelConfiguration.resolve(order);
     var channel = channelAdapters.required(runtime.provider(), runtime.signatureProfile());
-    var fields = requestFields(order, runtime, attemptId, behavior);
+    var fields = requestFields(order, runtime, attemptId);
     var request =
         new PaymentChannelAdapter.PaymentChannelRequest(
             attemptId,
@@ -239,7 +243,6 @@ public class PaymentAttemptService {
             order.currency(),
             order.paymentMethod(),
             order.payerPayableAmount().toPlainString(),
-            behavior,
             runtime,
             channelRequestSigner.sign(runtime, fields));
     var result = channel.createPayment(request);
@@ -355,7 +358,7 @@ public class PaymentAttemptService {
   }
 
   private java.util.Map<String, String> requestFields(
-      PaymentOrder order, ChannelRuntimeContext runtime, String attemptId, String behavior) {
+      PaymentOrder order, ChannelRuntimeContext runtime, String attemptId) {
     var fields = new java.util.LinkedHashMap<String, String>();
     fields.put("attemptId", attemptId);
     fields.put("orderId", order.orderId());
@@ -368,7 +371,6 @@ public class PaymentAttemptService {
     fields.put("payerPayableAmount", order.payerPayableAmount().toPlainString());
     fields.put("feeAmount", order.feeAmount().toPlainString());
     fields.put("feeBearer", order.feeBearer());
-    fields.put("behavior", behavior);
     runtime
         .settings()
         .forEach(
@@ -405,35 +407,35 @@ public class PaymentAttemptService {
           case PROCESSING, CREATED -> com.example.payments.trade.service.domain.OrderStatus.PAYING;
           case TIMEOUT, UNKNOWN -> com.example.payments.trade.service.domain.OrderStatus.UNKNOWN;
         };
-    orderService.callback(attempt.orderId(), orderStatus);
+    var order = orderService.callback(attempt.orderId(), orderStatus);
     if (attempt.status() == PaymentAttemptStatus.SUCCESS) {
-      var order = orderService.get(attempt.orderId());
-      if (order.orderType() == com.example.payments.trade.service.domain.OrderType.PAYOUT) {
+      if (order.status() != com.example.payments.trade.service.domain.OrderStatus.SUCCESS
+          || order.orderType() == com.example.payments.trade.service.domain.OrderType.PAYOUT) {
+        if (order.status() == com.example.payments.trade.service.domain.OrderStatus.EXPIRED) {
+          expiredSuccessExceptionService.record(order, attempt);
+        }
         return;
       }
       String eventId = "PAYMENT_SUCCEEDED:" + attempt.orderId() + ":" + attempt.attemptId();
-      try {
-        String payload =
-            objectMapper.writeValueAsString(
-                new PaymentSucceededEvent(
-                    eventId,
-                    "PAYMENT_SUCCEEDED",
-                    1,
-                    Instant.now(),
-                    "trade-service",
-                    UUID.randomUUID().toString(),
-                    UUID.randomUUID().toString(),
-                    attempt.version(),
-                    attempt.orderId(),
-                    attempt.attemptId(),
-                    order.merchantId(),
-                    order.amount(),
-                    order.currency()));
-        outboxRepository.insert(eventId, attempt.orderId(), "PAYMENT_SUCCEEDED", payload);
-        merchantNotificationOutboxService.enqueuePaymentSuccess(order);
-      } catch (JsonProcessingException exception) {
-        throw new IllegalStateException("payment success event serialization failed", exception);
-      }
+      String payload =
+          paymentSuccessEventSigner.signedPayload(
+              new PaymentSucceededEvent(
+                  eventId,
+                  "PAYMENT_SUCCEEDED",
+                  1,
+                  Instant.now(),
+                  "trade-service",
+                  UUID.randomUUID().toString(),
+                  UUID.randomUUID().toString(),
+                  attempt.version(),
+                  attempt.orderId(),
+                  attempt.attemptId(),
+                  order.merchantId(),
+                  order.amount(),
+                  order.currency(),
+                  order.orderType().name()));
+      outboxRepository.insert(eventId, attempt.orderId(), "PAYMENT_SUCCEEDED", payload);
+      merchantNotificationOutboxService.enqueuePaymentSuccess(order);
     }
   }
 
@@ -450,7 +452,8 @@ public class PaymentAttemptService {
       String attemptId,
       String merchantId,
       java.math.BigDecimal amount,
-      String currency) {}
+      String currency,
+      String orderType) {}
 
   private static PaymentAttemptStatus statusOf(String value) {
     try {

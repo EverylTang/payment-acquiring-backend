@@ -26,6 +26,7 @@ public class MerchantProfileAdminService {
   private final MerchantContactFullMapper merchantContactFullMapper;
   private final MerchantCredentialFullMapper merchantCredentialFullMapper;
   private final OperationAuditService auditService;
+  private final MerchantCredentialCipher credentialCipher;
 
   public ProfileResponse profile(String merchantId) {
     ensureMerchant(merchantId);
@@ -195,7 +196,15 @@ public class MerchantProfileAdminService {
     merchantCredentialFullMapper.revokeActiveByType(merchantId, request.credentialType(), now);
     var secretHint = secret.substring(0, 6) + "..." + secret.substring(secret.length() - 4);
     merchantCredentialFullMapper.insert(
-        credentialId, merchantId, request.credentialType(), sha256(secret), secretHint, now);
+        credentialId,
+        merchantId,
+        request.credentialType(),
+        sha256(secret),
+        credentialCipher.encrypt(secret),
+        secretHint,
+        request.expiresAt(),
+        request.ipAllowlist() == null ? null : json(request.ipAllowlist()),
+        now);
     audit(authentication.getName(), "ROTATE_CREDENTIAL", merchantId);
     return new RotatedCredential(credentialId, request.credentialType(), secret, now);
   }
@@ -294,7 +303,10 @@ public class MerchantProfileAdminService {
       Instant createdAt,
       Instant updatedAt) {}
 
-  public record CredentialRequest(@Pattern(regexp = "API|WEBHOOK") String credentialType) {}
+  public record CredentialRequest(
+      @Pattern(regexp = "API|WEBHOOK") String credentialType,
+      Instant expiresAt,
+      java.util.Set<String> ipAllowlist) {}
 
   public record CredentialResponse(
       String credentialId,
@@ -308,4 +320,12 @@ public class MerchantProfileAdminService {
 
   public record RotatedCredential(
       String credentialId, String credentialType, String secret, Instant createdAt) {}
+
+  private String json(Object value) {
+    try {
+      return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value);
+    } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
+      throw new IllegalArgumentException("IP 白名单格式无效", exception);
+    }
+  }
 }

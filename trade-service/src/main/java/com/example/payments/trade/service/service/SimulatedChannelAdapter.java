@@ -5,9 +5,11 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
+@Profile({"local", "test"})
 public class SimulatedChannelAdapter implements PaymentChannelAdapter {
   private final String signingSecret;
 
@@ -34,29 +36,12 @@ public class SimulatedChannelAdapter implements PaymentChannelAdapter {
   @Override
   public PaymentChannelResult createPayment(PaymentChannelRequest request) {
     String channelOrderId = "sim-" + request.attemptId();
-    String behavior =
-        request.behavior() == null || request.behavior().isBlank()
-            ? "SUCCESS"
-            : request.behavior().toUpperCase();
-    return switch (behavior) {
-      case "FAILED" ->
-          new PaymentChannelResult(
-              channelOrderId, "FAILED", "{\"status\":\"FAILED\"}", "SIMULATED_FAILURE", null);
-      case "PROCESSING", "TIMEOUT" ->
-          new PaymentChannelResult(
-              channelOrderId,
-              behavior,
-              "{\"status\":\"" + behavior + "\"}",
-              null,
-              "https://simulated.local/pay/" + channelOrderId);
-      default ->
-          new PaymentChannelResult(
-              channelOrderId,
-              "SUCCESS",
-              "{\"status\":\"SUCCESS\"}",
-              null,
-              "https://simulated.local/pay/" + channelOrderId);
-    };
+    return new PaymentChannelResult(
+        channelOrderId,
+        "SUCCESS",
+        "{\"status\":\"SUCCESS\"}",
+        null,
+        "https://simulated.local/pay/" + channelOrderId);
   }
 
   @Override

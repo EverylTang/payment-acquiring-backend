@@ -14,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class PaymentOutboxAdminService {
   private final PaymentOutboxEventRepository repository;
+  private final MerchantNotificationOutboxService merchantNotificationOutboxService;
 
   public List<PaymentOutboxEventEntity> findDead(int limit) {
     if (limit < 1 || limit > 100)
@@ -42,6 +43,7 @@ public class PaymentOutboxAdminService {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "outbox event changed concurrently");
     }
     repository.insertAudit(eventId, operator, reason, "DEAD", "RETRYING", requestId, Instant.now());
+    merchantNotificationOutboxService.redriven(event);
     return find(eventId);
   }
 }

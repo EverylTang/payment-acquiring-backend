@@ -1,6 +1,7 @@
 package com.example.payments.trade.service.controller;
 
 import com.example.payments.trade.service.service.RefundService;
+import com.example.payments.trade.service.service.OrderService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -19,23 +20,30 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class RefundController {
   private final RefundService service;
+  private final OrderService orderService;
 
   @PostMapping
   public RefundResponse create(
       @PathVariable String orderId,
+      @RequestHeader("X-Merchant-Id") String merchantId,
       @RequestHeader("Idempotency-Key") String idempotencyKey,
       @Valid @RequestBody RefundRequest request) {
+    owned(orderId, merchantId);
     return RefundResponse.from(
         service.create(orderId, idempotencyKey, request.amount(), request.reason()));
   }
 
   @GetMapping("/{refundId}")
-  public RefundResponse get(@PathVariable String refundId) {
-    return RefundResponse.from(service.get(refundId));
+  public RefundResponse get(@PathVariable String refundId, @RequestHeader("X-Merchant-Id") String merchantId) {
+    var refund = service.get(refundId);
+    owned(refund.getOrderId(), merchantId);
+    return RefundResponse.from(refund);
   }
 
   @PostMapping("/{refundId}/execute")
-  public RefundResponse execute(@PathVariable String refundId) {
+  public RefundResponse execute(@PathVariable String refundId, @RequestHeader("X-Merchant-Id") String merchantId) {
+    var refund = service.get(refundId);
+    owned(refund.getOrderId(), merchantId);
     return RefundResponse.from(service.execute(refundId));
   }
 
@@ -61,6 +69,14 @@ public class RefundController {
   public record RefundRequest(@DecimalMin("0.01") BigDecimal amount, @NotBlank String reason) {}
 
   public record CallbackRequest(@NotBlank String status, @NotBlank String payload) {}
+
+  private void owned(String orderId, String merchantId) {
+    var order = orderService.get(orderId);
+    if (!merchantId.equals(order.merchantId())) {
+      throw new org.springframework.web.server.ResponseStatusException(
+          org.springframework.http.HttpStatus.NOT_FOUND, "order not found");
+    }
+  }
 
   public record RefundResponse(
       String refundId,

@@ -2,13 +2,16 @@ package com.example.payments.trade.service.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.example.payments.trade.service.config.OrderExpirationProperties;
 import com.example.payments.trade.service.domain.OrderStatus;
 import com.example.payments.trade.service.domain.PaymentOrder;
 import com.example.payments.trade.service.mapper.PaymentOrderRepository;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -201,5 +204,132 @@ class OrderServiceTest {
 
     org.junit.jupiter.api.Assertions.assertThrows(
         ResponseStatusException.class, () -> service.create(command));
+  }
+
+  @Test
+  void rejectsOrderOutsideTheConfiguredValidityWindow() {
+    var command =
+        new OrderService.CreateOrderCommand(
+            "m5",
+            "expires-too-soon",
+            "p1",
+            "CARD",
+            "US",
+            "USD",
+            new BigDecimal("10.00"),
+            "key-6",
+            Instant.now().plusSeconds(30),
+            null,
+            null,
+            null,
+            null,
+            null);
+    when(repository.findByIdempotency("m5", "key-6", "PAYIN")).thenReturn(Optional.empty());
+    when(repository.findByMerchantOrder("m5", "expires-too-soon", "PAYIN"))
+        .thenReturn(Optional.empty());
+
+    org.junit.jupiter.api.Assertions.assertThrows(
+        ResponseStatusException.class, () -> service.create(command));
+  }
+
+  @Test
+  void successfulCallbackAfterExpirationDoesNotRestoreTheOrder() {
+    var active =
+        PaymentOrder.create(
+            "m6",
+            "expired-callback",
+            "p1",
+            "CARD",
+            "US",
+            "USD",
+            new BigDecimal("10.00"),
+            "key-7",
+            Instant.now().minusSeconds(1),
+            null,
+            null,
+            null,
+            null,
+            null);
+    var expired = active.withStatus(OrderStatus.EXPIRED, null);
+    when(repository.findById(active.orderId()))
+        .thenReturn(Optional.of(active), Optional.of(expired));
+    when(repository.expire(
+            org.mockito.ArgumentMatchers.eq(active.orderId()),
+            org.mockito.ArgumentMatchers.eq(OrderStatus.CREATED),
+            any()))
+        .thenReturn(true);
+
+    assertThat(service.callback(active.orderId(), OrderStatus.SUCCESS).status())
+        .isEqualTo(OrderStatus.EXPIRED);
+  }
+
+  @Test
+  void expirationSweepTransitionsOnlyEligibleOrders() {
+    var due =
+        PaymentOrder.create(
+            "m7",
+            "sweep-due",
+            "p1",
+            "CARD",
+            "US",
+            "USD",
+            new BigDecimal("10.00"),
+            "key-8",
+            Instant.now().minusSeconds(1),
+            null,
+            null,
+            null,
+            null,
+            null);
+    when(repository.findExpirable(any(), org.mockito.ArgumentMatchers.eq(10)))
+        .thenReturn(List.of(due));
+    when(repository.expire(
+            org.mockito.ArgumentMatchers.eq(due.orderId()),
+            org.mockito.ArgumentMatchers.eq(OrderStatus.CREATED),
+            any()))
+        .thenReturn(true);
+
+    assertThat(service.expireDue(Instant.now(), 10)).isEqualTo(1);
+  }
+
+  @Test
+  void expirationSweepEnqueuesMerchantExpirationNotification() {
+    var notificationOutbox = org.mockito.Mockito.mock(MerchantNotificationOutboxService.class);
+    var notifyingService =
+        new OrderService(
+            repository,
+            null,
+            null,
+            new OrderNumberGenerator(0, System::currentTimeMillis),
+            new MerchantCallbackUrlPolicy(false),
+            notificationOutbox,
+            new OrderExpirationProperties(10, 60, 86400));
+    var due =
+        PaymentOrder.create(
+            "m8",
+            "sweep-notify",
+            "p1",
+            "CARD",
+            "US",
+            "USD",
+            new BigDecimal("10.00"),
+            "key-9",
+            Instant.now().minusSeconds(1),
+            "https://merchant.example/notify",
+            null,
+            null,
+            null,
+            null);
+    when(repository.findExpirable(any(), org.mockito.ArgumentMatchers.eq(10)))
+        .thenReturn(List.of(due));
+    when(repository.expire(
+            org.mockito.ArgumentMatchers.eq(due.orderId()),
+            org.mockito.ArgumentMatchers.eq(OrderStatus.CREATED),
+            any()))
+        .thenReturn(true);
+
+    notifyingService.expireDue(Instant.now(), 10);
+
+    verify(notificationOutbox).enqueueOrderExpired(any(PaymentOrder.class));
   }
 }

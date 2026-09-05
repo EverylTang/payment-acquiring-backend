@@ -6,10 +6,11 @@ public enum OrderStatus {
   SUCCESS,
   FAILED,
   UNKNOWN,
+  EXPIRED,
   CANCELED;
 
   public boolean isTerminal() {
-    return this == SUCCESS || this == FAILED || this == CANCELED;
+    return this == SUCCESS || this == FAILED || this == EXPIRED || this == CANCELED;
   }
 
   public boolean canTransitionTo(OrderStatus next) {
@@ -21,6 +22,7 @@ public enum OrderStatus {
       case SUCCESS -> this == CREATED || this == PAYING || this == UNKNOWN;
       case FAILED -> this == CREATED || this == PAYING || this == UNKNOWN;
       case UNKNOWN -> this == CREATED || this == PAYING;
+      case EXPIRED -> this == CREATED || this == PAYING || this == UNKNOWN;
       case CANCELED -> this == CREATED || this == PAYING || this == UNKNOWN;
     };
   }

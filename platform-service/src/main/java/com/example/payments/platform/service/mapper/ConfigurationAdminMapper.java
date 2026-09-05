@@ -15,6 +15,8 @@ public interface ConfigurationAdminMapper {
 
   long countActiveChannels();
 
+  long countActiveChannelsByProvider(@Param("provider") String provider);
+
   long countPendingReleases();
 
   long countChannels();

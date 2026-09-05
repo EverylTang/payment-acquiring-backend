@@ -4,17 +4,21 @@ import com.example.payments.fund.service.mapper.PaymentEventConsumptionMapper;
 import com.example.payments.fund.service.model.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Base64;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import org.apache.rocketmq.spring.annotation.ConsumeMode;
 import org.apache.rocketmq.spring.annotation.MessageModel;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Component;
 
@@ -26,21 +30,42 @@ import org.springframework.stereotype.Component;
     consumeMode = ConsumeMode.CONCURRENTLY,
     messageModel = MessageModel.CLUSTERING,
     consumeTimeout = 60)
-@RequiredArgsConstructor
 public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
   private static final String EVENT_TYPE = "PAYMENT_SUCCEEDED";
   private static final long PROCESSING_LEASE_SECONDS = 60;
   private final LedgerEntryApplicationService ledgerService;
   private final PaymentEventConsumptionMapper consumptionMapper;
   private final ObjectMapper objectMapper;
+  private final String signingSecret;
   private final String consumerId = UUID.randomUUID().toString();
+
+  public PaymentSuccessEventConsumer(
+      LedgerEntryApplicationService ledgerService,
+      PaymentEventConsumptionMapper consumptionMapper,
+      ObjectMapper objectMapper,
+      @Value("${fund.payment-success.signing-secret:}") String signingSecret) {
+    if (signingSecret == null || signingSecret.isBlank()) {
+      throw new IllegalStateException("PAYMENT_SUCCESS_EVENT_SIGNING_SECRET must be configured");
+    }
+    this.ledgerService = ledgerService;
+    this.consumptionMapper = consumptionMapper;
+    this.objectMapper = objectMapper;
+    this.signingSecret = signingSecret;
+  }
 
   @Override
   public void onMessage(String message) {
-    JsonNode event = parseWithConfiguredMapper(message);
+    ObjectNode event = parseWithConfiguredMapper(message);
     int schemaVersion = event.path("schemaVersion").asInt(0);
     if (schemaVersion != 1)
       throw new IllegalArgumentException("unsupported payment event schema version");
+    if (!EVENT_TYPE.equals(required(event, "eventType"))) {
+      throw new IllegalArgumentException("unsupported payment event type");
+    }
+    if (!"PAYIN".equals(required(event, "orderType"))) {
+      throw new IllegalArgumentException("payment success event must be PAYIN");
+    }
+    verifyEventSignature(event);
     String eventId = required(event, "eventId");
     String orderId = required(event, "orderId");
     String merchantId = required(event, "merchantId");
@@ -164,11 +189,40 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
     }
   }
 
-  private JsonNode parseWithConfiguredMapper(String message) {
+  private ObjectNode parseWithConfiguredMapper(String message) {
     try {
-      return objectMapper.readTree(message);
+      JsonNode event = objectMapper.readTree(message);
+      if (!(event instanceof ObjectNode object)) {
+        throw new IllegalArgumentException("payment success event must be an object");
+      }
+      return object;
     } catch (Exception exception) {
       throw new IllegalArgumentException("invalid payment success event", exception);
+    }
+  }
+
+  private void verifyEventSignature(ObjectNode event) {
+    String supplied = required(event, "eventSignature");
+    ObjectNode unsigned = event.deepCopy();
+    unsigned.remove("eventSignature");
+    try {
+      String expected = hmac(objectMapper.writeValueAsString(unsigned));
+      if (!MessageDigest.isEqual(
+          expected.getBytes(StandardCharsets.US_ASCII), supplied.getBytes(StandardCharsets.US_ASCII))) {
+        throw new IllegalArgumentException("invalid payment success event signature");
+      }
+    } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
+      throw new IllegalArgumentException("invalid payment success event", exception);
+    }
+  }
+
+  private String hmac(String payload) {
+    try {
+      var mac = Mac.getInstance("HmacSHA256");
+      mac.init(new SecretKeySpec(signingSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+      return Base64.getUrlEncoder().withoutPadding().encodeToString(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
+    } catch (java.security.GeneralSecurityException exception) {
+      throw new IllegalStateException("payment success event signature verification failed", exception);
     }
   }
 

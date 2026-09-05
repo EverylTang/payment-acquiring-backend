@@ -25,3 +25,5 @@ spring:
 platform:
   security:
     internal-token: ${GATEWAY_INTERNAL_TOKEN:}
+  merchant-api:
+    credential-encryption-key: ${PLATFORM_MERCHANT_CREDENTIAL_ENCRYPTION_KEY:}

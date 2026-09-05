@@ -4,6 +4,7 @@ import com.example.payments.platform.service.controller.AdminPageResponse;
 import com.example.payments.platform.service.mapper.ConfigurationAdminMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -13,9 +14,11 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.env.Environment;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +40,15 @@ public class ConfigurationAdminService {
   private final OperationAuditService auditService;
   private final ObjectMapper objectMapper;
   private final com.example.payments.platform.service.mapper.PricingRuleMapper pricingRuleMapper;
+  private final Environment environment;
+
+  @PostConstruct
+  void rejectActiveSimulatedChannels() {
+    if (!simulationProfile() && mapper.countActiveChannelsByProvider("SIMULATED") > 0) {
+      throw new IllegalStateException(
+          "SIMULATED channels are only permitted in local or test profiles");
+    }
+  }
 
   public Map<String, Object> overview() {
     return Map.of(
@@ -89,6 +101,7 @@ public class ConfigurationAdminService {
   @Transactional
   public void createChannel(ChannelRequest request, Authentication authentication) {
     validateSignatureProfile(request.signatureProfile());
+    validateProvider(request.provider(), request.signatureProfile());
     var now = Instant.now();
     mapper.insertChannel(
         request.channelId(),
@@ -124,6 +137,7 @@ public class ConfigurationAdminService {
   public void updateChannel(
       String channelId, ChannelUpdateRequest request, Authentication authentication) {
     validateSignatureProfile(request.signatureProfile());
+    validateProvider(request.provider(), request.signatureProfile());
     if (mapper.updateChannel(
             channelId,
             request.name(),
@@ -430,6 +444,20 @@ public class ConfigurationAdminService {
     if (!SIGNATURE_PROFILES.contains(signatureProfile)) {
       throw new IllegalArgumentException("不支持的渠道签名方案: " + signatureProfile);
     }
+  }
+
+  private void validateProvider(String provider, String signatureProfile) {
+    boolean simulated = "SIMULATED".equalsIgnoreCase(provider);
+    boolean simulatedSignature = signatureProfile.toUpperCase(Locale.ROOT).startsWith("SIMULATED_");
+    if ((simulated || simulatedSignature) && !simulationProfile()) {
+      throw new IllegalArgumentException(
+          "SIMULATED channels are only permitted in local or test profiles");
+    }
+  }
+
+  private boolean simulationProfile() {
+    return java.util.Arrays.stream(environment.getActiveProfiles())
+        .anyMatch(profile -> "local".equals(profile) || "test".equals(profile));
   }
 
   private String json(Object value) {

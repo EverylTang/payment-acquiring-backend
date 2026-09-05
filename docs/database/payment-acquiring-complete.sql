@@ -613,13 +613,31 @@ CREATE TABLE IF NOT EXISTS merchant_credential (
   merchant_id VARCHAR(64) NOT NULL COMMENT '商户ID',
   credential_type VARCHAR(32) NOT NULL COMMENT '凭证类型',
   secret_hash CHAR(64) NOT NULL COMMENT '密钥哈希',
+  secret_ciphertext TEXT NULL COMMENT 'API 密钥 AES-GCM 密文',
   secret_hint VARCHAR(16) NOT NULL COMMENT '密钥提示',
+  expires_at DATETIME(3) NULL COMMENT '凭证过期时间',
+  ip_allowlist JSON NULL COMMENT '商户 API 源 IP 白名单',
   status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '业务状态',
   created_at DATETIME(3) NOT NULL COMMENT '创建时间',
   rotated_at DATETIME(3) COMMENT '轮换时间',
   revoked_at DATETIME(3) COMMENT '撤销时间',
   UNIQUE KEY uk_merchant_credential_id (credential_id),
   KEY idx_merchant_credential (merchant_id, status)
+);
+
+ALTER TABLE merchant_credential ADD COLUMN IF NOT EXISTS secret_ciphertext TEXT NULL COMMENT 'API 密钥 AES-GCM 密文' AFTER secret_hash;
+ALTER TABLE merchant_credential ADD COLUMN IF NOT EXISTS expires_at DATETIME(3) NULL COMMENT '凭证过期时间' AFTER secret_hint;
+ALTER TABLE merchant_credential ADD COLUMN IF NOT EXISTS ip_allowlist JSON NULL COMMENT '商户 API 源 IP 白名单' AFTER expires_at;
+
+CREATE TABLE IF NOT EXISTS merchant_api_nonce (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  merchant_id VARCHAR(64) NOT NULL COMMENT '商户ID',
+  credential_id VARCHAR(64) NOT NULL COMMENT 'API 凭证ID',
+  nonce VARCHAR(128) NOT NULL COMMENT '请求随机数',
+  expires_at DATETIME(3) NOT NULL COMMENT '过期时间',
+  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
+  UNIQUE KEY uk_merchant_api_nonce (merchant_id, credential_id, nonce),
+  KEY idx_merchant_api_nonce_expire (expires_at)
 );
 
 INSERT IGNORE INTO admin_permission (permission_code, permission_name, resource_type, status, created_at, updated_at)
@@ -892,6 +910,34 @@ CREATE TABLE IF NOT EXISTS payment_outbox_operation_audit (
 ALTER TABLE payment_outbox_event
   ADD COLUMN claim_token VARCHAR(128) NULL AFTER lock_until,
   ADD KEY idx_outbox_claim_token (claim_token);
+
+-- SOURCE: consolidated trade-service V8
+ALTER TABLE payment_outbox_event
+  ADD KEY idx_outbox_notification_schedule (event_type, status, next_retry_at);
+
+-- SOURCE: consolidated trade-service V9
+ALTER TABLE payment_order
+  ADD KEY idx_payment_order_expiration (status, expire_at);
+
+-- SOURCE: consolidated trade-service V10
+CREATE TABLE IF NOT EXISTS expired_payment_success_exception (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  exception_id VARCHAR(96) NOT NULL COMMENT '异常ID',
+  order_id VARCHAR(64) NOT NULL COMMENT '本地已过期订单',
+  attempt_id VARCHAR(64) NOT NULL COMMENT '渠道成功尝试',
+  channel_id VARCHAR(64) NOT NULL COMMENT '渠道ID',
+  channel_order_id VARCHAR(128) NOT NULL COMMENT '渠道订单号',
+  amount DECIMAL(20, 2) NOT NULL COMMENT '订单金额',
+  currency VARCHAR(3) NOT NULL COMMENT '币种',
+  status VARCHAR(16) NOT NULL COMMENT 'OPEN/RESOLVED',
+  detected_at DATETIME(3) NOT NULL COMMENT '发现时间',
+  resolution VARCHAR(512) NULL COMMENT '人工处理说明',
+  resolved_by VARCHAR(128) NULL COMMENT '处理人',
+  resolved_at DATETIME(3) NULL COMMENT '处理时间',
+  UNIQUE KEY uk_expired_success_exception_id (exception_id),
+  UNIQUE KEY uk_expired_success_attempt (attempt_id),
+  KEY idx_expired_success_status_detected (status, detected_at)
+);
 
 -- SOURCE: consolidated trade-service V7
 ALTER TABLE payment_attempt

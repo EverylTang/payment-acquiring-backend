@@ -13,12 +13,12 @@ class SimulatedChannelAdapterTest {
   private final SimulatedChannelAdapter adapter = new SimulatedChannelAdapter("test-secret");
 
   @Test
-  void createsConfiguredStatuses() {
+  void createsLocalTestPayment() {
     var result =
         adapter.createPayment(
             new PaymentChannelAdapter.PaymentChannelRequest(
-                "a1", "o1", "m1", "USD", "CARD", "10.00", "TIMEOUT", null, null));
-    assertThat(result.status()).isEqualTo("TIMEOUT");
+                "a1", "o1", "m1", "USD", "CARD", "10.00", null, null));
+    assertThat(result.status()).isEqualTo("SUCCESS");
     assertThat(result.channelOrderId()).isEqualTo("sim-a1");
   }
 

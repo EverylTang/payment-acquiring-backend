@@ -2,6 +2,7 @@ package com.example.payments.trade.service.service;
 
 import com.example.payments.trade.service.domain.OrderStatus;
 import com.example.payments.trade.service.domain.PaymentOrder;
+import com.example.payments.trade.service.mapper.MerchantNotificationEventTypes;
 import com.example.payments.trade.service.mapper.PaymentOrderRepository;
 import com.example.payments.trade.service.mapper.PaymentOutboxEventRepository;
 import com.example.payments.trade.service.model.PaymentOutboxEventEntity;
@@ -19,7 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @RequiredArgsConstructor
 public class MerchantNotificationOutboxService {
-  public static final String EVENT_TYPE = "MERCHANT_PAYMENT_NOTIFICATION";
+  public static final String EVENT_TYPE = MerchantNotificationEventTypes.PAYMENT_NOTIFICATION;
 
   private final PaymentOrderRepository orderRepository;
   private final PaymentOutboxEventRepository outboxRepository;
@@ -29,6 +30,12 @@ public class MerchantNotificationOutboxService {
   public void enqueuePaymentSuccess(PaymentOrder order) {
     if (order.notifyUrl() == null || order.notifyUrl().isBlank()) return;
     enqueue(order, EVENT_TYPE + ":" + order.orderId(), null, null);
+  }
+
+  @Transactional
+  public void enqueueOrderExpired(PaymentOrder order) {
+    if (order.notifyUrl() == null || order.notifyUrl().isBlank()) return;
+    enqueue(order, EVENT_TYPE + ":" + order.orderId() + ":EXPIRED", null, null);
   }
 
   @Transactional
@@ -52,27 +59,36 @@ public class MerchantNotificationOutboxService {
     return orderRepository.findById(orderId).orElse(order);
   }
 
-  public void published(PaymentOutboxEventEntity event) {
-    if (!EVENT_TYPE.equals(event.getEventType())) return;
-    orderRepository.updateCallbackState(
-        event.getAggregateId(), "PUBLISHED", event.getEventId(),
-        event.getAttemptCount() == null ? 0 : event.getAttemptCount(), Instant.now(), null);
-  }
-
-  public void failed(PaymentOutboxEventEntity event, String error, int maxAttempts) {
+  public void deliveryFailed(PaymentOutboxEventEntity event, String error, int maxAttempts) {
     if (!EVENT_TYPE.equals(event.getEventType())) return;
     int attempts = (event.getAttemptCount() == null ? 0 : event.getAttemptCount()) + 1;
     orderRepository.updateCallbackState(
-        event.getAggregateId(), attempts >= maxAttempts ? "FAILED" : "RETRYING", event.getEventId(),
+        event.getAggregateId(), attempts >= maxAttempts ? "DEAD" : "RETRYING", event.getEventId(),
         attempts, null, error);
   }
 
-  public void delivered(String orderId, String eventId, int attempts) {
-    orderRepository.updateCallbackState(orderId, "DELIVERED", eventId, attempts, Instant.now(), null);
+  public void deliveryFailed(
+      PaymentOutboxEventEntity event, String error, int maxAttempts, boolean exhaustedByAge) {
+    if (!EVENT_TYPE.equals(event.getEventType())) return;
+    if (exhaustedByAge) {
+      int attempts = (event.getAttemptCount() == null ? 0 : event.getAttemptCount()) + 1;
+      orderRepository.updateCallbackState(
+          event.getAggregateId(), "DEAD", event.getEventId(), attempts, null, error);
+      return;
+    }
+    deliveryFailed(event, error, maxAttempts);
   }
 
-  public void deliveryFailed(String orderId, String eventId, int attempts, String error) {
-    orderRepository.updateCallbackState(orderId, "FAILED", eventId, attempts, null, error);
+  public void delivered(PaymentOutboxEventEntity event) {
+    int attempts = (event.getAttemptCount() == null ? 0 : event.getAttemptCount()) + 1;
+    orderRepository.updateCallbackState(
+        event.getAggregateId(), "DELIVERED", event.getEventId(), attempts, Instant.now(), null);
+  }
+
+  public void redriven(PaymentOutboxEventEntity event) {
+    if (!EVENT_TYPE.equals(event.getEventType())) return;
+    orderRepository.updateCallbackState(
+        event.getAggregateId(), "RETRYING", event.getEventId(), 0, null, null);
   }
 
   private void enqueue(PaymentOrder order, String eventId, String operator, String reason) {
@@ -81,8 +97,9 @@ public class MerchantNotificationOutboxService {
           objectMapper.writeValueAsString(
               new MerchantPaymentNotification(
                   eventId,
+                  EVENT_TYPE,
+                  Instant.now(),
                   order.orderId(),
-                  order.merchantId(),
                   order.merchantOrderNo(),
                   order.status().name(),
                   order.amount(),
@@ -99,8 +116,9 @@ public class MerchantNotificationOutboxService {
 
   private record MerchantPaymentNotification(
       String eventId,
+      String eventType,
+      Instant occurredAt,
       String orderId,
-      String merchantId,
       String merchantOrderNo,
       String paymentStatus,
       java.math.BigDecimal amount,

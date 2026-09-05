@@ -9,11 +9,19 @@ class PaymentStateTransitionTest {
   void successfulOrderCannotBeOverwritten() {
     assertThat(OrderStatus.SUCCESS.canTransitionTo(OrderStatus.FAILED)).isFalse();
     assertThat(OrderStatus.SUCCESS.canTransitionTo(OrderStatus.UNKNOWN)).isFalse();
+    assertThat(OrderStatus.EXPIRED.canTransitionTo(OrderStatus.SUCCESS)).isFalse();
   }
 
   @Test
   void unknownOrderCanRecoverToSuccess() {
     assertThat(OrderStatus.UNKNOWN.canTransitionTo(OrderStatus.SUCCESS)).isTrue();
+  }
+
+  @Test
+  void activeOrderCanExpire() {
+    assertThat(OrderStatus.CREATED.canTransitionTo(OrderStatus.EXPIRED)).isTrue();
+    assertThat(OrderStatus.PAYING.canTransitionTo(OrderStatus.EXPIRED)).isTrue();
+    assertThat(OrderStatus.UNKNOWN.canTransitionTo(OrderStatus.EXPIRED)).isTrue();
   }
 
   @Test

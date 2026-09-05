@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -31,8 +30,9 @@ public class OrderController {
   }
 
   @PostMapping
-  public OrderDtos.OrderResponse create(
+  public OrderDtos.MerchantOrderResponse create(
       @Valid @RequestBody OrderDtos.CreateOrderRequest request,
+      @RequestHeader("X-Merchant-Id") String merchantId,
       @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey) {
     if (idempotencyKey == null || idempotencyKey.isBlank()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Idempotency-Key is required");
@@ -40,7 +40,7 @@ public class OrderController {
     var order =
         orderService.create(
             new OrderService.CreateOrderCommand(
-                request.merchantId(),
+                merchantId,
                 request.merchantOrderNo(),
                 request.productCode(),
                 request.paymentMethod(),
@@ -54,94 +54,79 @@ public class OrderController {
                 request.customerReference(),
                 request.payoutDestinationRef(),
                 request.description()));
-    return OrderDtos.OrderResponse.from(order);
+    return OrderDtos.MerchantOrderResponse.from(order);
   }
 
   @GetMapping("/{orderId}")
-  public OrderDtos.OrderResponse get(@PathVariable(name = "orderId") String orderId) {
-    return OrderDtos.OrderResponse.from(orderService.get(orderId));
+  public OrderDtos.MerchantOrderResponse get(
+      @PathVariable(name = "orderId") String orderId,
+      @RequestHeader("X-Merchant-Id") String merchantId) {
+    return OrderDtos.MerchantOrderResponse.from(owned(orderId, merchantId));
   }
 
   @GetMapping("/{orderId}/status")
-  public Map<String, String> status(@PathVariable(name = "orderId") String orderId) {
-    return Map.of("orderId", orderId, "status", orderService.get(orderId).status().name());
+  public Map<String, String> status(@PathVariable(name = "orderId") String orderId, @RequestHeader("X-Merchant-Id") String merchantId) {
+    return Map.of("orderId", orderId, "status", owned(orderId, merchantId).status().name());
   }
 
   @PostMapping("/{orderId}/cancel")
-  public OrderDtos.OrderResponse cancel(@PathVariable(name = "orderId") String orderId) {
-    return OrderDtos.OrderResponse.from(orderService.cancel(orderId));
+  public OrderDtos.MerchantOrderResponse cancel(
+      @PathVariable(name = "orderId") String orderId,
+      @RequestHeader("X-Merchant-Id") String merchantId) {
+    owned(orderId, merchantId);
+    return OrderDtos.MerchantOrderResponse.from(orderService.cancel(orderId));
   }
 
   @PostMapping("/{orderId}/attempts")
-  public Map<String, Object> createAttempt(
+  public OrderDtos.MerchantAttemptResponse createAttempt(
       @PathVariable(name = "orderId") String orderId,
-      @RequestParam(name = "behavior", required = false) String behavior) {
+      @RequestHeader("X-Merchant-Id") String merchantId) {
+    owned(orderId, merchantId);
     var order = orderService.markPaying(orderId);
-    var attempt = paymentAttemptService.create(order, behavior);
-    return Map.of(
-        "attemptId",
-        attempt.attemptId(),
-        "orderId",
-        attempt.orderId(),
-        "channelId",
-        attempt.channelId(),
-        "channelOrderId",
-        attempt.channelRequestNo(),
-        "status",
-        attempt.status().name(),
-        "requestSnapshot",
-        attempt.requestSnapshot() == null ? "" : attempt.requestSnapshot(),
-        "responseSnapshot",
-        attempt.responseSnapshot());
+    var attempt = paymentAttemptService.create(order);
+    return OrderDtos.MerchantAttemptResponse.from(attempt);
   }
 
   @GetMapping("/{orderId}/attempts/{attemptId}")
-  public Map<String, Object> getAttempt(
-      @PathVariable String orderId, @PathVariable String attemptId) {
+  public OrderDtos.MerchantAttemptResponse getAttempt(
+      @PathVariable String orderId, @PathVariable String attemptId, @RequestHeader("X-Merchant-Id") String merchantId) {
+    owned(orderId, merchantId);
     var attempt = paymentAttemptService.get(attemptId, orderId);
     return attemptResponse(attempt);
   }
 
   @PostMapping("/{orderId}/attempts/{attemptId}/query")
-  public Map<String, Object> queryAttempt(
-      @PathVariable String orderId, @PathVariable String attemptId) {
+  public OrderDtos.MerchantAttemptResponse queryAttempt(
+      @PathVariable String orderId, @PathVariable String attemptId, @RequestHeader("X-Merchant-Id") String merchantId) {
+    owned(orderId, merchantId);
     return attemptResponse(
         paymentAttemptService.query(paymentAttemptService.get(attemptId, orderId).attemptId()));
   }
 
   @PostMapping("/{orderId}/attempts/{attemptId}/cancel")
-  public Map<String, Object> cancelAttempt(
-      @PathVariable String orderId, @PathVariable String attemptId) {
+  public OrderDtos.MerchantAttemptResponse cancelAttempt(
+      @PathVariable String orderId, @PathVariable String attemptId, @RequestHeader("X-Merchant-Id") String merchantId) {
+    owned(orderId, merchantId);
     paymentAttemptService.get(attemptId, orderId);
     return attemptResponse(paymentAttemptService.cancel(attemptId));
   }
 
   @PostMapping("/{orderId}/attempts/{attemptId}/retry")
-  public Map<String, Object> retryAttempt(
-      @PathVariable String orderId, @PathVariable String attemptId) {
-    var order = orderService.get(orderId);
+  public OrderDtos.MerchantAttemptResponse retryAttempt(
+      @PathVariable String orderId, @PathVariable String attemptId, @RequestHeader("X-Merchant-Id") String merchantId) {
+    var order = owned(orderId, merchantId);
     return attemptResponse(paymentAttemptService.retry(attemptId, order));
   }
 
-  private static Map<String, Object> attemptResponse(
+  private static OrderDtos.MerchantAttemptResponse attemptResponse(
       com.example.payments.trade.service.domain.PaymentAttempt attempt) {
-    return Map.of(
-        "attemptId",
-        attempt.attemptId(),
-        "orderId",
-        attempt.orderId(),
-        "channelId",
-        attempt.channelId(),
-        "channelOrderId",
-        attempt.channelRequestNo(),
-        "attemptNo",
-        attempt.attemptNo(),
-        "status",
-        attempt.status().name(),
-        "requestSnapshot",
-        attempt.requestSnapshot() == null ? "" : attempt.requestSnapshot(),
-        "responseSnapshot",
-        attempt.responseSnapshot() == null ? "" : attempt.responseSnapshot());
+    return OrderDtos.MerchantAttemptResponse.from(attempt);
+  }
+
+  private com.example.payments.trade.service.domain.PaymentOrder owned(String orderId, String merchantId) {
+    var order = orderService.get(orderId);
+    if (!merchantId.equals(order.merchantId())) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "order not found");
+    return order;
   }
 
   @PostMapping("/attempts/callback")

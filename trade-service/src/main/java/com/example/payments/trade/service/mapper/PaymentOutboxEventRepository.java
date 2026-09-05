@@ -38,7 +38,22 @@ public class PaymentOutboxEventRepository {
 
   public List<PaymentOutboxEventEntity> claimPending(Instant now, int limit, long lockSeconds) {
     mapper.recoverExpiredClaims(toLocal(now));
-    return mapper.findPending(toLocal(now), limit).stream()
+    return claim(mapper.findPending(toLocal(now), limit, MerchantNotificationEventTypes.PAYMENT_NOTIFICATION), now, lockSeconds);
+  }
+
+  public List<PaymentOutboxEventEntity> claimMerchantNotifications(
+      Instant now, int limit, long lockSeconds) {
+    mapper.recoverExpiredClaims(toLocal(now));
+    return claim(
+        mapper.findPendingByEventType(
+            toLocal(now), limit, MerchantNotificationEventTypes.PAYMENT_NOTIFICATION),
+        now,
+        lockSeconds);
+  }
+
+  private List<PaymentOutboxEventEntity> claim(
+      List<PaymentOutboxEventEntity> events, Instant now, long lockSeconds) {
+    return events.stream()
         .filter(
             event -> {
               String claimToken = UUID.randomUUID().toString();
@@ -71,6 +86,18 @@ public class PaymentOutboxEventRepository {
       String error,
       String failureType,
       int maxAttempts) {
+    return markFailed(
+        eventId, claimToken, nextRetryAt, error, failureType, maxAttempts, false);
+  }
+
+  public boolean markFailed(
+      String eventId,
+      String claimToken,
+      Instant nextRetryAt,
+      String error,
+      String failureType,
+      int maxAttempts,
+      boolean forceDead) {
     Instant now = Instant.now();
     return mapper.markFailed(
             eventId,
@@ -80,7 +107,8 @@ public class PaymentOutboxEventRepository {
             truncate(error),
             failureType,
             toLocal(now),
-            maxAttempts)
+            maxAttempts,
+            forceDead)
         == 1;
   }
 

@@ -64,7 +64,7 @@ public class AdminOrderController {
 
   @PostMapping
   public OrderDtos.OrderResponse create(
-      @Valid @RequestBody OrderDtos.CreateOrderRequest request,
+      @Valid @RequestBody AdminCreateOrderRequest request,
       @RequestHeader("Idempotency-Key") String idempotencyKey,
       @RequestHeader("X-Gateway-Token") String gatewayToken,
       @RequestHeader("X-User-Id") String operator,
@@ -108,12 +108,11 @@ public class AdminOrderController {
   @PostMapping("/{orderId}/attempts")
   public Map<String, Object> createAttempt(
       @PathVariable String orderId,
-      @RequestParam(required = false) String behavior,
       @RequestHeader("X-Gateway-Token") String gatewayToken,
       @RequestHeader("X-User-Id") String operator,
       @RequestHeader("X-Permissions") String permissions) {
     authorizer.authorize(gatewayToken, operator, permissions, "order:manage");
-    var attempt = paymentAttemptService.create(orderService.markPaying(orderId), behavior);
+    var attempt = paymentAttemptService.create(orderService.markPaying(orderId));
     return attemptResponse(attempt);
   }
 
@@ -158,4 +157,20 @@ public class AdminOrderController {
   }
 
   public record ResendNotificationRequest(@jakarta.validation.constraints.NotBlank String reason) {}
+
+  public record AdminCreateOrderRequest(
+      @jakarta.validation.constraints.NotBlank String merchantId,
+      @jakarta.validation.constraints.NotBlank String merchantOrderNo,
+      @jakarta.validation.constraints.NotBlank String productCode,
+      @jakarta.validation.constraints.NotBlank String paymentMethod,
+      String country,
+      @jakarta.validation.constraints.NotBlank String currency,
+      @jakarta.validation.constraints.NotNull
+          @jakarta.validation.constraints.DecimalMin("0.01") java.math.BigDecimal amount,
+      java.time.Instant expireAt,
+      String notifyUrl,
+      String returnUrl,
+      String customerReference,
+      String payoutDestinationRef,
+      String description) {}
 }

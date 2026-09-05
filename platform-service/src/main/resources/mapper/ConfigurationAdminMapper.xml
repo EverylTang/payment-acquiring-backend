@@ -6,6 +6,7 @@
   <resultMap id="riskPolicy" type="com.example.payments.platform.service.service.ConfigurationAdminService$RiskPolicyRow"><constructor><arg column="policy_id" javaType="string"/><arg column="release_version" javaType="_long"/><arg column="name" javaType="string"/><arg column="priority" javaType="_int"/><arg column="decision" javaType="string"/><arg column="condition_json" javaType="string"/><arg column="status" javaType="string"/></constructor></resultMap>
   <select id="countActiveMerchants" resultType="long">SELECT COUNT(*) FROM merchant WHERE status='ACTIVE'</select>
   <select id="countActiveChannels" resultType="long">SELECT COUNT(*) FROM channel WHERE status='ACTIVE'</select>
+  <select id="countActiveChannelsByProvider" resultType="long">SELECT COUNT(*) FROM channel WHERE status='ACTIVE' AND UPPER(provider)=UPPER(#{provider})</select>
   <select id="countPendingReleases" resultType="long">SELECT COUNT(*) FROM config_release WHERE status IN ('DRAFT','IN_REVIEW','APPROVED')</select>
   <select id="countChannels" resultType="long">SELECT COUNT(*) FROM channel</select>
   <select id="countRoutingRules" resultType="long">SELECT COUNT(*) FROM routing_rule</select>

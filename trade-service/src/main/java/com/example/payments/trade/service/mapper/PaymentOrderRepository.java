@@ -81,6 +81,14 @@ public class PaymentOrderRepository {
         == 1;
   }
 
+  public boolean expire(String orderId, OrderStatus expected, Instant now) {
+    return mapper.expire(orderId, expected.name(), toLocal(now)) == 1;
+  }
+
+  public List<PaymentOrder> findExpirable(Instant now, int limit) {
+    return mapper.findExpirable(toLocal(now), limit).stream().map(this::toDomain).toList();
+  }
+
   public boolean updateCallbackState(
       String orderId,
       String callbackStatus,

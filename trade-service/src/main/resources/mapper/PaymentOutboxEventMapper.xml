@@ -27,6 +27,16 @@
     FROM payment_outbox_event
     WHERE status IN ('PENDING', 'RETRYING')
     AND next_retry_at &lt;= #{now}
+    AND event_type != #{excludedEventType}
+    ORDER BY id
+    LIMIT #{limit}
+  </select>
+  <select id="findPendingByEventType" resultMap="OutboxResultMap">
+    SELECT *
+    FROM payment_outbox_event
+    WHERE status IN ('PENDING', 'RETRYING')
+    AND next_retry_at &lt;= #{now}
+    AND event_type = #{eventType}
     ORDER BY id
     LIMIT #{limit}
   </select>
@@ -53,7 +63,7 @@
   </update>
   <update id="markFailed">
     UPDATE payment_outbox_event
-    SET status = CASE WHEN attempt_count + 1 &gt;= #{maxAttempts} THEN 'DEAD' ELSE 'RETRYING' END, attempt_count = attempt_count + 1, next_retry_at = #{nextRetryAt}, last_error = #{lastError}, last_failure_type = #{failureType}, first_failed_at = COALESCE(first_failed_at, #{failedAt}), dead_at = CASE WHEN attempt_count + 1 &gt;= #{maxAttempts} THEN #{failedAt} ELSE NULL END, locked_by = NULL, locked_at = NULL, lock_until = NULL, claim_token = NULL
+    SET status = CASE WHEN #{forceDead} OR attempt_count + 1 &gt;= #{maxAttempts} THEN 'DEAD' ELSE 'RETRYING' END, attempt_count = attempt_count + 1, next_retry_at = #{nextRetryAt}, last_error = #{lastError}, last_failure_type = #{failureType}, first_failed_at = COALESCE(first_failed_at, #{failedAt}), dead_at = CASE WHEN #{forceDead} OR attempt_count + 1 &gt;= #{maxAttempts} THEN #{failedAt} ELSE NULL END, locked_by = NULL, locked_at = NULL, lock_until = NULL, claim_token = NULL
     WHERE event_id = #{eventId}
     AND status = 'PROCESSING'
     AND claim_token = #{claimToken}
