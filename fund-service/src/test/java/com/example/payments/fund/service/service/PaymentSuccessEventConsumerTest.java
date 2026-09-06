@@ -44,6 +44,20 @@ class PaymentSuccessEventConsumerTest {
   }
 
   @Test
+  void passesTheProductCodeToSettlementRuleSelection() {
+    consumer.onMessage(eventWithProduct("CARD-US-USD"));
+
+    verify(settlementService)
+        .createSettlementDetail(
+            "order-1",
+            "merchant-1",
+            "CARD-US-USD",
+            new BigDecimal("10.25"),
+            BigDecimal.ZERO,
+            "USD");
+  }
+
+  @Test
   void conflictingExistingEventIsRejected() {
     var existing = new PaymentEventConsumptionEntity();
     existing.setPayloadHash("different");
@@ -148,6 +162,26 @@ class PaymentSuccessEventConsumerTest {
       event.put("amount", amount);
       event.put("feeAmount", feeAmount);
       event.put("currency", currency);
+      event.put("eventSignature", hmac(OBJECT_MAPPER.writeValueAsString(event)));
+      return OBJECT_MAPPER.writeValueAsString(event);
+    } catch (Exception exception) {
+      throw new AssertionError(exception);
+    }
+  }
+
+  private static String eventWithProduct(String productCode) {
+    try {
+      ObjectNode event = OBJECT_MAPPER.createObjectNode();
+      event.put("schemaVersion", 1);
+      event.put("eventType", "PAYMENT_SUCCEEDED");
+      event.put("orderType", "PAYIN");
+      event.put("eventId", "event-1");
+      event.put("orderId", "order-1");
+      event.put("merchantId", "merchant-1");
+      event.put("productCode", productCode);
+      event.put("amount", new BigDecimal("10.25"));
+      event.put("feeAmount", BigDecimal.ZERO);
+      event.put("currency", "USD");
       event.put("eventSignature", hmac(OBJECT_MAPPER.writeValueAsString(event)));
       return OBJECT_MAPPER.writeValueAsString(event);
     } catch (Exception exception) {

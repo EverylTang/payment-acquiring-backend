@@ -13,9 +13,12 @@ public class MerchantSettlementRuleEntity {
   private Long id;
 
   private String merchantId;
+  private String productCode;
   private String currency;
   private String settlementCycle;
   private Integer cycleDays;
+  private Integer settlementDay;
+  private Integer cycleInterval;
   private BigDecimal minSettlementAmount;
   private BigDecimal feeRate;
   private Boolean autoSettlement;
@@ -41,6 +44,14 @@ public class MerchantSettlementRuleEntity {
     this.merchantId = merchantId;
   }
 
+  public String getProductCode() {
+    return productCode;
+  }
+
+  public void setProductCode(String productCode) {
+    this.productCode = productCode;
+  }
+
   public String getCurrency() {
     return currency;
   }
@@ -63,6 +74,22 @@ public class MerchantSettlementRuleEntity {
 
   public void setCycleDays(Integer cycleDays) {
     this.cycleDays = cycleDays;
+  }
+
+  public Integer getSettlementDay() {
+    return settlementDay;
+  }
+
+  public void setSettlementDay(Integer settlementDay) {
+    this.settlementDay = settlementDay;
+  }
+
+  public Integer getCycleInterval() {
+    return cycleInterval;
+  }
+
+  public void setCycleInterval(Integer cycleInterval) {
+    this.cycleInterval = cycleInterval;
   }
 
   public BigDecimal getMinSettlementAmount() {

@@ -74,6 +74,8 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
     String eventId = required(event, "eventId");
     String orderId = required(event, "orderId");
     String merchantId = required(event, "merchantId");
+    String productCode = optional(event, "productCode");
+    validateProductCode(productCode);
     String currency = required(event, "currency");
     validateCurrency(currency);
     BigDecimal amount = decimal(event, "amount");
@@ -98,7 +100,7 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
     if ("PROCESSED".equals(record.getStatus()) || "DUPLICATE".equals(record.getStatus())) {
       ledgerService.recordPaymentSuccess(
           idempotencyKey(orderId), orderId, merchantId, amount, feeAmount, currency);
-      settlementService.createSettlementDetail(orderId, merchantId, amount, feeAmount, currency);
+      recordSettlementDetail(orderId, merchantId, productCode, amount, feeAmount, currency);
       return;
     }
     if ("FAILED".equals(record.getStatus()) || "REPLAYING".equals(record.getStatus())) {
@@ -128,7 +130,7 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
       var result =
           ledgerService.recordPaymentSuccess(
               idempotencyKey(orderId), orderId, merchantId, amount, feeAmount, currency);
-      settlementService.createSettlementDetail(orderId, merchantId, amount, feeAmount, currency);
+      recordSettlementDetail(orderId, merchantId, productCode, amount, feeAmount, currency);
       record.setStatus(result.duplicate() ? "DUPLICATE" : "PROCESSED");
       record.setProcessedAt(LocalDateTime.now(ZoneOffset.UTC));
       record.setLastError(null);
@@ -277,8 +279,38 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
     return value.textValue();
   }
 
+  private static String optional(JsonNode event, String field) {
+    JsonNode value = event.get(field);
+    if (value == null || value.isNull()) return null;
+    if (!value.isTextual() || value.textValue().isBlank()) {
+      throw new IllegalArgumentException("invalid " + field);
+    }
+    return value.textValue();
+  }
+
+  private static void validateProductCode(String productCode) {
+    if (productCode != null && !productCode.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")) {
+      throw new IllegalArgumentException("invalid productCode");
+    }
+  }
+
   private static String idempotencyKey(String orderId) {
     return "payment-success:" + orderId;
+  }
+
+  private void recordSettlementDetail(
+      String orderId,
+      String merchantId,
+      String productCode,
+      BigDecimal amount,
+      BigDecimal feeAmount,
+      String currency) {
+    if (productCode == null) {
+      settlementService.createSettlementDetail(orderId, merchantId, amount, feeAmount, currency);
+      return;
+    }
+    settlementService.createSettlementDetail(
+        orderId, merchantId, productCode, amount, feeAmount, currency);
   }
 
   private static BigDecimal decimalOrZero(JsonNode event, String field) {

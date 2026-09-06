@@ -6,6 +6,8 @@ import com.example.payments.fund.service.model.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.DayOfWeek;
+import java.time.temporal.TemporalAdjusters;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -19,6 +21,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class MerchantSettlementService {
+  private static final int DEFAULT_PAGE_SIZE = 20;
+  private static final int MAX_PAGE_SIZE = 100;
+  private static final Set<String> SETTLEMENT_CYCLES =
+      Set.of("NATURAL_DAY", "WORKING_DAY", "WEEKLY", "MULTI_WEEKLY", "MONTHLY", "MANUAL");
   private final MerchantSettlementDetailMapper settlementDetailMapper;
   private final MerchantSettlementRuleMapper settlementRuleMapper;
   private final MerchantSettlementBatchMapper settlementBatchMapper;
@@ -112,6 +118,17 @@ public class MerchantSettlementService {
       BigDecimal orderAmount,
       BigDecimal feeAmount,
       String currency) {
+    createSettlementDetail(orderId, merchantId, null, orderAmount, feeAmount, currency);
+  }
+
+  @Transactional
+  public void createSettlementDetail(
+      String orderId,
+      String merchantId,
+      String productCode,
+      BigDecimal orderAmount,
+      BigDecimal feeAmount,
+      String currency) {
     validateSettlementInput(orderId, merchantId, orderAmount, feeAmount, currency);
     QueryWrapper<MerchantSettlementDetailEntity> existingQuery = new QueryWrapper<>();
     existingQuery.eq("order_id", orderId);
@@ -121,10 +138,13 @@ public class MerchantSettlementService {
       return;
     }
 
-    MerchantSettlementRuleEntity rule = getActiveSettlementRule(merchantId, currency);
+    MerchantSettlementRuleEntity rule = getActiveSettlementRule(merchantId, productCode, currency);
     if (rule == null) {
       log.error(
-          "No active settlement rule found for merchant: {}, currency: {}", merchantId, currency);
+          "No active settlement rule found for merchant: {}, product: {}, currency: {}",
+          merchantId,
+          productCode,
+          currency);
       throw new RuntimeException("No settlement rule configured");
     }
 
@@ -137,6 +157,7 @@ public class MerchantSettlementService {
     MerchantSettlementDetailEntity detail = new MerchantSettlementDetailEntity();
     detail.setDetailId(detailId);
     detail.setMerchantId(merchantId);
+    detail.setProductCode(productCode);
     detail.setAccountId(account.getAccountId());
     detail.setOrderId(orderId);
     detail.setOrderAmount(orderAmount);
@@ -169,8 +190,19 @@ public class MerchantSettlementService {
         expectedDate);
   }
 
-  private MerchantSettlementRuleEntity getActiveSettlementRule(String merchantId, String currency) {
+  private MerchantSettlementRuleEntity getActiveSettlementRule(
+      String merchantId, String productCode, String currency) {
     LocalDate today = LocalDate.now();
+    if (productCode != null && !productCode.isBlank()) {
+      MerchantSettlementRuleEntity productRule =
+          activeRuleQuery(merchantId, productCode.trim(), currency, today);
+      if (productRule != null) return productRule;
+    }
+    return activeRuleQuery(merchantId, null, currency, today);
+  }
+
+  private MerchantSettlementRuleEntity activeRuleQuery(
+      String merchantId, String productCode, String currency, LocalDate today) {
     QueryWrapper<MerchantSettlementRuleEntity> query = new QueryWrapper<>();
     query
         .eq("merchant_id", merchantId)
@@ -180,16 +212,68 @@ public class MerchantSettlementService {
         .and(w -> w.isNull("expire_date").or().ge("expire_date", today))
         .orderByDesc("effective_date")
         .last("LIMIT 1");
+    if (productCode == null) query.isNull("product_code");
+    else query.eq("product_code", productCode);
     return settlementRuleMapper.selectOne(query);
   }
 
+  static LocalDate calculateSettlementDate(MerchantSettlementRuleEntity rule, LocalDate today) {
+    String cycle = rule.getSettlementCycle();
+    int days = rule.getCycleDays() == null ? 0 : rule.getCycleDays();
+    return switch (cycle) {
+      case "NATURAL_DAY" -> today.plusDays(days);
+      case "WORKING_DAY" -> addWorkingDays(today, days);
+      case "WEEKLY" -> nextWeekday(today, requiredSettlementDay(rule, 7));
+      case "MULTI_WEEKLY" -> nextMultiWeekday(today, rule);
+      case "MONTHLY" -> nextMonthDay(today, requiredSettlementDay(rule, 31));
+      case "MANUAL" -> today;
+      default -> throw new IllegalArgumentException("unsupported settlement cycle: " + cycle);
+    };
+  }
+
   private LocalDate calculateSettlementDate(MerchantSettlementRuleEntity rule) {
-    LocalDate today = LocalDate.now();
-    Integer cycleDays = rule.getCycleDays();
-    if (cycleDays == null || cycleDays == 0) {
-      return today;
+    return calculateSettlementDate(rule, LocalDate.now());
+  }
+
+  private static LocalDate addWorkingDays(LocalDate start, int days) {
+    LocalDate result = start;
+    for (int remaining = days; remaining > 0; ) {
+      result = result.plusDays(1);
+      if (result.getDayOfWeek() != DayOfWeek.SATURDAY
+          && result.getDayOfWeek() != DayOfWeek.SUNDAY) {
+        remaining--;
+      }
     }
-    return today.plusDays(cycleDays);
+    return result;
+  }
+
+  private static LocalDate nextWeekday(LocalDate date, int dayOfWeek) {
+    return date.with(TemporalAdjusters.nextOrSame(DayOfWeek.of(dayOfWeek)));
+  }
+
+  private static LocalDate nextMultiWeekday(LocalDate date, MerchantSettlementRuleEntity rule) {
+    int interval = rule.getCycleInterval() == null ? 2 : rule.getCycleInterval();
+    LocalDate candidate = nextWeekday(date, requiredSettlementDay(rule, 7));
+    LocalDate anchor = rule.getEffectiveDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+    LocalDate candidateWeek = candidate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+    long weeks = java.time.temporal.ChronoUnit.WEEKS.between(anchor, candidateWeek);
+    long remainder = Math.floorMod(weeks, interval);
+    return remainder == 0 ? candidate : candidate.plusWeeks(interval - remainder);
+  }
+
+  private static LocalDate nextMonthDay(LocalDate date, int dayOfMonth) {
+    LocalDate thisMonth = date.withDayOfMonth(Math.min(dayOfMonth, date.lengthOfMonth()));
+    if (!thisMonth.isBefore(date)) return thisMonth;
+    LocalDate nextMonth = date.plusMonths(1);
+    return nextMonth.withDayOfMonth(Math.min(dayOfMonth, nextMonth.lengthOfMonth()));
+  }
+
+  private static int requiredSettlementDay(MerchantSettlementRuleEntity rule, int max) {
+    Integer value = rule.getSettlementDay();
+    if (value == null || value < 1 || value > max) {
+      throw new IllegalArgumentException("settlement day is invalid");
+    }
+    return value;
   }
 
   private MerchantFundAccountEntity getOrCreateFundAccount(String merchantId, String currency) {
@@ -255,6 +339,7 @@ public class MerchantSettlementService {
         settlementRuleMapper.selectOne(
             new QueryWrapper<MerchantSettlementRuleEntity>()
                 .eq("merchant_id", rule.getMerchantId())
+                .eq("product_code", rule.getProductCode())
                 .eq("currency", rule.getCurrency())
                 .eq("effective_date", rule.getEffectiveDate()));
     LocalDateTime now = LocalDateTime.now();
@@ -271,11 +356,26 @@ public class MerchantSettlementService {
     return rule;
   }
 
-  public List<MerchantSettlementRuleEntity> listRules(String merchantId, String currency) {
-    QueryWrapper<MerchantSettlementRuleEntity> query = new QueryWrapper<>();
-    if (merchantId != null && !merchantId.isBlank()) query.eq("merchant_id", merchantId);
-    if (currency != null && !currency.isBlank()) query.eq("currency", currency);
-    return settlementRuleMapper.selectList(query.orderByDesc("effective_date"));
+  public Page<MerchantSettlementRuleEntity> listRules(
+      int page, int pageSize, String merchantId, String productCode, String currency, String status) {
+    int safePage = Math.max(page, 1);
+    int safePageSize = pageSize <= 0 ? DEFAULT_PAGE_SIZE : Math.min(pageSize, MAX_PAGE_SIZE);
+    String normalizedMerchantId = normalize(merchantId);
+    String normalizedProductCode = normalize(productCode);
+    String normalizedCurrency = normalizeCurrency(currency);
+    String normalizedStatus = normalize(status);
+    List<MerchantSettlementRuleEntity> items =
+        settlementRuleMapper.selectAdminPage(
+            normalizedMerchantId,
+            normalizedProductCode,
+            normalizedCurrency,
+            normalizedStatus,
+            safePageSize,
+            (safePage - 1) * safePageSize);
+    long total =
+        settlementRuleMapper.countAdminPage(
+            normalizedMerchantId, normalizedProductCode, normalizedCurrency, normalizedStatus);
+    return new Page<>(items, safePage, safePageSize, total);
   }
 
   @Transactional
@@ -439,19 +539,49 @@ public class MerchantSettlementService {
     if (rule == null
         || rule.getMerchantId() == null
         || rule.getMerchantId().isBlank()
+        || rule.getProductCode() == null
+        || rule.getProductCode().isBlank()
         || rule.getCurrency() == null
         || !rule.getCurrency().matches("[A-Z]{3}")
         || rule.getEffectiveDate() == null
-        || rule.getCycleDays() == null
-        || rule.getCycleDays() < 0
+        || rule.getSettlementCycle() == null
+        || !SETTLEMENT_CYCLES.contains(rule.getSettlementCycle())
         || rule.getMinSettlementAmount() == null
         || rule.getMinSettlementAmount().signum() < 0
         || rule.getAutoSettlement() == null
         || rule.getStatus() == null
-        || !("ACTIVE".equals(rule.getStatus()) || "INACTIVE".equals(rule.getStatus()))) {
+        || !("ACTIVE".equals(rule.getStatus()) || "DISABLED".equals(rule.getStatus()))) {
       throw new IllegalArgumentException("settlement rule is invalid");
     }
+    int days = rule.getCycleDays() == null ? 0 : rule.getCycleDays();
+    int interval = rule.getCycleInterval() == null ? 1 : rule.getCycleInterval();
+    if (days < 0 || days > 365 || interval < 1 || interval > 52) {
+      throw new IllegalArgumentException("settlement rule interval is invalid");
+    }
+    if ("NATURAL_DAY".equals(rule.getSettlementCycle())
+        || "WORKING_DAY".equals(rule.getSettlementCycle())
+        || "MANUAL".equals(rule.getSettlementCycle())) {
+      return;
+    }
+    requiredSettlementDay(rule, "MONTHLY".equals(rule.getSettlementCycle()) ? 31 : 7);
+    if ("MULTI_WEEKLY".equals(rule.getSettlementCycle()) && interval < 2) {
+      throw new IllegalArgumentException("多周结算的间隔至少为两周");
+    }
   }
+
+  private static String normalize(String value) {
+    return value == null || value.isBlank() ? null : value.trim();
+  }
+
+  private static String normalizeCurrency(String currency) {
+    String value = normalize(currency);
+    if (value == null) return null;
+    String normalized = value.toUpperCase(java.util.Locale.ROOT);
+    if (!normalized.matches("[A-Z]{3}")) throw new IllegalArgumentException("结算币种无效");
+    return normalized;
+  }
+
+  public record Page<T>(List<T> items, int page, int pageSize, long total) {}
 
   private static String truncate(String value) {
     if (value == null || value.isBlank()) return "settlement processing failed";

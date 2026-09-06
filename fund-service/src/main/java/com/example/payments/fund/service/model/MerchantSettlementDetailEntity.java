@@ -14,6 +14,7 @@ public class MerchantSettlementDetailEntity {
 
   private String detailId;
   private String merchantId;
+  private String productCode;
   private String accountId;
   private String orderId;
   private BigDecimal orderAmount;
@@ -55,6 +56,14 @@ public class MerchantSettlementDetailEntity {
 
   public void setMerchantId(String merchantId) {
     this.merchantId = merchantId;
+  }
+
+  public String getProductCode() {
+    return productCode;
+  }
+
+  public void setProductCode(String productCode) {
+    this.productCode = productCode;
   }
 
   public String getAccountId() {

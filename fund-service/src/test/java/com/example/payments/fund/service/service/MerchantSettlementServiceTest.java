@@ -16,7 +16,9 @@ import com.example.payments.fund.service.mapper.MerchantSettlementRuleMapper;
 import com.example.payments.fund.service.model.MerchantFundAccountEntity;
 import com.example.payments.fund.service.model.MerchantFundTransactionEntity;
 import com.example.payments.fund.service.model.MerchantSettlementDetailEntity;
+import com.example.payments.fund.service.model.MerchantSettlementRuleEntity;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -117,6 +119,46 @@ class MerchantSettlementServiceTest {
     verify(detailMapper, never()).selectOne(any());
   }
 
+  @Test
+  void calculatesSettlementDatesForEachConfiguredCycle() {
+    MerchantSettlementRuleEntity naturalDay = rule("NATURAL_DAY");
+    naturalDay.setCycleDays(2);
+    assertThat(
+            MerchantSettlementService.calculateSettlementDate(
+                naturalDay, LocalDate.of(2026, 1, 30)))
+        .isEqualTo(LocalDate.of(2026, 2, 1));
+
+    MerchantSettlementRuleEntity workingDay = rule("WORKING_DAY");
+    workingDay.setCycleDays(1);
+    assertThat(
+            MerchantSettlementService.calculateSettlementDate(
+                workingDay, LocalDate.of(2026, 1, 30)))
+        .isEqualTo(LocalDate.of(2026, 2, 2));
+
+    MerchantSettlementRuleEntity weekly = rule("WEEKLY");
+    weekly.setSettlementDay(1);
+    assertThat(
+            MerchantSettlementService.calculateSettlementDate(
+                weekly, LocalDate.of(2026, 2, 3)))
+        .isEqualTo(LocalDate.of(2026, 2, 9));
+
+    MerchantSettlementRuleEntity multiWeekly = rule("MULTI_WEEKLY");
+    multiWeekly.setSettlementDay(3);
+    multiWeekly.setCycleInterval(2);
+    multiWeekly.setEffectiveDate(LocalDate.of(2026, 1, 5));
+    assertThat(
+            MerchantSettlementService.calculateSettlementDate(
+                multiWeekly, LocalDate.of(2026, 1, 13)))
+        .isEqualTo(LocalDate.of(2026, 1, 21));
+
+    MerchantSettlementRuleEntity monthly = rule("MONTHLY");
+    monthly.setSettlementDay(31);
+    assertThat(
+            MerchantSettlementService.calculateSettlementDate(
+                monthly, LocalDate.of(2026, 2, 3)))
+        .isEqualTo(LocalDate.of(2026, 2, 28));
+  }
+
   private static MerchantSettlementDetailEntity settledDetail() {
     MerchantSettlementDetailEntity detail = new MerchantSettlementDetailEntity();
     detail.setDetailId("detail-1");
@@ -139,5 +181,14 @@ class MerchantSettlementServiceTest {
     account.setVersion(3);
     account.setStatus("ACTIVE");
     return account;
+  }
+
+  private static MerchantSettlementRuleEntity rule(String settlementCycle) {
+    MerchantSettlementRuleEntity rule = new MerchantSettlementRuleEntity();
+    rule.setSettlementCycle(settlementCycle);
+    rule.setCycleDays(0);
+    rule.setCycleInterval(1);
+    rule.setEffectiveDate(LocalDate.of(2026, 1, 5));
+    return rule;
   }
 }

@@ -40,6 +40,8 @@ public final class AdminOperationPermissionCatalog {
           "merchant:profile:update",
           "merchant:status",
           "merchant:update",
+          "merchant-fund:account:list",
+          "merchant-fund:transaction:list",
           "order:list",
           "order:manage",
           "order:notify",

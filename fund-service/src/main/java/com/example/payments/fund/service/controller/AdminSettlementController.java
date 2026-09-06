@@ -24,13 +24,19 @@ public class AdminSettlementController {
 
   @GetMapping("/rules")
   public Map<String, Object> rules(
+      @RequestParam(defaultValue = "1") int page,
+      @RequestParam(defaultValue = "20") int pageSize,
       @RequestParam(required = false) String merchantId,
+      @RequestParam(required = false) String productCode,
       @RequestParam(required = false) String currency,
+      @RequestParam(required = false) String status,
       @RequestHeader("X-Gateway-Token") String token,
       @RequestHeader("X-User-Id") String operator,
       @RequestHeader("X-Permissions") String permissions) {
     authorizer.authorize(token, operator, permissions, "settlement:rule:list");
-    return Map.of("items", service.listRules(merchantId, currency));
+    var result = service.listRules(page, pageSize, merchantId, productCode, currency, status);
+    return Map.of(
+        "items", result.items(), "page", result.page(), "pageSize", result.pageSize(), "total", result.total());
   }
 
   @PostMapping("/rules")

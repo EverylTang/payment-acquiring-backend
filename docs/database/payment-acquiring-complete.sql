@@ -501,6 +501,7 @@ VALUES
   (0, 'routing', '路由与渠道', 'PAGE', '/routing', 'routing', 'Network', 60, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'pricing', '费率管理', 'PAGE', '/pricing', 'pricing', 'CircleDollarSign', 70, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'settlement', '结算管理', 'PAGE', '/settlement', 'settlement', 'CircleDollarSign', 75, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  (0, 'merchant-funds', '商户资金', 'PAGE', '/merchant-funds', 'merchant-funds', 'WalletCards', 76, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'releases', '版本发布', 'PAGE', '/releases', 'releases', 'Layers3', 80, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'risk', '风控工作台', 'PAGE', '/risk', 'risk', 'ShieldCheck', 90, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'trade', '订单管理', 'PAGE', '/orders', 'orders', 'WalletCards', 100, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
@@ -1295,6 +1296,7 @@ CREATE TABLE IF NOT EXISTS merchant_settlement_detail (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   detail_id VARCHAR(64) NOT NULL,
   merchant_id VARCHAR(64) NOT NULL,
+  product_code VARCHAR(64) NULL,
   account_id VARCHAR(64) NOT NULL,
   order_id VARCHAR(64) NOT NULL,
   order_amount DECIMAL(20,4) NOT NULL,
@@ -1337,9 +1339,12 @@ CREATE TABLE IF NOT EXISTS merchant_settlement_batch (
 CREATE TABLE IF NOT EXISTS merchant_settlement_rule (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   merchant_id VARCHAR(64) NOT NULL,
+  product_code VARCHAR(64) NULL,
   currency VARCHAR(3) NOT NULL,
-  settlement_cycle VARCHAR(16) NOT NULL DEFAULT 'T1',
+  settlement_cycle VARCHAR(16) NOT NULL DEFAULT 'NATURAL_DAY',
   cycle_days INT NOT NULL DEFAULT 1,
+  settlement_day INT NULL,
+  cycle_interval INT NOT NULL DEFAULT 1,
   min_settlement_amount DECIMAL(20,4) NOT NULL DEFAULT 0.0000,
   fee_rate DECIMAL(10,4) NOT NULL DEFAULT 0.0000,
   auto_settlement BOOLEAN NOT NULL DEFAULT TRUE,
@@ -1348,9 +1353,30 @@ CREATE TABLE IF NOT EXISTS merchant_settlement_rule (
   expire_date DATE NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-  UNIQUE KEY uk_merchant_settlement_rule (merchant_id, currency, effective_date),
-  KEY idx_settlement_rule_status (status, merchant_id)
+  UNIQUE KEY uk_merchant_product_settlement_rule (merchant_id, product_code, currency, effective_date),
+  KEY idx_settlement_rule_status (status, merchant_id, product_code)
 );
+
+-- Product-bound settlement rules. Existing currency rules remain as legacy fallbacks for
+-- historical payment events that did not carry a product code.
+ALTER TABLE merchant_settlement_detail
+  ADD COLUMN IF NOT EXISTS product_code VARCHAR(64) NULL AFTER merchant_id;
+ALTER TABLE merchant_settlement_rule
+  ADD COLUMN IF NOT EXISTS product_code VARCHAR(64) NULL AFTER merchant_id,
+  ADD COLUMN IF NOT EXISTS settlement_day INT NULL AFTER cycle_days,
+  ADD COLUMN IF NOT EXISTS cycle_interval INT NOT NULL DEFAULT 1 AFTER settlement_day;
+ALTER TABLE merchant_settlement_rule DROP INDEX IF EXISTS uk_merchant_settlement_rule;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_merchant_product_settlement_rule
+  ON merchant_settlement_rule (merchant_id, product_code, currency, effective_date);
+UPDATE merchant_settlement_rule
+SET settlement_cycle = 'NATURAL_DAY',
+    cycle_days = CASE settlement_cycle
+      WHEN 'T0' THEN 0
+      WHEN 'T1' THEN 1
+      WHEN 'T2' THEN 2
+      ELSE cycle_days
+    END
+WHERE settlement_cycle IN ('T0', 'T1', 'T2');
 CREATE TABLE IF NOT EXISTS merchant_fund_transaction (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   transaction_id VARCHAR(64) NOT NULL,
@@ -1385,6 +1411,7 @@ SELECT r.id,p.id FROM admin_role r JOIN admin_permission p
 WHERE r.role_code IN ('ADMIN','RISK');
 
 -- SOURCE: consolidated platform-service V12 settlement administration
+USE pay_platform;
 INSERT IGNORE INTO admin_permission(permission_code,permission_name,resource_type,status,created_at,updated_at) VALUES
   ('settlement:rule:list','查看商户结算规则','SETTLEMENT','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)),
   ('settlement:rule:manage','维护商户结算规则','SETTLEMENT','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)),
@@ -1394,3 +1421,21 @@ INSERT IGNORE INTO admin_role_permission(role_id,permission_id)
 SELECT r.id,p.id FROM admin_role r JOIN admin_permission p
   ON p.permission_code IN ('settlement:rule:list','settlement:rule:manage','settlement:batch:read','settlement:batch:run')
 WHERE r.role_code IN ('ADMIN','OPS','FINANCE');
+
+-- SOURCE: consolidated platform-service V13 merchant fund administration
+INSERT IGNORE INTO admin_resource_type(resource_type,resource_name,status) VALUES
+  ('MERCHANT_FUND','商户资金账户与余额明细','ACTIVE');
+INSERT IGNORE INTO admin_menu(parent_id,menu_code,menu_name,menu_type,route_path,component_key,icon,sort_order,visible,status,created_at,updated_at)
+VALUES (0,'merchant-funds','商户资金','PAGE','/merchant-funds','merchant-funds','WalletCards',76,TRUE,'ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3));
+INSERT IGNORE INTO admin_menu_resource_type(menu_id,resource_type)
+SELECT id,'MERCHANT_FUND' FROM admin_menu WHERE menu_code='merchant-funds';
+INSERT IGNORE INTO admin_permission(permission_code,permission_name,resource_type,status,created_at,updated_at) VALUES
+  ('merchant-fund:account:list','查看商户余额','MERCHANT_FUND','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3)),
+  ('merchant-fund:transaction:list','查看商户余额明细','MERCHANT_FUND','ACTIVE',CURRENT_TIMESTAMP(3),CURRENT_TIMESTAMP(3));
+INSERT IGNORE INTO admin_role_menu(role_id,menu_id)
+SELECT r.id,m.id FROM admin_role r JOIN admin_menu m ON m.menu_code='merchant-funds'
+WHERE r.role_code IN ('ADMIN','OPS','FINANCE','READONLY');
+INSERT IGNORE INTO admin_role_permission(role_id,permission_id)
+SELECT r.id,p.id FROM admin_role r JOIN admin_permission p
+  ON p.permission_code IN ('merchant-fund:account:list','merchant-fund:transaction:list')
+WHERE r.role_code IN ('ADMIN','OPS','FINANCE','READONLY');
