@@ -42,14 +42,14 @@ class MerchantSettlementServiceTest {
           org.mockito.Mockito.mock(SettlementDetailProcessor.class));
 
   @Test
-  void settledFullRefundOnlyDebitsMerchantNetSettlementAmount() {
+  void settledFullRefundDebitsTheFullRefundAndKeepsTheFeeAsMerchantDebt() {
     MerchantSettlementDetailEntity detail = settledDetail();
     MerchantFundAccountEntity account = account();
     when(detailMapper.selectOne(any())).thenReturn(detail);
     when(transactionMapper.findByIdempotency("settlement-refund:refund-1")).thenReturn(null);
     when(accountMapper.selectOne(any())).thenReturn(account);
     when(accountMapper.debitForRefund(
-            eq("account-1"), eq(new BigDecimal("90.0000")), eq(3), any(LocalDateTime.class)))
+            eq("account-1"), eq(new BigDecimal("100.0000")), eq(3), any(LocalDateTime.class)))
         .thenReturn(1);
     when(detailMapper.applySettledRefund(
             eq("detail-1"), eq(new BigDecimal("100.0000")), any(), any(LocalDateTime.class)))
@@ -60,12 +60,40 @@ class MerchantSettlementServiceTest {
     ArgumentCaptor<MerchantFundTransactionEntity> transaction =
         ArgumentCaptor.forClass(MerchantFundTransactionEntity.class);
     verify(transactionMapper).insert(transaction.capture());
-    assertThat(transaction.getValue().getAmount()).isEqualByComparingTo("-90.0000");
-    assertThat(transaction.getValue().getBalanceAfter()).isEqualByComparingTo("10.0000");
+    assertThat(transaction.getValue().getAmount()).isEqualByComparingTo("-100.0000");
+    assertThat(transaction.getValue().getBalanceAfter()).isEqualByComparingTo("0.0000");
     verify(accountMapper)
-        .debitForRefund(eq("account-1"), eq(new BigDecimal("90.0000")), eq(3), any());
+        .debitForRefund(eq("account-1"), eq(new BigDecimal("100.0000")), eq(3), any());
     verify(detailMapper)
         .applySettledRefund(eq("detail-1"), eq(new BigDecimal("100.0000")), any(), any());
+  }
+
+  @Test
+  void pendingFullRefundRecordsTheUncoveredFeeAsMerchantDebt() {
+    MerchantSettlementDetailEntity detail = settledDetail();
+    detail.setStatus("PENDING");
+    MerchantFundAccountEntity account = account();
+    account.setBalance(BigDecimal.ZERO);
+    when(detailMapper.selectOne(any())).thenReturn(detail);
+    when(transactionMapper.findByIdempotency("settlement-refund:refund-1")).thenReturn(null);
+    when(accountMapper.selectOne(any())).thenReturn(account);
+    when(accountMapper.debitForRefund(
+            eq("account-1"), eq(new BigDecimal("10.0000")), eq(3), any(LocalDateTime.class)))
+        .thenReturn(1);
+    when(detailMapper.applyPendingRefund(
+            eq("detail-1"), eq(new BigDecimal("100.0000")), any(), any(LocalDateTime.class)))
+        .thenReturn(1);
+
+    service.applyRefund("refund-1", "order-1", new BigDecimal("100.0000"), "USD");
+
+    ArgumentCaptor<MerchantFundTransactionEntity> transaction =
+        ArgumentCaptor.forClass(MerchantFundTransactionEntity.class);
+    verify(transactionMapper).insert(transaction.capture());
+    assertThat(transaction.getValue().getTransactionType()).isEqualTo("REFUND_FEE_OUT");
+    assertThat(transaction.getValue().getAmount()).isEqualByComparingTo("-10.0000");
+    assertThat(transaction.getValue().getBalanceAfter()).isEqualByComparingTo("-10.0000");
+    verify(accountMapper)
+        .debitForRefund(eq("account-1"), eq(new BigDecimal("10.0000")), eq(3), any());
   }
 
   @Test

@@ -162,5 +162,6 @@ curl http://127.0.0.1:8082/api/v1/payments/orders/{orderId}
 ```bash
 curl -X POST http://127.0.0.1:8083/api/internal/v1/ledger/payment-success \\
   -H 'Content-Type: application/json' \\
+  -H 'X-Internal-Token: <GATEWAY_INTERNAL_TOKEN>' \\
   -d '{"idempotencyKey":"ledger-demo-001","orderId":"{orderId}","merchantId":"merchant-demo","currency":"USD","amount":100.00}'
 ```

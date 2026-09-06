@@ -21,6 +21,8 @@ public class PlatformChannelConfigurationClient {
   private final String internalToken;
   private final ConcurrentHashMap<String, CachedProductType> productTypes =
       new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, CachedCurrencyScale> currencyScales =
+      new ConcurrentHashMap<>();
 
   public PlatformChannelConfigurationClient(
       @Value("${trade.routing.platform-base-url:http://127.0.0.1:8081}") String platformBaseUrl,
@@ -61,6 +63,29 @@ public class PlatformChannelConfigurationClient {
       return productType;
     } catch (RestClientException exception) {
       throw unavailable("无法读取产品类型");
+    }
+  }
+
+  public Integer currencyScale(String currency) {
+    var cached = currencyScales.get(currency);
+    var now = System.currentTimeMillis();
+    if (cached != null && cached.expiresAtMillis() > now) return cached.decimalPlaces();
+    try {
+      var response =
+          client
+              .get()
+              .uri("/api/internal/v1/configurations/currencies/{currency}/scale", currency)
+              .headers(headers -> headers.set("X-Internal-Token", internalToken))
+              .retrieve()
+              .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+      Integer decimalPlaces = response == null ? null : integer(response.get("decimalPlaces"));
+      if (decimalPlaces == null || decimalPlaces < 0 || decimalPlaces > 6) {
+        throw unavailable("平台未返回有效币种精度");
+      }
+      currencyScales.put(currency, new CachedCurrencyScale(decimalPlaces, now + 60_000));
+      return decimalPlaces;
+    } catch (RestClientException exception) {
+      throw unavailable("无法读取币种精度");
     }
   }
 
@@ -207,6 +232,15 @@ public class PlatformChannelConfigurationClient {
 
   private String text(Object value) {
     return value == null ? "" : String.valueOf(value);
+  }
+
+  private Integer integer(Object value) {
+    if (value instanceof Number number) return number.intValue();
+    try {
+      return value == null ? null : Integer.valueOf(text(value));
+    } catch (NumberFormatException exception) {
+      return null;
+    }
   }
 
   private BigDecimal decimal(Object value, String field) {
@@ -431,4 +465,6 @@ public class PlatformChannelConfigurationClient {
       BigDecimal minAmount, BigDecimal maxAmount, BigDecimal feeRate, BigDecimal fixedFee) {}
 
   private record CachedProductType(String productType, long expiresAtMillis) {}
+
+  private record CachedCurrencyScale(int decimalPlaces, long expiresAtMillis) {}
 }

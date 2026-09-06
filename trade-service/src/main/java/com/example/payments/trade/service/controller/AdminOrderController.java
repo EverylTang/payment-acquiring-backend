@@ -165,23 +165,21 @@ public class AdminOrderController {
 
   private static Map<String, Object> attemptResponse(
       com.example.payments.trade.service.domain.PaymentAttempt attempt) {
-    return Map.of(
-        "attemptId",
-        attempt.attemptId(),
-        "orderId",
-        attempt.orderId(),
-        "channelId",
-        attempt.channelId(),
-        "channelOrderId",
-        attempt.channelRequestNo(),
-        "attemptNo",
-        attempt.attemptNo(),
-        "status",
-        attempt.status().name(),
-        "requestSnapshot",
-        attempt.requestSnapshot() == null ? "" : attempt.requestSnapshot(),
-        "responseSnapshot",
-        attempt.responseSnapshot() == null ? "" : attempt.responseSnapshot());
+    return Map.ofEntries(
+        Map.entry("attemptId", attempt.attemptId()),
+        Map.entry("orderId", attempt.orderId()),
+        Map.entry("channelId", attempt.channelId()),
+        Map.entry("channelOrderId", attempt.channelRequestNo()),
+        Map.entry("attemptNo", attempt.attemptNo()),
+        Map.entry("status", attempt.status().name()),
+        Map.entry("failureCode", attempt.failureCode() == null ? "" : attempt.failureCode()),
+        Map.entry("paymentUrl", attempt.paymentUrl() == null ? "" : attempt.paymentUrl()),
+        Map.entry("qrCode", attempt.qrCode() == null ? "" : attempt.qrCode()),
+        Map.entry(
+            "requestSnapshot", attempt.requestSnapshot() == null ? "" : attempt.requestSnapshot()),
+        Map.entry(
+            "responseSnapshot",
+            attempt.responseSnapshot() == null ? "" : attempt.responseSnapshot()));
   }
 
   public record ResendNotificationRequest(@jakarta.validation.constraints.NotBlank String reason) {}

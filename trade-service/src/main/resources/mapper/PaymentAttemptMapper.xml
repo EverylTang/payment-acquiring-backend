@@ -99,6 +99,14 @@
     WHERE order_id = #{orderId}
     AND status IN ('CREATED', 'PROCESSING', 'UNKNOWN', 'TIMEOUT')
   </select>
+  <select id="findLatestOpenByOrderId" resultMap="AttemptResultMap">
+    SELECT *
+    FROM payment_attempt
+    WHERE order_id = #{orderId}
+    AND status IN ('CREATED', 'PROCESSING', 'UNKNOWN', 'TIMEOUT')
+    ORDER BY attempt_no DESC, id DESC
+    LIMIT 1
+  </select>
   <update id="updateAttempt">
     UPDATE payment_attempt
     SET channel_request_no = #{channelRequestNo}, status = #{next}, response_summary = #{responseSummary}, failure_code = #{failureCode}, payment_url = #{paymentUrl}, qr_code = #{qrCode}, completed_at = #{completedAt}, version = version + 1, query_lock_owner = CASE WHEN #{next} IN ('PROCESSING', 'UNKNOWN') THEN query_lock_owner ELSE NULL END, query_lock_until = CASE WHEN #{next} IN ('PROCESSING', 'UNKNOWN') THEN query_lock_until ELSE NULL END, query_claim_token = CASE WHEN #{next} IN ('PROCESSING', 'UNKNOWN') THEN query_claim_token ELSE NULL END

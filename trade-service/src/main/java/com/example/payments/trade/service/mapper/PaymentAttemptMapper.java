@@ -15,6 +15,8 @@ public interface PaymentAttemptMapper extends BaseMapper<PaymentAttemptEntity> {
 
   int countOpenByOrderId(@Param("orderId") String orderId);
 
+  PaymentAttemptEntity findLatestOpenByOrderId(@Param("orderId") String orderId);
+
   java.util.List<PaymentAttemptEntity> findQueryable(
       @Param("now") java.time.LocalDateTime now,
       @Param("maxQueryCount") int maxQueryCount,

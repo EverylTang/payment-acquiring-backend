@@ -132,21 +132,26 @@ public class OrderService {
   }
 
   private PaymentOrder createOrderInternal(CreateOrderCommand command) {
+    var existing =
+        repository
+            .findByIdempotencyForProduct(
+                command.merchantId(), command.idempotencyKey(), command.productCode())
+            .or(
+                () ->
+                    repository.findByMerchantOrderForProduct(
+                        command.merchantId(), command.merchantOrderNo(), command.productCode()));
+    if (existing.isPresent()) {
+      return ensureIdempotent(existing.get(), command);
+    }
     final var resolvedOrderType =
         channelConfiguration == null
             ? OrderType.PAYIN
             : OrderType.fromProductType(channelConfiguration.productType(command.productCode()));
-    var existing =
-        repository
-            .findByIdempotency(
-                command.merchantId(), command.idempotencyKey(), resolvedOrderType.name())
-            .or(
-                () ->
-                    repository.findByMerchantOrder(
-                        command.merchantId(), command.merchantOrderNo(), resolvedOrderType.name()));
-    if (existing.isPresent()) {
-      return existing.get();
+    if (resolvedOrderType == OrderType.PAYOUT) {
+      throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "出款产品尚未启用，不能创建订单");
     }
+    if (channelConfiguration != null)
+      validateCurrencyScale(command, channelConfiguration.currencyScale(command.currency()));
     Instant now = Instant.now();
     if (resolvedOrderType == OrderType.PAYOUT
         && (command.payoutDestinationRef() == null || command.payoutDestinationRef().isBlank())) {
@@ -185,7 +190,7 @@ public class OrderService {
                             command.merchantId(),
                             command.merchantOrderNo(),
                             resolvedOrderType.name()));
-        if (raced.isPresent()) return raced.get();
+        if (raced.isPresent()) return ensureIdempotent(raced.get(), command);
       }
     }
     throw new IllegalStateException("平台订单号冲突，请重试");
@@ -210,6 +215,17 @@ public class OrderService {
         command.customerReference(),
         command.payoutDestinationRef(),
         command.description());
+  }
+
+  private void validateCurrencyScale(CreateOrderCommand command, Integer decimalPlaces) {
+    // Null is retained for isolated unit tests without a platform data source. Production clients
+    // fail closed.
+    if (decimalPlaces == null) return;
+    if (command.amount().stripTrailingZeros().scale() > decimalPlaces) {
+      throw new ResponseStatusException(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          command.currency() + " 金额最多允许 " + decimalPlaces + " 位小数");
+    }
   }
 
   public PaymentOrder get(String orderId) {
@@ -264,9 +280,15 @@ public class OrderService {
 
   @Transactional
   public PaymentOrder callback(String orderId, OrderStatus status) {
+    return callbackResult(orderId, status).order();
+  }
+
+  /** Indicates whether this callback first transitioned the order to SUCCESS. */
+  @Transactional
+  public CallbackResult callbackResult(String orderId, OrderStatus status) {
     if (status == OrderStatus.PAYING || status == OrderStatus.CREATED) {
       transition(orderId, status);
-      return get(orderId);
+      return new CallbackResult(get(orderId), false);
     }
     if (status != OrderStatus.SUCCESS
         && status != OrderStatus.FAILED
@@ -277,13 +299,18 @@ public class OrderService {
     PaymentOrder current = get(orderId);
     if (status == OrderStatus.SUCCESS && isExpired(current, Instant.now())) {
       expire(current, Instant.now());
-      return get(orderId);
+      return new CallbackResult(get(orderId), false);
     }
+    boolean transitionedToSuccess = false;
     if (current.status().canTransitionTo(status)) {
-      repository.updateStatus(
-          orderId, current.status(), status, status == OrderStatus.SUCCESS ? Instant.now() : null);
+      transitionedToSuccess =
+          repository.updateStatus(
+              orderId,
+              current.status(),
+              status,
+              status == OrderStatus.SUCCESS ? Instant.now() : null);
     }
-    return get(orderId);
+    return new CallbackResult(get(orderId), transitionedToSuccess && status == OrderStatus.SUCCESS);
   }
 
   @Transactional
@@ -387,6 +414,7 @@ public class OrderService {
       fields.put("currency", command.currency());
       fields.put("amount", command.amount());
       fields.put("expireAt", command.expireAt() == null ? null : command.expireAt().toString());
+      fields.put("expireAtProvided", command.expireAtProvided());
       fields.put("notifyUrl", command.notifyUrl());
       fields.put("returnUrl", command.returnUrl());
       fields.put("customerReference", command.customerReference());
@@ -395,6 +423,84 @@ public class OrderService {
       return (objectMapper == null ? new ObjectMapper() : objectMapper).writeValueAsString(fields);
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("无法记录商户请求参数", exception);
+    }
+  }
+
+  private PaymentOrder ensureIdempotent(PaymentOrder existing, CreateOrderCommand command) {
+    boolean matches =
+        existing.merchantId().equals(command.merchantId())
+            && existing.merchantOrderNo().equals(command.merchantOrderNo())
+            && existing.productCode().equals(command.productCode())
+            && existing.paymentMethod().equals(command.paymentMethod())
+            && java.util.Objects.equals(existing.country(), command.country())
+            && existing.currency().equals(command.currency())
+            && existing.amount().compareTo(command.amount()) == 0
+            && java.util.Objects.equals(existing.idempotencyKey(), command.idempotencyKey())
+            && java.util.Objects.equals(existing.notifyUrl(), command.notifyUrl())
+            && java.util.Objects.equals(existing.returnUrl(), command.returnUrl())
+            && java.util.Objects.equals(existing.customerReference(), command.customerReference())
+            && java.util.Objects.equals(
+                existing.payoutDestinationRef(), command.payoutDestinationRef())
+            && java.util.Objects.equals(existing.description(), command.description())
+            && expireAtMatches(existing, command)
+            && payerMatches(existing, command.payer());
+    if (!matches) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT,
+          "idempotency key or merchant order conflicts with the original request");
+    }
+    return existing;
+  }
+
+  private boolean expireAtMatches(PaymentOrder existing, CreateOrderCommand command) {
+    Boolean existingProvided = expireAtProvided(existing);
+    if (existingProvided == null) {
+      // Legacy snapshots did not retain whether the merchant supplied the expiry value.
+      return !command.expireAtProvided()
+          || java.util.Objects.equals(existing.expireAt(), command.expireAt());
+    }
+    return existingProvided == command.expireAtProvided()
+        && (!command.expireAtProvided()
+            || java.util.Objects.equals(existing.expireAt(), command.expireAt()));
+  }
+
+  private Boolean expireAtProvided(PaymentOrder existing) {
+    if (existing.merchantRequestSnapshot() == null
+        || existing.merchantRequestSnapshot().isBlank()) {
+      return null;
+    }
+    try {
+      var snapshot =
+          (objectMapper == null ? new ObjectMapper() : objectMapper)
+              .readValue(existing.merchantRequestSnapshot(), Map.class);
+      Object value = snapshot.get("expireAtProvided");
+      return value instanceof Boolean provided ? provided : null;
+    } catch (JsonProcessingException exception) {
+      return null;
+    }
+  }
+
+  private boolean payerMatches(PaymentOrder existing, Map<String, String> payer) {
+    if (existing.merchantRequestSnapshot() == null
+        || existing.merchantRequestSnapshot().isBlank()) {
+      return true;
+    }
+    try {
+      var snapshot =
+          (objectMapper == null ? new ObjectMapper() : objectMapper)
+              .readValue(existing.merchantRequestSnapshot(), Map.class);
+      Object value = snapshot.get("payer");
+      if (!(value instanceof Map<?, ?> values)) return payer.isEmpty();
+      var existingPayer = new LinkedHashMap<String, String>();
+      values.forEach(
+          (key, item) -> {
+            if (key != null && item != null) {
+              existingPayer.put(String.valueOf(key), String.valueOf(item));
+            }
+          });
+      return existingPayer.equals(payer);
+    } catch (JsonProcessingException exception) {
+      return false;
     }
   }
 
@@ -502,10 +608,46 @@ public class OrderService {
       String customerReference,
       String payoutDestinationRef,
       String description,
-      Map<String, String> payer) {
+      Map<String, String> payer,
+      boolean expireAtProvided) {
     public CreateOrderCommand {
       if (expireAt == null) expireAt = Instant.now().plus(Duration.ofMinutes(30));
       payer = payer == null ? Map.of() : Map.copyOf(payer);
+    }
+
+    public CreateOrderCommand(
+        String merchantId,
+        String merchantOrderNo,
+        String productCode,
+        String paymentMethod,
+        String country,
+        String currency,
+        java.math.BigDecimal amount,
+        String idempotencyKey,
+        Instant expireAt,
+        String notifyUrl,
+        String returnUrl,
+        String customerReference,
+        String payoutDestinationRef,
+        String description,
+        Map<String, String> payer) {
+      this(
+          merchantId,
+          merchantOrderNo,
+          productCode,
+          paymentMethod,
+          country,
+          currency,
+          amount,
+          idempotencyKey,
+          expireAt,
+          notifyUrl,
+          returnUrl,
+          customerReference,
+          payoutDestinationRef,
+          description,
+          payer,
+          expireAt != null);
     }
 
     public CreateOrderCommand(
@@ -538,7 +680,10 @@ public class OrderService {
           customerReference,
           payoutDestinationRef,
           description,
-          Map.of());
+          Map.of(),
+          expireAt != null);
     }
   }
+
+  public record CallbackResult(PaymentOrder order, boolean transitionedToSuccess) {}
 }

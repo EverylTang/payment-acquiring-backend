@@ -3,7 +3,6 @@ package com.example.payments.trade.service.controller;
 import com.example.payments.trade.service.service.OrderService;
 import com.example.payments.trade.service.service.PaymentAttemptService;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import java.time.Instant;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class OrderController {
   private final OrderService orderService;
   private final PaymentAttemptService paymentAttemptService;
+  private final GatewayRequestAuthorizer gatewayAuthorizer;
 
   @GetMapping("/health")
   public Map<String, Object> health() {
@@ -33,7 +33,9 @@ public class OrderController {
   public OrderDtos.MerchantOrderResponse create(
       @Valid @RequestBody OrderDtos.CreateOrderRequest request,
       @RequestHeader("X-Merchant-Id") String merchantId,
+      @RequestHeader("X-Gateway-Token") String gatewayToken,
       @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey) {
+    gatewayAuthorizer.authorize(gatewayToken);
     if (idempotencyKey == null || idempotencyKey.isBlank()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Idempotency-Key is required");
     }
@@ -61,21 +63,27 @@ public class OrderController {
   @GetMapping("/{orderId}")
   public OrderDtos.MerchantOrderResponse get(
       @PathVariable(name = "orderId") String orderId,
-      @RequestHeader("X-Merchant-Id") String merchantId) {
+      @RequestHeader("X-Merchant-Id") String merchantId,
+      @RequestHeader("X-Gateway-Token") String gatewayToken) {
+    gatewayAuthorizer.authorize(gatewayToken);
     return OrderDtos.MerchantOrderResponse.from(owned(orderId, merchantId));
   }
 
   @GetMapping("/{orderId}/status")
   public Map<String, String> status(
       @PathVariable(name = "orderId") String orderId,
-      @RequestHeader("X-Merchant-Id") String merchantId) {
+      @RequestHeader("X-Merchant-Id") String merchantId,
+      @RequestHeader("X-Gateway-Token") String gatewayToken) {
+    gatewayAuthorizer.authorize(gatewayToken);
     return Map.of("orderId", orderId, "status", owned(orderId, merchantId).status().name());
   }
 
   @PostMapping("/{orderId}/cancel")
   public OrderDtos.MerchantOrderResponse cancel(
       @PathVariable(name = "orderId") String orderId,
-      @RequestHeader("X-Merchant-Id") String merchantId) {
+      @RequestHeader("X-Merchant-Id") String merchantId,
+      @RequestHeader("X-Gateway-Token") String gatewayToken) {
+    gatewayAuthorizer.authorize(gatewayToken);
     owned(orderId, merchantId);
     return OrderDtos.MerchantOrderResponse.from(orderService.cancel(orderId));
   }
@@ -83,7 +91,9 @@ public class OrderController {
   @PostMapping("/{orderId}/attempts")
   public OrderDtos.MerchantAttemptResponse createAttempt(
       @PathVariable(name = "orderId") String orderId,
-      @RequestHeader("X-Merchant-Id") String merchantId) {
+      @RequestHeader("X-Merchant-Id") String merchantId,
+      @RequestHeader("X-Gateway-Token") String gatewayToken) {
+    gatewayAuthorizer.authorize(gatewayToken);
     owned(orderId, merchantId);
     var attempt = paymentAttemptService.create(orderService.requireActive(orderId));
     return OrderDtos.MerchantAttemptResponse.from(attempt);
@@ -93,7 +103,9 @@ public class OrderController {
   public OrderDtos.MerchantAttemptResponse getAttempt(
       @PathVariable String orderId,
       @PathVariable String attemptId,
-      @RequestHeader("X-Merchant-Id") String merchantId) {
+      @RequestHeader("X-Merchant-Id") String merchantId,
+      @RequestHeader("X-Gateway-Token") String gatewayToken) {
+    gatewayAuthorizer.authorize(gatewayToken);
     owned(orderId, merchantId);
     var attempt = paymentAttemptService.get(attemptId, orderId);
     return attemptResponse(attempt);
@@ -103,7 +115,9 @@ public class OrderController {
   public OrderDtos.MerchantAttemptResponse queryAttempt(
       @PathVariable String orderId,
       @PathVariable String attemptId,
-      @RequestHeader("X-Merchant-Id") String merchantId) {
+      @RequestHeader("X-Merchant-Id") String merchantId,
+      @RequestHeader("X-Gateway-Token") String gatewayToken) {
+    gatewayAuthorizer.authorize(gatewayToken);
     owned(orderId, merchantId);
     return attemptResponse(
         paymentAttemptService.requestQuery(
@@ -114,7 +128,9 @@ public class OrderController {
   public OrderDtos.MerchantAttemptResponse cancelAttempt(
       @PathVariable String orderId,
       @PathVariable String attemptId,
-      @RequestHeader("X-Merchant-Id") String merchantId) {
+      @RequestHeader("X-Merchant-Id") String merchantId,
+      @RequestHeader("X-Gateway-Token") String gatewayToken) {
+    gatewayAuthorizer.authorize(gatewayToken);
     owned(orderId, merchantId);
     paymentAttemptService.get(attemptId, orderId);
     return attemptResponse(paymentAttemptService.cancel(attemptId));
@@ -124,7 +140,9 @@ public class OrderController {
   public OrderDtos.MerchantAttemptResponse retryAttempt(
       @PathVariable String orderId,
       @PathVariable String attemptId,
-      @RequestHeader("X-Merchant-Id") String merchantId) {
+      @RequestHeader("X-Merchant-Id") String merchantId,
+      @RequestHeader("X-Gateway-Token") String gatewayToken) {
+    gatewayAuthorizer.authorize(gatewayToken);
     var order = owned(orderId, merchantId);
     return attemptResponse(paymentAttemptService.retry(attemptId, order));
   }
@@ -141,26 +159,4 @@ public class OrderController {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "order not found");
     return order;
   }
-
-  @PostMapping("/attempts/callback")
-  public Map<String, Object> attemptCallback(@Valid @RequestBody CallbackRequest request) {
-    var attempt =
-        paymentAttemptService.callback(
-            request.channelId(), request.rawPayload(), request.signature(), request.callbackId());
-    return Map.of(
-        "attemptId",
-        attempt.attemptId(),
-        "orderId",
-        attempt.orderId(),
-        "status",
-        attempt.status().name(),
-        "responseSnapshot",
-        attempt.responseSnapshot());
-  }
-
-  public record CallbackRequest(
-      @NotBlank String channelId,
-      @NotBlank String callbackId,
-      @NotBlank String rawPayload,
-      @NotBlank String signature) {}
 }

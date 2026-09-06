@@ -5,6 +5,7 @@ import com.example.payments.trade.service.service.RefundService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,13 +22,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class RefundController {
   private final RefundService service;
   private final OrderService orderService;
+  private final GatewayRequestAuthorizer gatewayAuthorizer;
 
   @PostMapping
   public RefundResponse create(
       @PathVariable String orderId,
       @RequestHeader("X-Merchant-Id") String merchantId,
+      @RequestHeader("X-Gateway-Token") String gatewayToken,
       @RequestHeader("Idempotency-Key") String idempotencyKey,
       @Valid @RequestBody RefundRequest request) {
+    gatewayAuthorizer.authorize(gatewayToken);
     owned(orderId, merchantId);
     return RefundResponse.from(
         service.create(orderId, idempotencyKey, request.amount(), request.reason()));
@@ -35,7 +39,10 @@ public class RefundController {
 
   @GetMapping("/{refundId}")
   public RefundResponse get(
-      @PathVariable String refundId, @RequestHeader("X-Merchant-Id") String merchantId) {
+      @PathVariable String refundId,
+      @RequestHeader("X-Merchant-Id") String merchantId,
+      @RequestHeader("X-Gateway-Token") String gatewayToken) {
+    gatewayAuthorizer.authorize(gatewayToken);
     var refund = service.get(refundId);
     owned(refund.getOrderId(), merchantId);
     return RefundResponse.from(refund);
@@ -43,7 +50,10 @@ public class RefundController {
 
   @PostMapping("/{refundId}/execute")
   public RefundResponse execute(
-      @PathVariable String refundId, @RequestHeader("X-Merchant-Id") String merchantId) {
+      @PathVariable String refundId,
+      @RequestHeader("X-Merchant-Id") String merchantId,
+      @RequestHeader("X-Gateway-Token") String gatewayToken) {
+    gatewayAuthorizer.authorize(gatewayToken);
     var refund = service.get(refundId);
     owned(refund.getOrderId(), merchantId);
     return RefundResponse.from(service.execute(refundId));
@@ -68,7 +78,8 @@ public class RefundController {
             nonce));
   }
 
-  public record RefundRequest(@DecimalMin("0.01") BigDecimal amount, @NotBlank String reason) {}
+  public record RefundRequest(
+      @NotNull @DecimalMin("0.01") BigDecimal amount, @NotBlank String reason) {}
 
   public record CallbackRequest(@NotBlank String status, @NotBlank String payload) {}
 

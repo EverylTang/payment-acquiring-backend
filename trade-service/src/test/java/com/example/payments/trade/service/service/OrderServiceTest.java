@@ -1,6 +1,7 @@
 package com.example.payments.trade.service.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,8 +40,213 @@ class OrderServiceTest {
             new BigDecimal("10.00"),
             "key-1",
             command.expireAt(), null, null, null, null, null);
-    when(repository.findByIdempotency("m1", "key-1", "PAYIN")).thenReturn(Optional.of(existing));
+    when(repository.findByIdempotencyForProduct("m1", "key-1", "p1"))
+        .thenReturn(Optional.of(existing));
     assertThat(service.create(command).orderId()).isEqualTo(existing.orderId());
+  }
+
+  @Test
+  void rejectsAnIdempotencyKeyReusedForADifferentAmount() {
+    var original =
+        new OrderService.CreateOrderCommand(
+            "m1",
+            "o1",
+            "p1",
+            "CARD",
+            "US",
+            "USD",
+            new BigDecimal("10.00"),
+            "key-1",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+    var retried =
+        new OrderService.CreateOrderCommand(
+            "m1",
+            "o1",
+            "p1",
+            "CARD",
+            "US",
+            "USD",
+            new BigDecimal("11.00"),
+            "key-1",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+    var existing =
+        PaymentOrder.create(
+            "m1",
+            "o1",
+            "p1",
+            "CARD",
+            "US",
+            "USD",
+            new BigDecimal("10.00"),
+            "key-1",
+            original.expireAt(),
+            null,
+            null,
+            null,
+            null,
+            null);
+    when(repository.findByIdempotencyForProduct("m1", "key-1", "p1"))
+        .thenReturn(Optional.of(existing));
+
+    assertThatThrownBy(() -> service.create(retried))
+        .isInstanceOf(ResponseStatusException.class)
+        .hasMessageContaining("conflicts");
+  }
+
+  @Test
+  void rejectsAnIdempotencyKeyReusedWithADifferentExplicitExpiration() {
+    var originalExpiration = Instant.parse("2030-01-01T00:30:00Z");
+    var retryExpiration = Instant.parse("2030-01-01T01:00:00Z");
+    var original =
+        new OrderService.CreateOrderCommand(
+            "m1",
+            "o1",
+            "p1",
+            "CARD",
+            "US",
+            "USD",
+            new BigDecimal("10.00"),
+            "key-expiry",
+            originalExpiration,
+            null,
+            null,
+            null,
+            null,
+            null);
+    var retry =
+        new OrderService.CreateOrderCommand(
+            "m1",
+            "o1",
+            "p1",
+            "CARD",
+            "US",
+            "USD",
+            new BigDecimal("10.00"),
+            "key-expiry",
+            retryExpiration,
+            null,
+            null,
+            null,
+            null,
+            null);
+    var existing =
+        PaymentOrder.create(
+            "m1",
+            "o1",
+            "p1",
+            "CARD",
+            "US",
+            "USD",
+            new BigDecimal("10.00"),
+            "key-expiry",
+            "{\"expireAtProvided\":true}",
+            original.expireAt(),
+            null,
+            null,
+            null,
+            null,
+            null);
+    when(repository.findByIdempotencyForProduct("m1", "key-expiry", "p1"))
+        .thenReturn(Optional.of(existing));
+
+    assertThatThrownBy(() -> service.create(retry))
+        .isInstanceOf(ResponseStatusException.class)
+        .hasMessageContaining("conflicts");
+  }
+
+  @Test
+  void reusesAnOrderWhenExpirationWasNotExplicitlyProvided() {
+    var command =
+        new OrderService.CreateOrderCommand(
+            "m1",
+            "o1",
+            "p1",
+            "CARD",
+            "US",
+            "USD",
+            new BigDecimal("10.00"),
+            "key-default-expiry",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+    var existing =
+        PaymentOrder.create(
+            "m1",
+            "o1",
+            "p1",
+            "CARD",
+            "US",
+            "USD",
+            new BigDecimal("10.00"),
+            "key-default-expiry",
+            "{\"expireAtProvided\":false}",
+            Instant.parse("2030-01-01T00:30:00Z"),
+            null,
+            null,
+            null,
+            null,
+            null);
+    when(repository.findByIdempotencyForProduct("m1", "key-default-expiry", "p1"))
+        .thenReturn(Optional.of(existing));
+
+    assertThat(service.create(command)).isEqualTo(existing);
+  }
+
+  @Test
+  void duplicateOrderReturnsBeforePlatformLookups() {
+    var channelConfiguration = org.mockito.Mockito.mock(PlatformChannelConfigurationClient.class);
+    var configuredService = new OrderService(repository, channelConfiguration, new ObjectMapper());
+    var command =
+        new OrderService.CreateOrderCommand(
+            "m1",
+            "o1",
+            "p1",
+            "CARD",
+            "US",
+            "USD",
+            new BigDecimal("10.00"),
+            "key-1",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+    var existing =
+        PaymentOrder.create(
+            "m1",
+            "o1",
+            "p1",
+            "CARD",
+            "US",
+            "USD",
+            new BigDecimal("10.00"),
+            "key-1",
+            command.expireAt(),
+            null,
+            null,
+            null,
+            null,
+            null);
+    when(repository.findByIdempotencyForProduct("m1", "key-1", "p1"))
+        .thenReturn(Optional.of(existing));
+
+    assertThat(configuredService.create(command)).isEqualTo(existing);
+
+    org.mockito.Mockito.verifyNoInteractions(channelConfiguration);
   }
 
   @Test
@@ -100,27 +306,15 @@ class OrderServiceTest {
   }
 
   @Test
-  void createsPayoutWithAnIndependentIdempotencyNamespace() {
+  void rejectsPayoutUntilThePayoutExecutionFlowIsImplemented() {
     var channelConfiguration = org.mockito.Mockito.mock(PlatformChannelConfigurationClient.class);
     var configuredService = new OrderService(repository, channelConfiguration, new ObjectMapper());
     var command = new OrderService.CreateOrderCommand(
         "m2", "shared-order", "payout-usd", "BANK", "US", "USD", new BigDecimal("10.00"),
         "shared-key", null, null, null, null, "beneficiary-ref", null);
-    var runtime = new ChannelRuntimeContext(
-        "payout-bank-us", "SIMULATED", "https://payments.example.test", "HMAC_SHA256_V1", Map.of(), Map.of(), 1);
-    var configuration = new PlatformChannelConfigurationClient.ResolvedPaymentConfiguration(
-        runtime, "price-payout-usd", BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, null, null,
-        "COMBINED", List.of(), "EXCLUSIVE", "14", null, "PASS", "PAYOUT");
-    when(repository.findByIdempotency("m2", "shared-key", "PAYOUT")).thenReturn(Optional.empty());
-    when(repository.findByMerchantOrder("m2", "shared-order", "PAYOUT")).thenReturn(Optional.empty());
     when(channelConfiguration.productType("payout-usd")).thenReturn("PAYOUT");
-    when(channelConfiguration.resolveConfiguration(any())).thenReturn(configuration);
-    when(repository.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
-
-    var order = configuredService.create(command);
-
-    assertThat(order.orderType().name()).isEqualTo("PAYOUT");
-    assertThat(order.orderId()).startsWith("PO");
+    org.junit.jupiter.api.Assertions.assertThrows(
+        ResponseStatusException.class, () -> configuredService.create(command));
   }
 
   @Test
@@ -133,6 +327,20 @@ class OrderServiceTest {
     when(channelConfiguration.productType("payout-usd")).thenReturn("PAYOUT");
     when(repository.findByIdempotency("m2", "missing-destination-key", "PAYOUT")).thenReturn(Optional.empty());
     when(repository.findByMerchantOrder("m2", "payout-missing-destination", "PAYOUT")).thenReturn(Optional.empty());
+
+    org.junit.jupiter.api.Assertions.assertThrows(
+        ResponseStatusException.class, () -> configuredService.create(command));
+  }
+
+  @Test
+  void rejectsAmountsThatExceedTheCurrencyPrecision() {
+    var channelConfiguration = org.mockito.Mockito.mock(PlatformChannelConfigurationClient.class);
+    var configuredService = new OrderService(repository, channelConfiguration, new ObjectMapper());
+    var command = new OrderService.CreateOrderCommand(
+        "m2", "decimal-order", "p1", "CARD", "US", "USD", new BigDecimal("10.001"),
+        "decimal-key", null, null, null, null, null, null);
+    when(channelConfiguration.productType("p1")).thenReturn("PAYIN");
+    when(channelConfiguration.currencyScale("USD")).thenReturn(2);
 
     org.junit.jupiter.api.Assertions.assertThrows(
         ResponseStatusException.class, () -> configuredService.create(command));

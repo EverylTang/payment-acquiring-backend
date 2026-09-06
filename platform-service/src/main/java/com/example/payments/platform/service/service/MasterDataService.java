@@ -123,6 +123,14 @@ public class MasterDataService {
       throw new IllegalArgumentException("国家/地区与币种未建立启用关联: " + country + "/" + currency);
   }
 
+  public Currency requireActiveCurrency(String code) {
+    var value = currency(code);
+    if (value == null || !"ACTIVE".equals(value.status())) {
+      throw new IllegalArgumentException("币种不存在或已停用: " + code);
+    }
+    return value;
+  }
+
   private Country country(String code) {
     return mapper.selectCountry(code);
   }

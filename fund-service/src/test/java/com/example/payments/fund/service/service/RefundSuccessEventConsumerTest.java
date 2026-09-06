@@ -66,11 +66,24 @@ class RefundSuccessEventConsumerTest {
     org.mockito.Mockito.verifyNoInteractions(ledgerMapper, consumptionMapper, settlementService);
   }
 
+  @Test
+  void invalidCurrencyEventIsRejectedBeforeAnyFundWrite() {
+    assertThatThrownBy(() -> consumer.onMessage(event(new BigDecimal("2.125"), "usd")))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("invalid refund currency");
+
+    org.mockito.Mockito.verifyNoInteractions(ledgerMapper, consumptionMapper, settlementService);
+  }
+
   private static String event() {
     return event(new BigDecimal("2.125"));
   }
 
   private static String event(BigDecimal amount) {
+    return event(amount, "USD");
+  }
+
+  private static String event(BigDecimal amount, String currency) {
     try {
       ObjectNode event = OBJECT_MAPPER.createObjectNode();
       event.put("schemaVersion", 1);
@@ -81,7 +94,7 @@ class RefundSuccessEventConsumerTest {
       event.put("orderId", "order-1");
       event.put("merchantId", "merchant-1");
       event.put("amount", amount);
-      event.put("currency", "USD");
+      event.put("currency", currency);
       event.put("eventSignature", hmac(OBJECT_MAPPER.writeValueAsString(event)));
       return OBJECT_MAPPER.writeValueAsString(event);
     } catch (Exception exception) {

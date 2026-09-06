@@ -315,11 +315,27 @@ public class MerchantSettlementService {
                   .eq("account_id", detail.getAccountId()));
       if (account == null) throw new IllegalStateException("settlement fund account is missing");
       LocalDateTime now = LocalDateTime.now();
-      BigDecimal merchantAmount = amount.min(detail.getSettlementAmount());
+      BigDecimal refundFee = amount.subtract(detail.getSettlementAmount()).max(BigDecimal.ZERO);
+      if (refundFee.signum() > 0 && !"ACTIVE".equals(account.getStatus())) {
+        throw new IllegalStateException("settlement fund account is unavailable");
+      }
       MerchantFundTransactionEntity transaction =
           refundTransaction(
-              refundId, orderId, detail, account, merchantAmount, currency, now, "REFUND_PENDING");
+              refundId,
+              orderId,
+              detail,
+              account,
+              refundFee,
+              currency,
+              now,
+              refundFee.signum() > 0 ? "REFUND_FEE_OUT" : "REFUND_PENDING");
       fundTransactionMapper.insert(transaction);
+      if (refundFee.signum() > 0
+          && fundAccountMapper.debitForRefund(
+                  account.getAccountId(), refundFee, account.getVersion(), now)
+              != 1) {
+        throw new IllegalStateException("fund account changed while applying refund fee");
+      }
       if (settlementDetailMapper.applyPendingRefund(
               detail.getDetailId(), amount, "Refund applied: " + refundId, now)
           != 1) {
@@ -340,15 +356,11 @@ public class MerchantSettlementService {
       throw new IllegalStateException("settlement fund account is unavailable");
     }
     LocalDateTime now = LocalDateTime.now();
-    BigDecimal merchantAmount = amount.min(detail.getSettlementAmount());
     MerchantFundTransactionEntity transaction =
-        refundTransaction(
-            refundId, orderId, detail, account, merchantAmount, currency, now, "REFUND_OUT");
+        refundTransaction(refundId, orderId, detail, account, amount, currency, now, "REFUND_OUT");
     fundTransactionMapper.insert(transaction);
-    if (merchantAmount.signum() > 0
-        && fundAccountMapper.debitForRefund(
-                account.getAccountId(), merchantAmount, account.getVersion(), now)
-            != 1) {
+    if (fundAccountMapper.debitForRefund(account.getAccountId(), amount, account.getVersion(), now)
+        != 1) {
       throw new IllegalStateException("fund account changed while applying refund");
     }
     if (settlementDetailMapper.applySettledRefund(
@@ -375,7 +387,7 @@ public class MerchantSettlementService {
     transaction.setAmount(amount.negate());
     transaction.setBalanceBefore(account.getBalance());
     transaction.setBalanceAfter(
-        "REFUND_OUT".equals(transactionType)
+        ("REFUND_OUT".equals(transactionType) || "REFUND_FEE_OUT".equals(transactionType))
             ? account.getBalance().subtract(amount)
             : account.getBalance());
     transaction.setCurrency(currency);

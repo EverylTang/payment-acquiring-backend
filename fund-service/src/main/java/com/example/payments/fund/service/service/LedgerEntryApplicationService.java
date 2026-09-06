@@ -33,6 +33,8 @@ public class LedgerEntryApplicationService {
       BigDecimal amount,
       BigDecimal feeAmount,
       String currency) {
+    validateAmount(amount);
+    validateCurrency(currency);
     validateFee(amount, feeAmount);
     var existing = mapper.findByIdempotency(idempotencyKey);
     if (existing != null) {
@@ -67,6 +69,8 @@ public class LedgerEntryApplicationService {
   @Transactional
   public Result recordRefundReversal(
       String refundId, String orderId, String merchantId, BigDecimal amount, String currency) {
+    validateAmount(amount);
+    validateCurrency(currency);
     var key = "refund-reversal:" + refundId;
     var existing = mapper.findByIdempotency(key);
     if (existing != null)
@@ -132,6 +136,18 @@ public class LedgerEntryApplicationService {
   private static void validateFee(BigDecimal amount, BigDecimal feeAmount) {
     if (feeAmount == null || feeAmount.signum() < 0 || feeAmount.compareTo(amount) > 0) {
       throw new LedgerConflictException("payment fee is invalid");
+    }
+  }
+
+  private static void validateAmount(BigDecimal amount) {
+    if (amount == null || amount.signum() <= 0 || amount.scale() > 4) {
+      throw new LedgerConflictException("payment amount is invalid");
+    }
+  }
+
+  private static void validateCurrency(String currency) {
+    if (currency == null || !currency.matches("[A-Z]{3}")) {
+      throw new LedgerConflictException("payment currency is invalid");
     }
   }
 

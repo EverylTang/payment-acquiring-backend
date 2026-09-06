@@ -130,7 +130,7 @@ public class AdminConfigurationController {
   }
 
   @PutMapping("/risk-policies/{id}")
-  @PreAuthorize("hasAuthority('risk-policy:create')")
+  @PreAuthorize("hasAuthority('risk-policy:update')")
   public void updateRiskPolicy(
       @PathVariable("id") String id,
       @Valid @RequestBody ConfigurationAdminService.RiskPolicyUpdateRequest r,

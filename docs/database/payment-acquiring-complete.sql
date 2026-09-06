@@ -749,7 +749,7 @@ FROM (
   SELECT 'pricing-rule:create', '创建费率规则', 'PRICING_RULE' UNION ALL SELECT 'pricing-rule:update', '编辑费率规则', 'PRICING_RULE' UNION ALL
   SELECT 'pricing-rule:status', '变更费率规则状态', 'PRICING_RULE' UNION ALL SELECT 'pricing-rule:delete', '删除费率规则', 'PRICING_RULE' UNION ALL
   SELECT 'risk-policy:list', '查看风控策略', 'RISK_POLICY' UNION ALL SELECT 'risk-policy:create', '创建风控策略', 'RISK_POLICY' UNION ALL
-  SELECT 'risk-policy:status', '变更风控策略状态', 'RISK_POLICY' UNION ALL
+  SELECT 'risk-policy:update', '编辑风控策略', 'RISK_POLICY' UNION ALL SELECT 'risk-policy:status', '变更风控策略状态', 'RISK_POLICY' UNION ALL
   SELECT 'configuration:snapshot:list', '查看配置快照', 'CONFIGURATION' UNION ALL
   SELECT 'config-release:list', '查看配置发布单', 'CONFIG_RELEASE' UNION ALL SELECT 'config-release:create', '创建配置发布单', 'CONFIG_RELEASE' UNION ALL
   SELECT 'config-release:submit', '提交配置发布单', 'CONFIG_RELEASE' UNION ALL SELECT 'config-release:approve', '审批配置发布单', 'CONFIG_RELEASE' UNION ALL
@@ -769,11 +769,11 @@ SELECT r.id, p.id FROM admin_role r CROSS JOIN admin_permission p WHERE r.role_c
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('auth:me', 'auth:password:change', 'system:access:list', 'dashboard:overview', 'channel:list', 'channel:health:list', 'routing-rule:list', 'routing-rule:detail', 'pricing-rule:list', 'pricing-rule:detail', 'risk-policy:list', 'configuration:snapshot:list', 'config-release:list', 'config-release:diff', 'audit:list', 'merchant:profile', 'merchant:contact:list', 'order:list', 'order:statistics', 'reconciliation:bill:list', 'reconciliation:bill:detail') WHERE r.role_code IN ('ADMIN', 'OPS', 'RISK', 'FINANCE', 'READONLY');
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
-SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('merchant:profile:update', 'merchant:credential:list', 'channel:create', 'channel:update', 'routing-rule:create', 'routing-rule:update', 'pricing-rule:create', 'config-release:create', 'config-release:submit', 'order:manage', 'order:notify', 'outbox:list', 'outbox:detail', 'outbox:redrive', 'payment-event:list', 'payment-event:detail', 'payment-event:replay', 'reconciliation:bill:import', 'reconciliation:bill:list', 'reconciliation:bill:detail', 'reconciliation:difference:list', 'reconciliation:bill:reconcile', 'reconciliation:difference:resolve') WHERE r.role_code = 'OPS';
+SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('merchant:profile:update', 'merchant:credential:list', 'channel:create', 'channel:update', 'routing-rule:create', 'routing-rule:update', 'pricing-rule:create', 'risk-policy:update', 'config-release:create', 'config-release:submit', 'order:manage', 'order:notify', 'outbox:list', 'outbox:detail', 'outbox:redrive', 'payment-event:list', 'payment-event:detail', 'payment-event:replay', 'reconciliation:bill:import', 'reconciliation:bill:list', 'reconciliation:bill:detail', 'reconciliation:difference:list', 'reconciliation:bill:reconcile', 'reconciliation:difference:resolve') WHERE r.role_code = 'OPS';
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('pricing-rule:create', 'pricing-rule:update') WHERE r.role_code = 'FINANCE';
 INSERT IGNORE INTO admin_role_permission (role_id, permission_id)
-SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code = 'risk-policy:create' WHERE r.role_code = 'RISK';
+SELECT r.id, p.id FROM admin_role r JOIN admin_permission p ON p.permission_code IN ('risk-policy:create', 'risk-policy:update') WHERE r.role_code = 'RISK';
 
 -- TRADE SERVICE
 USE pay_trade;

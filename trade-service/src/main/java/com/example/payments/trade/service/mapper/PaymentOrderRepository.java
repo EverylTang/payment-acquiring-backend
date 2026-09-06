@@ -76,6 +76,19 @@ public class PaymentOrderRepository {
         .map(this::toDomain);
   }
 
+  public Optional<PaymentOrder> findByMerchantOrderForProduct(
+      String merchantId, String merchantOrderNo, String productCode) {
+    return Optional.ofNullable(
+            mapper.findByMerchantOrderForProduct(merchantId, merchantOrderNo, productCode))
+        .map(this::toDomain);
+  }
+
+  public Optional<PaymentOrder> findByIdempotencyForProduct(
+      String merchantId, String key, String productCode) {
+    return Optional.ofNullable(mapper.findByIdempotencyForProduct(merchantId, key, productCode))
+        .map(this::toDomain);
+  }
+
   public boolean updateStatus(
       String orderId, OrderStatus expected, OrderStatus next, Instant paidAt) {
     return mapper.updateStatus(orderId, expected, next, paidAt == null ? null : toLocal(paidAt))

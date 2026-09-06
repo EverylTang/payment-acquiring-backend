@@ -75,6 +75,7 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
     String orderId = required(event, "orderId");
     String merchantId = required(event, "merchantId");
     String currency = required(event, "currency");
+    validateCurrency(currency);
     BigDecimal amount = decimal(event, "amount");
     BigDecimal feeAmount = decimalOrZero(event, "feeAmount");
     validateAmounts(amount, feeAmount);
@@ -300,6 +301,12 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
         || feeAmount.scale() > 4
         || feeAmount.compareTo(amount) > 0) {
       throw new IllegalArgumentException("invalid payment amount or fee amount");
+    }
+  }
+
+  private static void validateCurrency(String currency) {
+    if (!currency.matches("[A-Z]{3}")) {
+      throw new IllegalArgumentException("invalid currency");
     }
   }
 

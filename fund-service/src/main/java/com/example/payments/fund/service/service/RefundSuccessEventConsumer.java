@@ -74,6 +74,7 @@ public class RefundSuccessEventConsumer implements RocketMQListener<String> {
       String orderId = required(e, "orderId");
       String merchantId = required(e, "merchantId");
       String currency = required(e, "currency");
+      validateCurrency(currency);
       BigDecimal amount = decimal(e, "amount");
       validateAmount(amount);
       String hash = sha256(message);
@@ -205,6 +206,12 @@ public class RefundSuccessEventConsumer implements RocketMQListener<String> {
   private static void validateAmount(BigDecimal amount) {
     if (amount.signum() <= 0 || amount.scale() > 4) {
       throw new IllegalArgumentException("invalid refund amount");
+    }
+  }
+
+  private static void validateCurrency(String currency) {
+    if (!currency.matches("[A-Z]{3}")) {
+      throw new IllegalArgumentException("invalid refund currency");
     }
   }
 

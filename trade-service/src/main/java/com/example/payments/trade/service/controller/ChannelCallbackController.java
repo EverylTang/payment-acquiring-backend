@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -25,18 +26,21 @@ public class ChannelCallbackController {
   private final PlatformChannelConfigurationClient channelConfiguration;
   private final ChannelAdapterRegistry channelAdapters;
 
-  @PostMapping(
-      value = "/{channelId}/callback",
-      consumes = MediaType.APPLICATION_JSON_VALUE,
-      produces = MediaType.TEXT_PLAIN_VALUE)
+  @PostMapping(value = "/{channelId}/callback", produces = MediaType.TEXT_PLAIN_VALUE)
   public ResponseEntity<String> callback(
-      @PathVariable String channelId, @RequestBody String rawPayload) {
+      @PathVariable String channelId,
+      @RequestBody String rawPayload,
+      @RequestHeader(value = "X-Callback-Signature", required = false) String signature) {
     var runtime = channelConfiguration.resolve(channelId);
     var adapter = channelAdapters.required(runtime.provider(), runtime.signatureProfile());
     // The provider document has no event ID. A body hash makes retry delivery idempotent.
     String callbackId = sha256(channelId + "." + rawPayload);
     adapter.callbackChannelOrderId(rawPayload);
-    paymentAttemptService.callback(channelId, rawPayload, "embedded", callbackId);
+    paymentAttemptService.callback(
+        channelId,
+        rawPayload,
+        signature == null || signature.isBlank() ? "embedded" : signature,
+        callbackId);
     String acknowledgement = runtime.setting("callbackSuccessResponse");
     return ResponseEntity.ok(acknowledgement.isBlank() ? "SUCCESS" : acknowledgement);
   }

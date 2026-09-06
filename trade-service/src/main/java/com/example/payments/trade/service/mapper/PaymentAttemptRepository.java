@@ -76,6 +76,10 @@ public class PaymentAttemptRepository {
     return mapper.countOpenByOrderId(orderId) > 0;
   }
 
+  public Optional<PaymentAttempt> findLatestOpenByOrderId(String orderId) {
+    return Optional.ofNullable(mapper.findLatestOpenByOrderId(orderId)).map(this::toDomain);
+  }
+
   public List<PaymentAttemptQueryClaim> claimQueryable(
       Instant now, int maxQueryCount, int limit, long lockSeconds) {
     return mapper.findQueryable(toLocal(now), maxQueryCount, limit).stream()

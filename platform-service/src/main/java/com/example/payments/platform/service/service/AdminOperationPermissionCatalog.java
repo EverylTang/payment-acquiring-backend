@@ -74,6 +74,7 @@ public final class AdminOperationPermissionCatalog {
           "risk-policy:create",
           "risk-policy:list",
           "risk-policy:status",
+          "risk-policy:update",
           "risk:event:list",
           "risk:event:review",
           "risk:list:list",

@@ -58,6 +58,24 @@
     AND order_type = #{orderType}
     LIMIT 1
   </select>
+  <select id="findByMerchantOrderForProduct" resultMap="PaymentOrderResultMap">
+    SELECT
+    <include refid="allColumns" />
+    FROM payment_order
+    WHERE merchant_id = #{merchantId}
+    AND merchant_order_no = #{merchantOrderNo}
+    AND product_code = #{productCode}
+    LIMIT 1
+  </select>
+  <select id="findByIdempotencyForProduct" resultMap="PaymentOrderResultMap">
+    SELECT
+    <include refid="allColumns" />
+    FROM payment_order
+    WHERE merchant_id = #{merchantId}
+    AND idempotency_key = #{key}
+    AND product_code = #{productCode}
+    LIMIT 1
+  </select>
   <update id="updateStatus">
     UPDATE payment_order
     SET status = #{next}, paid_at = #{paidAt}, version = version + 1

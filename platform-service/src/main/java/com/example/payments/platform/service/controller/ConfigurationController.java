@@ -20,6 +20,7 @@ public class ConfigurationController {
   private final ConfigurationSnapshotService snapshotService;
   private final ConfigurationHealthService healthService;
   private final com.example.payments.platform.service.service.RiskAdminService riskAdminService;
+  private final com.example.payments.platform.service.service.MasterDataService masterDataService;
 
   @GetMapping("/snapshot")
   public Map<String, Object> snapshot(
@@ -42,6 +43,12 @@ public class ConfigurationController {
   public Map<String, String> productType(@PathVariable String productCode) {
     return Map.of(
         "productCode", productCode, "productType", snapshotService.productType(productCode));
+  }
+
+  @GetMapping("/currencies/{currency}/scale")
+  public Map<String, Object> currencyScale(@PathVariable String currency) {
+    var value = masterDataService.requireActiveCurrency(currency);
+    return Map.of("currency", value.code(), "decimalPlaces", value.decimalPlaces());
   }
 
   @GetMapping("/channels/{channelId}/runtime")

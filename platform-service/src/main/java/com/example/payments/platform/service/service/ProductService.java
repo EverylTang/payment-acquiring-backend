@@ -85,12 +85,12 @@ public class ProductService {
   }
 
   private void validate(Command value) {
+    if ("PAYOUT".equals(value.productType())) {
+      throw new IllegalArgumentException("出款产品尚未启用，当前平台仅支持收款产品");
+    }
     masterData.requireActive(value.defaultCountry(), value.defaultCurrency());
     if (value.productType().equals("PAYIN") && value.accessMode() == null) {
       throw new IllegalArgumentException("收款产品必须指定接入模式");
-    }
-    if (value.productType().equals("PAYOUT") && value.accessMode() != null) {
-      throw new IllegalArgumentException("出款产品不应指定收款接入模式");
     }
   }
 

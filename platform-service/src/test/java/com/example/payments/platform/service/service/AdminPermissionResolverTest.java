@@ -21,6 +21,7 @@ class AdminPermissionResolverTest {
     assertTrue(permissions.contains("merchant:list"));
     assertTrue(permissions.contains("outbox:redrive"));
     assertTrue(permissions.contains("reconciliation:difference:resolve"));
+    assertTrue(permissions.contains("risk-policy:update"));
   }
 
   @Test

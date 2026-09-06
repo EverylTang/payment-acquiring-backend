@@ -21,6 +21,16 @@ public interface PaymentOrderMapper extends BaseMapper<PaymentOrderEntity> {
       @Param("key") String key,
       @Param("orderType") String orderType);
 
+  PaymentOrderEntity findByMerchantOrderForProduct(
+      @Param("merchantId") String merchantId,
+      @Param("merchantOrderNo") String merchantOrderNo,
+      @Param("productCode") String productCode);
+
+  PaymentOrderEntity findByIdempotencyForProduct(
+      @Param("merchantId") String merchantId,
+      @Param("key") String key,
+      @Param("productCode") String productCode);
+
   int updateStatus(
       @Param("orderId") String orderId,
       @Param("expected") String expected,

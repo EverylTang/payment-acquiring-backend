@@ -8,9 +8,11 @@ import com.example.payments.trade.service.mapper.PaymentCallbackRecordRepository
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -33,12 +35,36 @@ public class PaymentAttemptService {
   private final ObjectMapper objectMapper;
   private final PaymentSuccessEventSigner paymentSuccessEventSigner;
 
+  @Autowired(required = false)
+  private RedisDistributedLockService attemptCreationLock;
+
   @Value("${trade.channel-callback.base-url:}")
   private String channelCallbackBaseUrl;
 
   @Transactional
   public PaymentAttempt create(PaymentOrder order) {
-    return create(order, 1);
+    if (attemptCreationLock == null) return createOrReuseOpenAttempt(order);
+    try {
+      return attemptCreationLock.executeWithLock(
+          "payment-attempt:create:" + order.orderId(),
+          UUID.randomUUID().toString(),
+          Duration.ofMinutes(3),
+          Duration.ofSeconds(15),
+          () -> createOrReuseOpenAttempt(order));
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "支付尝试创建被中断", exception);
+    } catch (RuntimeException exception) {
+      if (exception.getMessage() != null
+          && exception.getMessage().startsWith("Failed to acquire lock:")) {
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "支付尝试正在创建，请稍后查询订单", exception);
+      }
+      throw exception;
+    }
+  }
+
+  private PaymentAttempt createOrReuseOpenAttempt(PaymentOrder order) {
+    return repository.findLatestOpenByOrderId(order.orderId()).orElseGet(() -> create(order, 1));
   }
 
   @Transactional
@@ -176,7 +202,7 @@ public class PaymentAttemptService {
                 () ->
                     new ResponseStatusException(HttpStatus.NOT_FOUND, "payment attempt not found"));
     if (attempt.status().isTerminal()) return attempt;
-    var runtime = channelConfiguration.resolve(attempt.channelId());
+    var runtime = callbackRuntime(attempt, channelConfiguration.resolve(attempt.channelId()));
     var result =
         channelAdapters
             .required(runtime.provider(), runtime.signatureProfile())
@@ -202,7 +228,7 @@ public class PaymentAttemptService {
     if (attempt.status().isTerminal()) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "terminal attempt cannot be canceled");
     }
-    var runtime = channelConfiguration.resolve(attempt.channelId());
+    var runtime = callbackRuntime(attempt, channelConfiguration.resolve(attempt.channelId()));
     var channel = channelAdapters.required(runtime.provider(), runtime.signatureProfile());
     if (!channel.supportsCancellation()) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "当前支付渠道未提供取消支付能力，请等待支付结果查询完成");
@@ -385,6 +411,10 @@ public class PaymentAttemptService {
       snapshot.put("provider", runtime.provider());
       snapshot.put("requestUrl", runtime.requestUrl());
       snapshot.put("signatureProfile", runtime.signatureProfile());
+      snapshot.put("runtimeSettings", redactSettings(runtime.settings()));
+      // Channel credentials are managed as readable backend configuration. Pin this attempt to the
+      // credential material used for its create request so rotation does not break reconciliation.
+      snapshot.put("runtimeCredentials", runtime.credentials());
       snapshot.put("channelRequest", redactedFields);
       return objectMapper.writeValueAsString(snapshot);
     } catch (JsonProcessingException exception) {
@@ -412,14 +442,63 @@ public class PaymentAttemptService {
       return new ChannelRuntimeContext(
           currentRuntime.channelId(),
           provider,
-          currentRuntime.requestUrl(),
+          snapshotText(snapshot, "requestUrl", currentRuntime.requestUrl()),
           signatureProfile,
-          currentRuntime.settings(),
-          currentRuntime.credentials(),
+          snapshotSettings(snapshot, currentRuntime.settings()),
+          snapshotCredentials(snapshot, currentRuntime.credentials()),
           schemaVersion);
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("支付尝试缺少渠道运行配置", exception);
     }
+  }
+
+  private String snapshotText(java.util.Map<?, ?> snapshot, String key, String fallback) {
+    Object value = snapshot.get(key);
+    return value == null || String.valueOf(value).isBlank() ? fallback : String.valueOf(value);
+  }
+
+  private java.util.Map<String, Object> snapshotSettings(
+      java.util.Map<?, ?> snapshot, java.util.Map<String, Object> fallback) {
+    Object value = snapshot.get("runtimeSettings");
+    if (!(value instanceof java.util.Map<?, ?> settings)) return fallback;
+    var copied = new java.util.LinkedHashMap<String, Object>();
+    settings.forEach((key, item) -> copied.put(String.valueOf(key), item));
+    return java.util.Map.copyOf(copied);
+  }
+
+  private java.util.Map<String, String> snapshotCredentials(
+      java.util.Map<?, ?> snapshot, java.util.Map<String, String> fallback) {
+    Object value = snapshot.get("runtimeCredentials");
+    if (!(value instanceof java.util.Map<?, ?> credentials)) return fallback;
+    var copied = new java.util.LinkedHashMap<String, String>();
+    credentials.forEach(
+        (key, item) -> {
+          if (key != null && item != null && !String.valueOf(item).isBlank()) {
+            copied.put(String.valueOf(key), String.valueOf(item));
+          }
+        });
+    return java.util.Map.copyOf(copied);
+  }
+
+  private java.util.Map<String, Object> redactSettings(java.util.Map<String, Object> source) {
+    var result = new java.util.LinkedHashMap<String, Object>();
+    source.forEach(
+        (key, value) -> {
+          if (isSensitiveSetting(key)) return;
+          if (value instanceof java.util.Map<?, ?> nested) {
+            var nestedValues = new java.util.LinkedHashMap<String, Object>();
+            nested.forEach(
+                (nestedKey, nestedValue) -> {
+                  if (!isSensitiveSetting(String.valueOf(nestedKey))) {
+                    nestedValues.put(String.valueOf(nestedKey), nestedValue);
+                  }
+                });
+            result.put(key, nestedValues);
+          } else {
+            result.put(key, value);
+          }
+        });
+    return java.util.Map.copyOf(result);
   }
 
   private String channelCallbackUrl(ChannelRuntimeContext runtime) {
@@ -498,6 +577,10 @@ public class PaymentAttemptService {
         || normalized.contains("api_key");
   }
 
+  private boolean isSensitiveSetting(String key) {
+    return !isSignatureControl(key) && isSensitive(key);
+  }
+
   @SuppressWarnings("unchecked")
   private java.util.Map<String, String> payer(PaymentOrder order) {
     try {
@@ -525,9 +608,11 @@ public class PaymentAttemptService {
           case PROCESSING, CREATED -> com.example.payments.trade.service.domain.OrderStatus.PAYING;
           case TIMEOUT, UNKNOWN -> com.example.payments.trade.service.domain.OrderStatus.UNKNOWN;
         };
-    var order = orderService.callback(attempt.orderId(), orderStatus);
+    var callbackResult = orderService.callbackResult(attempt.orderId(), orderStatus);
+    var order = callbackResult.order();
     if (attempt.status() == PaymentAttemptStatus.SUCCESS) {
-      if (order.status() != com.example.payments.trade.service.domain.OrderStatus.SUCCESS
+      if (!callbackResult.transitionedToSuccess()
+          || order.status() != com.example.payments.trade.service.domain.OrderStatus.SUCCESS
           || order.orderType() == com.example.payments.trade.service.domain.OrderType.PAYOUT) {
         if (order.status() == com.example.payments.trade.service.domain.OrderStatus.EXPIRED) {
           expiredSuccessExceptionService.record(order, attempt);
