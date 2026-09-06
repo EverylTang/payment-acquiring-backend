@@ -1,6 +1,3 @@
-gateway:
-  security:
-    internal-token: ${GATEWAY_INTERNAL_TOKEN:}
 spring:
   application:
     name: gateway-service

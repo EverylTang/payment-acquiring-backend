@@ -860,17 +860,17 @@ ALTER TABLE payment_attempt
 
 -- Provider contracts may accept four fractional digits. Channel settings still enforce the
 -- provider/currency-specific scale (for example TWD remains integer-only).
-ALTER TABLE pricing_rule
+ALTER TABLE pay_platform.pricing_rule
   MODIFY COLUMN fixed_fee DECIMAL(20, 4) NOT NULL,
   MODIFY COLUMN extra_fee DECIMAL(20, 4) NOT NULL DEFAULT 0,
   MODIFY COLUMN min_fee DECIMAL(20, 4) NULL,
   MODIFY COLUMN max_fee DECIMAL(20, 4) NULL,
   MODIFY COLUMN min_amount DECIMAL(20, 4) NULL,
   MODIFY COLUMN max_amount DECIMAL(20, 4) NULL;
-ALTER TABLE product_capability
+ALTER TABLE pay_platform.product_capability
   MODIFY COLUMN min_amount DECIMAL(20, 4) NOT NULL,
   MODIFY COLUMN max_amount DECIMAL(20, 4) NOT NULL;
-ALTER TABLE channel_capability
+ALTER TABLE pay_platform.channel_capability
   MODIFY COLUMN min_amount DECIMAL(20, 4) NOT NULL,
   MODIFY COLUMN max_amount DECIMAL(20, 4) NOT NULL;
 ALTER TABLE payment_order

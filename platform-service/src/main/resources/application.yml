@@ -23,7 +23,5 @@ spring:
         group: ${NACOS_GROUP:PAYMENT_GROUP}
         file-extension: yml
 platform:
-  security:
-    internal-token: ${GATEWAY_INTERNAL_TOKEN:}
   merchant-api:
     credential-encryption-key: ${PLATFORM_MERCHANT_CREDENTIAL_ENCRYPTION_KEY:}

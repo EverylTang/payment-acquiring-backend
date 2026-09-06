@@ -27,8 +27,6 @@ rocketmq:
   producer:
     group: ${ROCKETMQ_PRODUCER_GROUP:fund-replay-producer}
 fund:
-  security:
-    gateway-token: ${GATEWAY_INTERNAL_TOKEN:}
   payment-success:
     topic: ${FUND_PAYMENT_SUCCESS_TOPIC:PAYMENT_SUCCEEDED}
     consumer-group: ${FUND_PAYMENT_SUCCESS_CONSUMER_GROUP:fund-payment-success}

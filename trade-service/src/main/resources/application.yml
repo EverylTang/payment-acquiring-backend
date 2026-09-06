@@ -1,9 +1,6 @@
 trade:
-  security:
-    gateway-token: ${GATEWAY_INTERNAL_TOKEN:}
   routing:
     platform-base-url: ${PLATFORM_SERVICE_URL:http://127.0.0.1:8081}
-    internal-token: ${GATEWAY_INTERNAL_TOKEN:}
   payment-success-event:
     signing-secret: ${PAYMENT_SUCCESS_EVENT_SIGNING_SECRET:}
   channel-callback:
