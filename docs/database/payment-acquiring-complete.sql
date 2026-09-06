@@ -414,6 +414,11 @@ VALUES ('mp-demo-card-usd', 'merchant-demo', 'CARD-US-USD', 'ACTIVE', CURRENT_TI
 INSERT IGNORE INTO channel (channel_id, name, provider, request_url, status, config_json, created_at, updated_at)
 VALUES ('simulated-channel', '模拟渠道', 'SIMULATED', 'https://simulated.local', 'ACTIVE', JSON_OBJECT('mode', 'SIMULATED', 'successRate', 100), CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
+-- Normalize legacy channel settings into the current settings/credentials document shape.
+UPDATE channel
+SET config_json = JSON_OBJECT('settings', config_json, 'credentials', JSON_OBJECT())
+WHERE JSON_EXTRACT(config_json, '$.settings') IS NULL;
+
 UPDATE channel SET request_url = 'https://simulated.local' WHERE channel_id = 'simulated-channel' AND request_url = '';
 
 UPDATE channel SET signature_profile = 'SIMULATED_SHA256_PREFIX_V1' WHERE channel_id = 'simulated-channel' AND signature_profile = 'DEFAULT';

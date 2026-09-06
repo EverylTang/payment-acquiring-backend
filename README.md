@@ -22,7 +22,7 @@ payment-acquiring-backend/
 ├── platform-service/          # 8081
 ├── trade-service/             # 8082
 ├── fund-service/              # 8083
-├── docs/database/             # 完整数据库表结构、初始化数据和版本 SQL
+├── docs/database/             # 唯一的完整数据库初始化 SQL 和执行说明
 └── .gitignore
 ```
 
@@ -99,7 +99,7 @@ scrape_configs:
 docker exec -i local-mysql mysql -uroot -p < docs/database/payment-acquiring-complete.sql
 ```
 
-完整数据库 SQL（包括表结构、初始化数据和版本变更）位于 [`docs/database/payment-acquiring-complete.sql`](docs/database/payment-acquiring-complete.sql)，执行说明见 [`docs/database/README.md`](docs/database/README.md)。该入口会创建 `pay_platform`、`pay_trade`、`pay_fund` 和 `pay_audit` 数据库，并按服务 SQL 创建完整表结构和初始化数据。交易服务使用 `pay_trade.payment_order` 真实落库，资金服务使用 `pay_fund.ledger_entry` 真实落库。
+唯一的完整数据库初始化 SQL（包括表结构、初始化数据和历史兼容变更）位于 [`docs/database/payment-acquiring-complete.sql`](docs/database/payment-acquiring-complete.sql)，执行说明见 [`docs/database/README.md`](docs/database/README.md)。该入口会创建 `pay_platform`、`pay_trade`、`pay_fund` 和 `pay_audit` 数据库，并创建完整表结构和初始化数据；`docs/database/` 不再保留独立升级 SQL。交易服务使用 `pay_trade.payment_order` 真实落库，资金服务使用 `pay_fund.ledger_entry` 真实落库。
 
 后端数据持久层统一使用 MyBatis-Plus，禁止新增 Spring JDBC/JdbcClient/JdbcTemplate 或直接 JDBC 访问；前后端目录分层、权限和持久化约定见 [`docs/payment-acquiring-design.md`](docs/payment-acquiring-design.md)。
 
