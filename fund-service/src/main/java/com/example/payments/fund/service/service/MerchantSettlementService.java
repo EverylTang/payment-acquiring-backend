@@ -278,6 +278,19 @@ public class MerchantSettlementService {
     return settlementRuleMapper.selectList(query.orderByDesc("effective_date"));
   }
 
+  @Transactional
+  public MerchantSettlementRuleEntity changeRuleStatus(long id, String status) {
+    if (!"ACTIVE".equals(status) && !"DISABLED".equals(status)) {
+      throw new IllegalArgumentException("结算规则状态必须是 ACTIVE 或 DISABLED");
+    }
+    var rule = settlementRuleMapper.selectById(id);
+    if (rule == null) throw new IllegalArgumentException("结算规则不存在: " + id);
+    rule.setStatus(status);
+    rule.setUpdatedAt(LocalDateTime.now());
+    settlementRuleMapper.updateById(rule);
+    return rule;
+  }
+
   private boolean isEligibleForAutomaticSettlement(MerchantSettlementDetailEntity detail) {
     return Boolean.TRUE.equals(detail.getAutoSettlement())
         && detail.getSettlementAmount().compareTo(defaultAmount(detail.getMinSettlementAmount()))

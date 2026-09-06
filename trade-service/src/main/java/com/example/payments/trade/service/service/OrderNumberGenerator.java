@@ -6,6 +6,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.LongSupplier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -26,6 +27,7 @@ public class OrderNumberGenerator {
   private long lastMillis = -1;
   private int sequence;
 
+  @Autowired
   public OrderNumberGenerator(@Value("${trade.order-id.node-id:0}") int nodeId) {
     this(nodeId, System::currentTimeMillis);
   }

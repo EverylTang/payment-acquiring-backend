@@ -26,17 +26,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ConfigurationAdminService {
-  private static final Set<String> SIGNATURE_PROFILES =
-      Set.of(
-          "NONE",
-          "DEFAULT",
-          "SIMULATED_SHA256_PREFIX_V1",
-          "MD5_KEY_SUFFIX_V1",
-          "SHA256_KEY_SUFFIX_V1",
-          "HMAC_SHA256_V1",
-          "HMAC_SHA512_V1",
-          "RSA_SHA256_V1",
-          "PAYPROO_RSA_SHA256_V1");
+  private static final Set<String> SIGNATURE_PROFILES = Set.of(
+      "NONE",
+      "DEFAULT",
+      "SIMULATED_SHA256_PREFIX_V1",
+      "MD5_KEY_SUFFIX_V1",
+      "SHA256_KEY_SUFFIX_V1",
+      "HMAC_SHA256_V1",
+      "HMAC_SHA512_V1",
+      "RSA_SHA256_V1",
+      "PAYPROO_RSA_SHA256_V1");
   private final ConfigurationAdminMapper mapper;
   private final OperationAuditService auditService;
   private final ObjectMapper objectMapper;
@@ -47,7 +46,7 @@ public class ConfigurationAdminService {
   void rejectActiveSimulatedChannels() {
     if (!simulationProfile() && mapper.countActiveChannelsByProvider("SIMULATED") > 0) {
       throw new IllegalStateException(
-          "SIMULATED channels are only permitted in local or test profiles");
+          "SIMULATED channels are only permitted in local, dev or test profiles");
     }
   }
 
@@ -66,36 +65,33 @@ public class ConfigurationAdminService {
         "channelHealth",
         channels(1, 100).items().stream()
             .map(
-                channel ->
-                    Map.of(
-                        "channelId",
-                        channel.channelId(),
-                        "name",
-                        channel.name(),
-                        "status",
-                        channel.status().equals("ACTIVE") ? "UP" : "DOWN",
-                        "successRate",
-                        BigDecimal.ZERO))
+                channel -> Map.of(
+                    "channelId",
+                    channel.channelId(),
+                    "name",
+                    channel.name(),
+                    "status",
+                    channel.status().equals("ACTIVE") ? "UP" : "DOWN",
+                    "successRate",
+                    BigDecimal.ZERO))
             .toList());
   }
 
   public AdminPageResponse<ChannelResponse> channels(int page, int pageSize) {
     var q = pageQuery(page, pageSize);
     var total = mapper.countChannels();
-    var items =
-        mapper.selectChannels(q.size(), q.offset()).stream()
-            .map(
-                channel ->
-                    new ChannelResponse(
-                        channel.channelId(),
-                        channel.name(),
-                        channel.provider(),
-                        channel.requestUrl(),
-                        channel.signatureProfile(),
-                        channel.status(),
-                        channelSettings(channel.configuration()),
-                        channelCredentials(channel.configuration())))
-            .toList();
+    var items = mapper.selectChannels(q.size(), q.offset()).stream()
+        .map(
+            channel -> new ChannelResponse(
+                channel.channelId(),
+                channel.name(),
+                channel.provider(),
+                channel.requestUrl(),
+                channel.signatureProfile(),
+                channel.status(),
+                channelSettings(channel.configuration()),
+                channelCredentials(channel.configuration())))
+        .toList();
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
 
@@ -144,14 +140,13 @@ public class ConfigurationAdminService {
     validateChannelConfiguration(
         request.provider(), request.requestUrl(), request.configuration(), request.credentials());
     if (mapper.updateChannel(
-            channelId,
-            request.name(),
-            request.provider(),
-            request.requestUrl(),
-            request.signatureProfile(),
-            json(channelDocument(request.configuration(), request.credentials())),
-            Instant.now())
-        != 1) {
+        channelId,
+        request.name(),
+        request.provider(),
+        request.requestUrl(),
+        request.signatureProfile(),
+        json(channelDocument(request.configuration(), request.credentials())),
+        Instant.now()) != 1) {
       throw new IllegalArgumentException("渠道不存在: " + channelId);
     }
     audit(
@@ -172,9 +167,8 @@ public class ConfigurationAdminService {
   public void updateChannelStatus(
       String channelId, StatusRequest request, Authentication authentication) {
     if ("ACTIVE".equals(request.status())) {
-      var channel =
-          java.util.Optional.ofNullable(mapper.selectChannelById(channelId))
-              .orElseThrow(() -> new IllegalArgumentException("渠道不存在: " + channelId));
+      var channel = java.util.Optional.ofNullable(mapper.selectChannelById(channelId))
+          .orElseThrow(() -> new IllegalArgumentException("渠道不存在: " + channelId));
       validateChannelConfiguration(
           channel.provider(),
           channel.requestUrl(),
@@ -213,16 +207,15 @@ public class ConfigurationAdminService {
   public void updateRoutingRule(
       String ruleId, RoutingRuleUpdateRequest request, Authentication authentication) {
     if (mapper.updateRoutingRule(
-            ruleId,
-            request.productCode(),
-            request.merchantId(),
-            request.paymentMethod(),
-            request.country(),
-            request.currency(),
-            request.channelId(),
-            request.priority(),
-            request.weight())
-        != 1) {
+        ruleId,
+        request.productCode(),
+        request.merchantId(),
+        request.paymentMethod(),
+        request.country(),
+        request.currency(),
+        request.channelId(),
+        request.priority(),
+        request.weight()) != 1) {
       throw new IllegalArgumentException("路由规则不存在: " + ruleId);
     }
     audit(authentication.getName(), "UPDATE", "ROUTING_RULE", ruleId, request);
@@ -238,29 +231,27 @@ public class ConfigurationAdminService {
   public AdminPageResponse<PricingRuleResponse> pricingRules(int page, int pageSize) {
     var q = pageQuery(page, pageSize);
     var total = pricingRuleMapper.countAll();
-    var items =
-        pricingRuleMapper.selectByPage(q.offset(), q.size()).stream()
-            .map(
-                rule ->
-                    new PricingRuleResponse(
-                        rule.getRuleId(),
-                        rule.getReleaseVersion(),
-                        rule.getProductCode(),
-                        rule.getMerchantId(),
-                        rule.getChannelId(),
-                        rule.getCurrency(),
-                        rule.getFeeRate(),
-                        rule.getFixedFee(),
-                        rule.getExtraFee(),
-                        rule.getMinFee(),
-                        rule.getMaxFee(),
-                        rule.getFeeType(),
-                        readTiers(rule.getTieredFees()),
-                        rule.getFeeMode(),
-                        rule.getMinAmount(),
-                        rule.getMaxAmount(),
-                        rule.getStatus()))
-            .toList();
+    var items = pricingRuleMapper.selectByPage(q.offset(), q.size()).stream()
+        .map(
+            rule -> new PricingRuleResponse(
+                rule.getRuleId(),
+                rule.getReleaseVersion(),
+                rule.getProductCode(),
+                rule.getMerchantId(),
+                rule.getChannelId(),
+                rule.getCurrency(),
+                rule.getFeeRate(),
+                rule.getFixedFee(),
+                rule.getExtraFee(),
+                rule.getMinFee(),
+                rule.getMaxFee(),
+                rule.getFeeType(),
+                readTiers(rule.getTieredFees()),
+                rule.getFeeMode(),
+                rule.getMinAmount(),
+                rule.getMaxAmount(),
+                rule.getStatus()))
+        .toList();
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
 
@@ -302,7 +293,8 @@ public class ConfigurationAdminService {
   public void updatePricingRule(
       String ruleId, PricingRuleUpdateRequest request, Authentication authentication) {
     var existing = pricingRuleMapper.selectByRuleId(ruleId);
-    if (existing == null) throw new IllegalArgumentException("费率规则不存在: " + ruleId);
+    if (existing == null)
+      throw new IllegalArgumentException("费率规则不存在: " + ruleId);
     if (!pricingRuleMapper.isDraftVersion(existing.getReleaseVersion())) {
       throw new IllegalStateException("已发布或审核中的费率规则不可编辑，请创建草稿版本后调整");
     }
@@ -343,19 +335,17 @@ public class ConfigurationAdminService {
   public AdminPageResponse<RiskPolicyResponse> riskPolicies(int page, int pageSize) {
     var q = pageQuery(page, pageSize);
     var total = mapper.countRiskPolicies();
-    var items =
-        mapper.selectRiskPolicies(q.size(), q.offset()).stream()
-            .map(
-                policy ->
-                    new RiskPolicyResponse(
-                        policy.policyId(),
-                        policy.releaseVersion(),
-                        policy.name(),
-                        policy.priority(),
-                        policy.decision(),
-                        readMap(policy.condition()),
-                        policy.status()))
-            .toList();
+    var items = mapper.selectRiskPolicies(q.size(), q.offset()).stream()
+        .map(
+            policy -> new RiskPolicyResponse(
+                policy.policyId(),
+                policy.releaseVersion(),
+                policy.name(),
+                policy.priority(),
+                policy.decision(),
+                readMap(policy.condition()),
+                policy.status()))
+        .toList();
     return new AdminPageResponse<>(items, q.page(), q.size(), total);
   }
 
@@ -383,12 +373,11 @@ public class ConfigurationAdminService {
   public void updateRiskPolicy(
       String policyId, RiskPolicyUpdateRequest request, Authentication authentication) {
     if (mapper.updateRiskPolicy(
-            policyId,
-            request.name(),
-            request.priority(),
-            request.decision(),
-            json(request.condition()))
-        == 0) {
+        policyId,
+        request.name(),
+        request.priority(),
+        request.decision(),
+        json(request.condition())) == 0) {
       throw new IllegalArgumentException("策略不存在，或所属版本不是可编辑草稿: " + policyId);
     }
     audit(authentication.getName(), "UPDATE", "RISK_POLICY", policyId, request);
@@ -467,7 +456,7 @@ public class ConfigurationAdminService {
     boolean simulatedSignature = signatureProfile.toUpperCase(Locale.ROOT).startsWith("SIMULATED_");
     if ((simulated || simulatedSignature) && !simulationProfile()) {
       throw new IllegalArgumentException(
-          "SIMULATED channels are only permitted in local or test profiles");
+          "SIMULATED channels are only permitted in local, dev or test profiles");
     }
     if ("PAYPROO".equalsIgnoreCase(provider)
         && !"PAYPROO_RSA_SHA256_V1".equalsIgnoreCase(signatureProfile)) {
@@ -480,12 +469,14 @@ public class ConfigurationAdminService {
       String requestUrl,
       Map<String, Object> settings,
       Map<String, Object> credentials) {
-    if (!"PAYPROO".equalsIgnoreCase(provider)) return;
+    if (!"PAYPROO".equalsIgnoreCase(provider))
+      return;
     requireHttps(requestUrl, "requestUrl");
     requireText(settings, "appId");
     requireHttps(String.valueOf(settings.get("queryUrl")), "settings.queryUrl");
     int amountScale = parseInteger(settings, "amountScale", 0, 4);
-    if (amountScale < 0) throw new IllegalArgumentException("PayProo amountScale 无效");
+    if (amountScale < 0)
+      throw new IllegalArgumentException("PayProo amountScale 无效");
     requireText(settings, "requestFields");
     requireText(settings, "requiredFields");
     if (!(settings.get("methodMappings") instanceof Map<?, ?> mappings) || mappings.isEmpty()) {
@@ -522,7 +513,8 @@ public class ConfigurationAdminService {
   private static int parseInteger(Map<String, ?> values, String key, int minimum, int maximum) {
     try {
       int value = Integer.parseInt(String.valueOf(values.get(key)));
-      if (value < minimum || value > maximum) throw new NumberFormatException();
+      if (value < minimum || value > maximum)
+        throw new NumberFormatException();
       return value;
     } catch (NumberFormatException exception) {
       throw new IllegalArgumentException("PayProo " + key + " 无效", exception);
@@ -539,7 +531,8 @@ public class ConfigurationAdminService {
 
   private boolean simulationProfile() {
     return java.util.Arrays.stream(environment.getActiveProfiles())
-        .anyMatch(profile -> "local".equals(profile) || "test".equals(profile));
+        .anyMatch(
+            profile -> "local".equals(profile) || "dev".equals(profile) || "test".equals(profile));
   }
 
   private String json(Object value) {
@@ -566,7 +559,8 @@ public class ConfigurationAdminService {
   }
 
   private List<PricingFeeRules.FeeTier> readTiers(String value) {
-    if (value == null || value.isBlank()) return List.of();
+    if (value == null || value.isBlank())
+      return List.of();
     try {
       return objectMapper.readValue(
           value,
@@ -581,7 +575,8 @@ public class ConfigurationAdminService {
   public record MerchantRequest(
       @NotBlank String merchantId,
       @NotBlank String name,
-      @Pattern(regexp = "[A-Z]{3}") String settlementCurrency) {}
+      @Pattern(regexp = "[A-Z]{3}") String settlementCurrency) {
+  }
 
   public record MerchantResponse(
       String merchantId,
@@ -589,9 +584,11 @@ public class ConfigurationAdminService {
       String status,
       String settlementCurrency,
       Instant createdAt,
-      Instant updatedAt) {}
+      Instant updatedAt) {
+  }
 
-  public record StatusRequest(@Pattern(regexp = "ACTIVE|DISABLED") String status) {}
+  public record StatusRequest(@Pattern(regexp = "ACTIVE|DISABLED") String status) {
+  }
 
   public record ProductRequest(
       @NotBlank String productCode,
@@ -601,7 +598,8 @@ public class ConfigurationAdminService {
       @NotBlank String paymentMethod,
       @DecimalMin("0.01") BigDecimal minAmount,
       @Positive BigDecimal maxAmount,
-      boolean supportsRefund) {}
+      boolean supportsRefund) {
+  }
 
   public record ProductResponse(
       String productCode,
@@ -612,7 +610,8 @@ public class ConfigurationAdminService {
       String currency,
       BigDecimal minAmount,
       BigDecimal maxAmount,
-      Boolean supportsRefund) {}
+      Boolean supportsRefund) {
+  }
 
   public record ChannelRequest(
       @NotBlank String channelId,
@@ -626,7 +625,8 @@ public class ConfigurationAdminService {
       @Pattern(regexp = "[A-Z]{3}") String currency,
       @NotBlank String paymentMethod,
       @DecimalMin("0.01") BigDecimal minAmount,
-      @Positive BigDecimal maxAmount) {}
+      @Positive BigDecimal maxAmount) {
+  }
 
   public record ChannelUpdateRequest(
       @NotBlank String name,
@@ -634,7 +634,8 @@ public class ConfigurationAdminService {
       @NotBlank @Pattern(regexp = "https?://[^\\s]+") String requestUrl,
       @NotBlank String signatureProfile,
       @NotNull Map<String, Object> configuration,
-      @NotNull Map<String, Object> credentials) {}
+      @NotNull Map<String, Object> credentials) {
+  }
 
   public record ChannelResponse(
       String channelId,
@@ -644,7 +645,8 @@ public class ConfigurationAdminService {
       String signatureProfile,
       String status,
       Map<String, Object> configuration,
-      Map<String, Object> credentials) {}
+      Map<String, Object> credentials) {
+  }
 
   public record ChannelRow(
       String channelId,
@@ -653,7 +655,8 @@ public class ConfigurationAdminService {
       String requestUrl,
       String signatureProfile,
       String status,
-      String configuration) {}
+      String configuration) {
+  }
 
   public record RoutingRuleRequest(
       @NotBlank String ruleId,
@@ -665,7 +668,8 @@ public class ConfigurationAdminService {
       @Pattern(regexp = "[A-Z]{3}") String currency,
       @NotBlank String channelId,
       @Positive int priority,
-      @Positive int weight) {}
+      @Positive int weight) {
+  }
 
   public record RoutingRuleResponse(
       String ruleId,
@@ -678,7 +682,8 @@ public class ConfigurationAdminService {
       String channelId,
       int priority,
       int weight,
-      String status) {}
+      String status) {
+  }
 
   public record RoutingRuleUpdateRequest(
       @NotBlank String productCode,
@@ -688,7 +693,8 @@ public class ConfigurationAdminService {
       @Pattern(regexp = "[A-Z]{3}") String currency,
       @NotBlank String channelId,
       @Positive int priority,
-      @Positive int weight) {}
+      @Positive int weight) {
+  }
 
   public record PricingRuleRequest(
       @NotBlank String ruleId,
@@ -706,7 +712,8 @@ public class ConfigurationAdminService {
       List<PricingFeeRules.FeeTier> tiers,
       @NotBlank @Pattern(regexp = "PAYER_BEAR|MERCHANT_BEAR|INCLUSIVE|EXCLUSIVE") String feeMode,
       @NotNull @DecimalMin("0.01") BigDecimal minAmount,
-      @NotNull @Positive BigDecimal maxAmount) {}
+      @NotNull @Positive BigDecimal maxAmount) {
+  }
 
   public record PricingRuleResponse(
       String ruleId,
@@ -725,7 +732,8 @@ public class ConfigurationAdminService {
       String feeMode,
       BigDecimal minAmount,
       BigDecimal maxAmount,
-      String status) {}
+      String status) {
+  }
 
   public record PricingRuleUpdateRequest(
       @NotBlank String productCode,
@@ -741,7 +749,8 @@ public class ConfigurationAdminService {
       List<PricingFeeRules.FeeTier> tiers,
       @NotBlank @Pattern(regexp = "PAYER_BEAR|MERCHANT_BEAR|INCLUSIVE|EXCLUSIVE") String feeMode,
       @NotNull @DecimalMin("0.01") BigDecimal minAmount,
-      @NotNull @Positive BigDecimal maxAmount) {}
+      @NotNull @Positive BigDecimal maxAmount) {
+  }
 
   public record RiskPolicyRequest(
       @NotBlank String policyId,
@@ -749,7 +758,8 @@ public class ConfigurationAdminService {
       @NotBlank String name,
       @Positive int priority,
       @Pattern(regexp = "PASS|REJECT|REVIEW") String decision,
-      @NotNull Map<String, Object> condition) {}
+      @NotNull Map<String, Object> condition) {
+  }
 
   public record RiskPolicyResponse(
       String policyId,
@@ -758,13 +768,15 @@ public class ConfigurationAdminService {
       int priority,
       String decision,
       Map<String, Object> condition,
-      String status) {}
+      String status) {
+  }
 
   public record RiskPolicyUpdateRequest(
       @NotBlank String name,
       @Positive int priority,
       @Pattern(regexp = "PASS|REJECT|REVIEW") String decision,
-      @NotNull Map<String, Object> condition) {}
+      @NotNull Map<String, Object> condition) {
+  }
 
   public record RiskPolicyRow(
       String policyId,
@@ -773,5 +785,6 @@ public class ConfigurationAdminService {
       int priority,
       String decision,
       String condition,
-      String status) {}
+      String status) {
+  }
 }

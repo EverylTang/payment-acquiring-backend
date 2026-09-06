@@ -3,6 +3,7 @@ package com.example.payments.trade.service.service;
 import java.net.InetAddress;
 import java.net.URI;
 import java.util.Arrays;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -12,6 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class MerchantCallbackUrlPolicy {
   private final boolean allowHttp;
 
+  @Autowired
   public MerchantCallbackUrlPolicy(Environment environment) {
     allowHttp =
         Arrays.stream(environment.getActiveProfiles())

@@ -1,6 +1,0 @@
-# Local-only fallback. Production must provide GATEWAY_INTERNAL_TOKEN explicitly.
-trade:
-  security:
-    gateway-token: ${GATEWAY_INTERNAL_TOKEN:payment-local-internal-token}
-  routing:
-    internal-token: ${GATEWAY_INTERNAL_TOKEN:payment-local-internal-token}

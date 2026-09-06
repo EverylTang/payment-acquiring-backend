@@ -89,7 +89,7 @@ scrape_configs:
 
 接入需要异步通知的真实支付渠道时，必须为 Trade 配置 `TRADE_CHANNEL_CALLBACK_BASE_URL`，其值应是渠道可访问的 HTTPS 公网地址，例如 `https://pay.example.com`。系统会向渠道传递 `${TRADE_CHANNEL_CALLBACK_BASE_URL}/api/v1/payments/channels/{channelId}/callback`，该地址与商户的 `returnUrl`、`notifyUrl` 独立。
 
-本地 Vault 部署、默认模拟渠道密钥和 Trade 服务接入方式见 [`docs/local-vault.md`](docs/local-vault.md)。
+渠道凭证直接通过后台渠道配置的 `credentials` JSON 管理并回显；请使用受限的管理权限、数据库加密和审计，不要将真实密钥提交到代码仓库。
 
 数据库初始化：
 

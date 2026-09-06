@@ -150,21 +150,6 @@ PREPARE add_channel_request_url_statement FROM @add_channel_request_url_sql;
 EXECUTE add_channel_request_url_statement;
 DEALLOCATE PREPARE add_channel_request_url_statement;
 
-CREATE TABLE IF NOT EXISTS channel_secret_binding (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
-  binding_id VARCHAR(64) NOT NULL COMMENT '绑定ID',
-  channel_id VARCHAR(64) NOT NULL COMMENT '渠道ID',
-  credential_role VARCHAR(64) NOT NULL COMMENT '凭据角色',
-  secret_ref VARCHAR(512) NOT NULL COMMENT '密钥管理服务引用',
-  key_version VARCHAR(64) COMMENT '密钥版本',
-  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '业务状态',
-  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
-  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
-  UNIQUE KEY uk_channel_secret_binding_id (binding_id),
-  UNIQUE KEY uk_channel_secret_binding_role (channel_id, credential_role),
-  KEY idx_channel_secret_binding_channel (channel_id, status)
-);
-
 CREATE TABLE IF NOT EXISTS routing_rule (
   id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
   rule_id VARCHAR(64) NOT NULL COMMENT '规则ID',
@@ -437,11 +422,6 @@ VALUES
    JSON_OBJECT('settings', JSON_OBJECT('appId','','queryUrl','https://api.payproo.tech/hkd/collect/query','amountScale','4','integerAmount','false','connectTimeoutMs','3000','readTimeoutMs','10000','maxOrderValiditySeconds','86400','requirePayUrl','true','callbackSuccessResponse','SUCCESS','requestFields','appId,orderId,name,firstName,lastName,phone,email,amount,payType,payModel,callBackUrl,userId,subject,body','requiredFields','appId,orderId,name,amount,payType,payModel,callBackUrl,userId,subject','methodMappings',JSON_OBJECT('HK_WECHAT',JSON_OBJECT('payType','EWALLET','payModel','WECHAT'),'HK_ALIPAY',JSON_OBJECT('payType','EWALLET','payModel','ALIPAY'),'HK_OCTOPUS',JSON_OBJECT('payType','EWALLET','payModel','OCTOPUS'))),'credentials',JSON_OBJECT('merchantSecretKey','','merchantPrivateKey','','platformPublicKey','')),
    CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
-INSERT IGNORE INTO channel_secret_binding (binding_id, channel_id, credential_role, secret_ref, key_version, status, created_at, updated_at)
-VALUES
-  ('channel-secret-sim-request', 'simulated-channel', 'requestSigningKey', 'vault://secret/data/payments/channels/simulated#requestSigningKey', 'v1', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  ('channel-secret-sim-callback', 'simulated-channel', 'callbackVerifyKey', 'vault://secret/data/payments/channels/simulated#callbackVerifyKey', 'v1', 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
-
 INSERT IGNORE INTO channel_capability (capability_id, channel_id, country, currency, payment_method, min_amount, max_amount, status)
 VALUES ('cc-sim-card-usd', 'simulated-channel', 'US', 'USD', 'CARD', 1.00, 10000.00, 'ACTIVE');
 
@@ -520,6 +500,7 @@ VALUES
   (0, 'merchant-product', '商户产品', 'PAGE', '/merchant-products', 'merchant-products', 'Link', 50, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'routing', '路由与渠道', 'PAGE', '/routing', 'routing', 'Network', 60, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'pricing', '费率管理', 'PAGE', '/pricing', 'pricing', 'CircleDollarSign', 70, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  (0, 'settlement', '结算管理', 'PAGE', '/settlement', 'settlement', 'CircleDollarSign', 75, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'releases', '版本发布', 'PAGE', '/releases', 'releases', 'Layers3', 80, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'risk', '风控工作台', 'PAGE', '/risk', 'risk', 'ShieldCheck', 90, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'trade', '订单管理', 'PAGE', '/orders', 'orders', 'WalletCards', 100, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),

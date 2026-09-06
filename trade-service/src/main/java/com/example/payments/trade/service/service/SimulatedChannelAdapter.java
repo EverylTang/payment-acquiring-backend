@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile({"local", "test"})
+@Profile({"local", "dev", "test"})
 public class SimulatedChannelAdapter implements PaymentChannelAdapter {
   private final String signingSecret;
 

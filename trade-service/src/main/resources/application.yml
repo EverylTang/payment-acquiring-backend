@@ -1,12 +1,4 @@
 trade:
-  secrets:
-    provider: ${TRADE_SECRETS_PROVIDER:env}
-    vault:
-      address: ${VAULT_ADDR:}
-      token: ${VAULT_TOKEN:}
-      token-file: ${VAULT_TOKEN_FILE:}
-      connect-timeout-ms: ${VAULT_CONNECT_TIMEOUT_MS:1000}
-      read-timeout-ms: ${VAULT_READ_TIMEOUT_MS:2000}
   security:
     gateway-token: ${GATEWAY_INTERNAL_TOKEN:}
   routing:

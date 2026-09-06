@@ -13,24 +13,40 @@ import org.springframework.core.env.Environment;
 
 class ConfigurationAdminServiceTest {
   @Test
-  void rejectsSimulatedProviderOutsideLocalAndTestProfiles() {
+  void rejectsSimulatedProviderOutsideLocalDevAndTestProfiles() {
     var environment = Mockito.mock(Environment.class);
-    Mockito.when(environment.getActiveProfiles()).thenReturn(new String[] {"prod"});
-    var service =
-        new ConfigurationAdminService(
-            Mockito.mock(ConfigurationAdminMapper.class),
-            Mockito.mock(OperationAuditService.class),
-            new ObjectMapper(),
-            Mockito.mock(PricingRuleMapper.class),
-            environment);
+    Mockito.when(environment.getActiveProfiles()).thenReturn(new String[] { "prod" });
+    var service = new ConfigurationAdminService(
+        Mockito.mock(ConfigurationAdminMapper.class),
+        Mockito.mock(OperationAuditService.class),
+        new ObjectMapper(),
+        Mockito.mock(PricingRuleMapper.class),
+        environment);
 
     assertThatThrownBy(
-            () ->
-                service.createChannel(
-                    simulatedChannel(),
-                    Mockito.mock(org.springframework.security.core.Authentication.class)))
+        () -> service.createChannel(
+            simulatedChannel(),
+            Mockito.mock(org.springframework.security.core.Authentication.class)))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessage("SIMULATED channels are only permitted in local or test profiles");
+        .hasMessage("SIMULATED channels are only permitted in local, dev or test profiles");
+  }
+
+  @Test
+  void allowsSimulatedProviderInDevProfile() {
+    var environment = Mockito.mock(Environment.class);
+    Mockito.when(environment.getActiveProfiles()).thenReturn(new String[] { "dev" });
+    var authentication = Mockito.mock(org.springframework.security.core.Authentication.class);
+    Mockito.when(authentication.getName()).thenReturn("tester");
+    var service = new ConfigurationAdminService(
+        Mockito.mock(ConfigurationAdminMapper.class),
+        Mockito.mock(OperationAuditService.class),
+        new ObjectMapper(),
+        Mockito.mock(PricingRuleMapper.class),
+        environment);
+
+    org.assertj.core.api.Assertions.assertThatCode(
+        () -> service.createChannel(simulatedChannel(), authentication))
+        .doesNotThrowAnyException();
   }
 
   private static ConfigurationAdminService.ChannelRequest simulatedChannel() {

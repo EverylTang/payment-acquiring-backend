@@ -46,7 +46,7 @@
 
 本地依赖为 MySQL 8.4、Redis 7.2、Nacos 2.3.2、RocketMQ 5.2.0 和 MinIO。基础设施由 Docker 或平台独立维护，应用通过 Nacos 和服务端口连接；仓库不保存真实密码、渠道密钥或商户 API Key。
 
-渠道运行配置统一保存在 `channel.config_json`：`settings` 是不预设字段的自定义接入参数 JSON；`credentials` 保存商户号、应用标识、加签验签密钥及其他敏感渠道值。签名方案保存为 `signature_profile`，签名密钥角色可在 `credentials.signatureSecretRole` 配置，默认为 `requestSigningKey`。凭据不写入操作审计、支付尝试快照或应用日志；交易服务从平台内部快照取得所选渠道的运行参数和凭据，并在加签或验签时按角色读取。内部快照调用要求平台与交易服务使用相同的 `GATEWAY_INTERNAL_TOKEN`。
+渠道运行配置统一保存在 `channel.config_json`：`settings` 是不预设字段的自定义接入参数 JSON；`credentials` 保存商户号、应用标识、加签验签密钥及其他敏感渠道值，并由后台页面直接管理和回显。签名方案保存为 `signature_profile`，签名密钥角色可在 `credentials.signatureSecretRole` 配置，默认为 `requestSigningKey`。凭据不会写入操作审计或应用日志；支付尝试快照按现有运行协议保存创建支付所需的凭据快照。内部快照调用要求平台与交易服务使用相同的 `GATEWAY_INTERNAL_TOKEN`。
 
 签名方案由渠道管理下拉框受控选择，当前支持 `NONE`、`MD5_KEY_SUFFIX_V1`、`SHA256_KEY_SUFFIX_V1`、`HMAC_SHA256_V1`、`HMAC_SHA512_V1`、`RSA_SHA256_V1` 与模拟渠道兼容方案。交易服务在调用适配器前自动按字典序构造 `key=value` 待签名串，并从 `requestSigningKey`（或配置的 `signatureSecretRole`）读取 KMS 凭据。`signatureFields` 可指定逗号分隔的待签名字段，`signatureFieldName` 可指定渠道请求中的签名字段名；渠道适配器负责将生成的签名放入渠道要求的位置。渠道专属的字段编码、时间戳、嵌套参数及回调验签必须以服务商文档为准。
 

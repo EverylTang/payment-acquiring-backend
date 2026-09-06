@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,6 +43,17 @@ public class AdminSettlementController {
     return service.saveRule(rule);
   }
 
+  @PatchMapping("/rules/{id}/status")
+  public MerchantSettlementRuleEntity status(
+      @PathVariable long id,
+      @RequestBody StatusRequest request,
+      @RequestHeader("X-Gateway-Token") String token,
+      @RequestHeader("X-User-Id") String operator,
+      @RequestHeader("X-Permissions") String permissions) {
+    authorizer.authorize(token, operator, permissions, "settlement:rule:manage");
+    return service.changeRuleStatus(id, request.status());
+  }
+
   @PostMapping("/batches")
   public Map<String, Object> runBatch(
       @RequestBody BatchRequest request,
@@ -68,4 +80,5 @@ public class AdminSettlementController {
   }
 
   public record BatchRequest(LocalDate settlementDate) {}
+  public record StatusRequest(String status) {}
 }
