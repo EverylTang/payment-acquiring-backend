@@ -19,7 +19,7 @@ public class ConfigurationSnapshotService {
   public Map<String, Object> snapshot(
       String merchantId,
       String productCode,
-      String paymentMethod,
+      String payModel,
       String country,
       String currency,
       BigDecimal amount) {
@@ -36,7 +36,7 @@ public class ConfigurationSnapshotService {
 
     var product =
         java.util.Optional.ofNullable(
-                mapper.selectProductCapability(productCode, paymentMethod, amount))
+                mapper.selectProductCapability(productCode, payModel, amount))
             .orElseThrow(() -> unavailable("产品能力不支持当前交易"));
 
     var channelPaymentMethod = product.channelPaymentMethod();
@@ -71,7 +71,7 @@ public class ConfigurationSnapshotService {
     result.put("merchantId", merchantId);
     result.put("productCode", productCode);
     result.put("productType", productType);
-    result.put("paymentMethod", paymentMethod);
+    result.put("payModel", payModel);
     result.put("channelPaymentMethod", channelPaymentMethod);
     result.put("country", country);
     result.put("currency", currency);

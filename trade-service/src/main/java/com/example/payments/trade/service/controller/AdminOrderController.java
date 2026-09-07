@@ -96,7 +96,7 @@ public class AdminOrderController {
                 request.merchantId(),
                 request.merchantOrderNo(),
                 request.productCode(),
-                request.paymentMethod(),
+                request.payModel(),
                 request.country(),
                 request.currency(),
                 request.amount(),
@@ -107,7 +107,8 @@ public class AdminOrderController {
                 request.customerReference(),
                 request.payoutDestinationRef(),
                 request.description(),
-                request.payer() == null ? java.util.Map.of() : request.payer().asMap())));
+                request.payer() == null ? java.util.Map.of() : request.payer().asMap(),
+                request.channelParams())));
   }
 
   @PostMapping("/{orderId}/cancel")
@@ -137,18 +138,23 @@ public class AdminOrderController {
 
   public record AdminCreateOrderRequest(
       @jakarta.validation.constraints.NotBlank String merchantId,
-      @jakarta.validation.constraints.NotBlank String merchantOrderNo,
-      @jakarta.validation.constraints.NotBlank String productCode,
-      @jakarta.validation.constraints.NotBlank String paymentMethod,
-      String country,
-      @jakarta.validation.constraints.NotBlank String currency,
-      @jakarta.validation.constraints.NotNull @jakarta.validation.constraints.DecimalMin("0.01")
+      @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 128) String merchantOrderNo,
+      @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 64) String productCode,
+      @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 64) String payModel,
+      @jakarta.validation.constraints.Size(min = 2, max = 2) @jakarta.validation.constraints.Pattern(regexp = "[A-Za-z]{2}") String country,
+      @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(min = 3, max = 3) @jakarta.validation.constraints.Pattern(regexp = "[A-Za-z]{3}") String currency,
+      @jakarta.validation.constraints.NotNull @jakarta.validation.constraints.DecimalMin("0.01") @jakarta.validation.constraints.Digits(integer = 16, fraction = 4)
           java.math.BigDecimal amount,
       java.time.Instant expireAt,
       String notifyUrl,
       String returnUrl,
-      String customerReference,
-      String payoutDestinationRef,
-      String description,
-      OrderDtos.Payer payer) {}
+      @jakarta.validation.constraints.Size(max = 128) String customerReference,
+      @jakarta.validation.constraints.Size(max = 128) String payoutDestinationRef,
+      @jakarta.validation.constraints.Size(max = 1000) String description,
+      OrderDtos.Payer payer,
+      java.util.Map<String, Object> channelParams) {
+    public AdminCreateOrderRequest {
+      channelParams = channelParams == null ? java.util.Map.of() : java.util.Map.copyOf(channelParams);
+    }
+  }
 }

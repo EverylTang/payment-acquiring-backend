@@ -100,7 +100,7 @@ public class PlatformChannelConfigurationClient {
                           .path("/api/internal/v1/configurations/snapshot")
                           .queryParam("merchantId", order.merchantId())
                           .queryParam("productCode", order.productCode())
-                          .queryParam("paymentMethod", order.paymentMethod())
+                          .queryParam("payModel", order.paymentMethod())
                           .queryParam("country", order.country())
                           .queryParam("currency", order.currency())
                           .queryParam("amount", order.amount().toPlainString())

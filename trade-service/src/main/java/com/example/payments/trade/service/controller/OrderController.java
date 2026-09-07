@@ -43,7 +43,7 @@ public class OrderController {
                 merchantId,
                 request.merchantOrderNo(),
                 request.productCode(),
-                request.paymentMethod(),
+                request.payModel(),
                 request.country(),
                 request.currency(),
                 request.amount(),
@@ -54,7 +54,8 @@ public class OrderController {
                 request.customerReference(),
                 request.payoutDestinationRef(),
                 request.description(),
-                request.payer() == null ? java.util.Map.of() : request.payer().asMap()));
+                request.payer() == null ? java.util.Map.of() : request.payer().asMap(),
+                request.channelParams()));
     return OrderDtos.MerchantOrderResponse.from(order);
   }
 

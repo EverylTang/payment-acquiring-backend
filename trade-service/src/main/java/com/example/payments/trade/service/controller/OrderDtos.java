@@ -2,8 +2,11 @@ package com.example.payments.trade.service.controller;
 
 import com.example.payments.trade.service.domain.PaymentOrder;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.Instant;
 
@@ -11,19 +14,24 @@ public final class OrderDtos {
   private OrderDtos() {}
 
   public record CreateOrderRequest(
-      @NotBlank String merchantOrderNo,
-      @NotBlank String productCode,
-      @NotBlank String paymentMethod,
-      String country,
-      @NotBlank String currency,
-      @NotNull @DecimalMin("0.01") BigDecimal amount,
+      @NotBlank @Size(max = 128) String merchantOrderNo,
+      @NotBlank @Size(max = 64) String productCode,
+      @NotBlank @Size(max = 64) String payModel,
+      @Size(min = 2, max = 2) @Pattern(regexp = "[A-Za-z]{2}") String country,
+      @NotBlank @Size(min = 3, max = 3) @Pattern(regexp = "[A-Za-z]{3}") String currency,
+      @NotNull @DecimalMin("0.01") @Digits(integer = 16, fraction = 4) BigDecimal amount,
       Instant expireAt,
       String notifyUrl,
       String returnUrl,
-      String customerReference,
-      String payoutDestinationRef,
-      String description,
-      Payer payer) {}
+      @Size(max = 128) String customerReference,
+      @Size(max = 128) String payoutDestinationRef,
+      @Size(max = 1000) String description,
+      Payer payer,
+      java.util.Map<String, Object> channelParams) {
+    public CreateOrderRequest {
+      channelParams = channelParams == null ? java.util.Map.of() : java.util.Map.copyOf(channelParams);
+    }
+  }
 
   /** Channel-required payer data. It is never returned by merchant order projections. */
   public record Payer(

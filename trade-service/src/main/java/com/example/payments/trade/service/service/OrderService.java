@@ -197,7 +197,7 @@ public class OrderService {
         command.merchantId(),
         command.merchantOrderNo(),
         command.productCode(),
-        command.paymentMethod(),
+        command.payModel(),
         command.country(),
         command.currency(),
         command.amount(),
@@ -437,7 +437,7 @@ public class OrderService {
       fields.put("merchantId", command.merchantId());
       fields.put("merchantOrderNo", command.merchantOrderNo());
       fields.put("productCode", command.productCode());
-      fields.put("paymentMethod", command.paymentMethod());
+      fields.put("payModel", command.payModel());
       fields.put("country", command.country());
       fields.put("currency", command.currency());
       fields.put("amount", command.amount());
@@ -448,6 +448,7 @@ public class OrderService {
       fields.put("customerReference", command.customerReference());
       fields.put("description", command.description());
       fields.put("payer", command.payer());
+      fields.put("channelParams", command.channelParams());
       return (objectMapper == null ? new ObjectMapper() : objectMapper).writeValueAsString(fields);
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("无法记录商户请求参数", exception);
@@ -459,7 +460,7 @@ public class OrderService {
         existing.merchantId().equals(command.merchantId())
             && existing.merchantOrderNo().equals(command.merchantOrderNo())
             && existing.productCode().equals(command.productCode())
-            && existing.paymentMethod().equals(command.paymentMethod())
+            && existing.paymentMethod().equals(command.payModel())
             && java.util.Objects.equals(existing.country(), command.country())
             && existing.currency().equals(command.currency())
             && existing.amount().compareTo(command.amount()) == 0
@@ -471,7 +472,8 @@ public class OrderService {
                 existing.payoutDestinationRef(), command.payoutDestinationRef())
             && java.util.Objects.equals(existing.description(), command.description())
             && expireAtMatches(existing, command)
-            && payerMatches(existing, command.payer());
+            && payerMatches(existing, command.payer())
+            && channelParamsMatches(existing, command.channelParams());
     if (!matches) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT,
@@ -527,6 +529,22 @@ public class OrderService {
             }
           });
       return existingPayer.equals(payer);
+    } catch (JsonProcessingException exception) {
+      return false;
+    }
+  }
+
+  private boolean channelParamsMatches(PaymentOrder existing, Map<String, Object> channelParams) {
+    if (existing.merchantRequestSnapshot() == null || existing.merchantRequestSnapshot().isBlank()) {
+      return channelParams.isEmpty();
+    }
+    try {
+      var snapshot =
+          (objectMapper == null ? new ObjectMapper() : objectMapper)
+              .readValue(existing.merchantRequestSnapshot(), Map.class);
+      Object value = snapshot.get("channelParams");
+      return java.util.Objects.equals(value, channelParams)
+          || (value == null && channelParams.isEmpty());
     } catch (JsonProcessingException exception) {
       return false;
     }
@@ -625,7 +643,7 @@ public class OrderService {
       String merchantId,
       String merchantOrderNo,
       String productCode,
-      String paymentMethod,
+      String payModel,
       String country,
       String currency,
       java.math.BigDecimal amount,
@@ -637,17 +655,56 @@ public class OrderService {
       String payoutDestinationRef,
       String description,
       Map<String, String> payer,
+      Map<String, Object> channelParams,
       boolean expireAtProvided) {
     public CreateOrderCommand {
       if (expireAt == null) expireAt = Instant.now().plus(Duration.ofMinutes(30));
       payer = payer == null ? Map.of() : Map.copyOf(payer);
+      channelParams = channelParams == null ? Map.of() : Map.copyOf(channelParams);
     }
 
     public CreateOrderCommand(
         String merchantId,
         String merchantOrderNo,
         String productCode,
-        String paymentMethod,
+        String payModel,
+        String country,
+        String currency,
+        java.math.BigDecimal amount,
+        String idempotencyKey,
+        Instant expireAt,
+        String notifyUrl,
+        String returnUrl,
+        String customerReference,
+        String payoutDestinationRef,
+        String description,
+        Map<String, String> payer,
+        Map<String, Object> channelParams) {
+      this(
+          merchantId,
+          merchantOrderNo,
+          productCode,
+          payModel,
+          country,
+          currency,
+          amount,
+          idempotencyKey,
+          expireAt,
+          notifyUrl,
+          returnUrl,
+          customerReference,
+          payoutDestinationRef,
+          description,
+          payer,
+          channelParams,
+          expireAt != null);
+    }
+
+    public CreateOrderCommand(
+        String merchantId,
+        String merchantOrderNo,
+        String productCode,
+        String payModel,
         String country,
         String currency,
         java.math.BigDecimal amount,
@@ -663,7 +720,7 @@ public class OrderService {
           merchantId,
           merchantOrderNo,
           productCode,
-          paymentMethod,
+          payModel,
           country,
           currency,
           amount,
@@ -675,14 +732,14 @@ public class OrderService {
           payoutDestinationRef,
           description,
           payer,
-          expireAt != null);
+          Map.of());
     }
 
     public CreateOrderCommand(
         String merchantId,
         String merchantOrderNo,
         String productCode,
-        String paymentMethod,
+        String payModel,
         String country,
         String currency,
         java.math.BigDecimal amount,
@@ -697,7 +754,7 @@ public class OrderService {
           merchantId,
           merchantOrderNo,
           productCode,
-          paymentMethod,
+          payModel,
           country,
           currency,
           amount,
@@ -708,6 +765,7 @@ public class OrderService {
           customerReference,
           payoutDestinationRef,
           description,
+          Map.of(),
           Map.of(),
           expireAt != null);
     }

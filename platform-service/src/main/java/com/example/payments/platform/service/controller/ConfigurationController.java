@@ -26,12 +26,12 @@ public class ConfigurationController {
   public Map<String, Object> snapshot(
       @RequestParam String merchantId,
       @RequestParam String productCode,
-      @RequestParam String paymentMethod,
+      @RequestParam String payModel,
       @RequestParam(defaultValue = "US") String country,
       @RequestParam String currency,
       @RequestParam(defaultValue = "1.00") BigDecimal amount) {
     return snapshotService.snapshot(
-        merchantId, productCode, paymentMethod, country, currency, amount);
+        merchantId, productCode, payModel, country, currency, amount);
   }
 
   @GetMapping("/channels/{channelId}/health")

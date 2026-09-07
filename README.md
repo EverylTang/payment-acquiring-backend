@@ -150,7 +150,7 @@ git push -u origin main
 curl -X POST http://127.0.0.1:8082/api/v1/payments/orders \\
   -H 'Content-Type: application/json' \\
   -H 'Idempotency-Key: demo-001' \\
-  -d '{"merchantId":"merchant-demo","merchantOrderNo":"order-001","productCode":"default-pay","paymentMethod":"CARD","country":"US","currency":"USD","amount":100.00}'
+  -d '{"merchantOrderNo":"order-001","productCode":"default-pay","payModel":"CARD","country":"US","currency":"USD","amount":100.00,"channelParams":{}}'
 ```
 
 查询订单和模拟回调：

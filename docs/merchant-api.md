@@ -6,6 +6,8 @@
 
 所有接口需要请求头 `X-Merchant-Id`、`X-Gateway-Token`。创建订单必须提供唯一的 `Idempotency-Key`。请求和响应使用 JSON，金额使用十进制定点数，币种使用 ISO 4217 代码。
 
+下单请求的顶层字段固定为：`merchantOrderNo`、`productCode`、`payModel`、`country`、`currency`、`amount`、`expireAt`、`notifyUrl`、`returnUrl`、`customerReference`、`payoutDestinationRef`、`description`、`payer`、`channelParams`。以后新增渠道只能使用 `channelParams` 承载渠道专属参数，不新增顶层字段；公共字段的含义和类型保持不变。
+
 ## 创建订单
 
 `POST /api/v1/payments/orders`
@@ -14,15 +16,26 @@
 {
   "merchantOrderNo": "M202409070001",
   "productCode": "CARD_PAYIN",
-  "paymentMethod": "CARD",
+  "payModel": "CARD",
   "country": "US",
   "currency": "USD",
   "amount": 100.00,
   "notifyUrl": "https://merchant.example.com/payment/notify",
   "returnUrl": "https://merchant.example.com/payment/return",
-  "description": "订单说明"
+  "description": "订单说明",
+  "payer": {
+    "userId": "user-001",
+    "email": "payer@example.com"
+  },
+  "channelParams": {
+    "billingAddress": "可选的渠道参数"
+  }
 }
 ```
+
+`payer` 用于付款人通用资料，字段固定为 `userId`、`name`、`firstName`、`lastName`、`phone`、`email`。`channelParams` 是对象，键名和取值由已发布的渠道配置约束；不得在其中放置密钥、签名、卡号或其他敏感认证材料。
+
+字段约束：`merchantOrderNo` 最长 128 个字符，`productCode` 和 `payModel` 最长 64 个字符，`country` 为两位国家代码，`currency` 为三位 ISO 4217 代码，`amount` 最多 4 位小数且大于 0，`description` 最长 1000 个字符。`expireAt`、`notifyUrl`、`returnUrl`、`customerReference`、`payoutDestinationRef` 均为可选公共字段。
 
 响应返回 `orderId`、金额、币种、订单状态和过期时间。创建成功不代表支付成功，商户应继续查询订单或等待异步通知。
 
