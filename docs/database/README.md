@@ -19,6 +19,8 @@ docker exec -i local-mysql mysql -uroot -p < docs/database/payment-acquiring-com
 - 美国、中国、英国、新加坡、中国香港等常用国家/地区，以及 USD、CNY、GBP、SGD、HKD、JPY 等常用币种及其初始可用组合。
 - “国家与币种”后台菜单、`master-data:*` 权限和 ADMIN/OPS 的初始授权。
 
+商户产品绑定的 `merchant_product.id` 是对外 `appId`，新建环境从 `1000` 开始自增。历史环境在发布本版本时需要先备份 `merchant_product`，再按 `created_at, id` 的稳定顺序将现有绑定重编号为 `1000` 起始值，最后将自增值设置为“绑定总数 + 999”。重编号会改变商户已保存的旧 `appId`，必须同步通知商户并保留旧 ID 到新 ID 的映射记录；不要直接重复执行完整初始化 SQL。
+
 `payment-acquiring-complete.sql` 必须始终反映当前最新表结构、索引、菜单权限、初始化数据和兼容变更。每次数据库变更都必须在同一变更中同步更新该文件；本目录不维护拆分的升级、索引或菜单初始化脚本。已有环境升级前应由数据库发布流程基于备份和变更审计执行经过评审的 SQL；新环境直接执行完整 SQL。
 
 ## 产品与基础数据

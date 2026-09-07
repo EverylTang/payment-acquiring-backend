@@ -17,12 +17,66 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.web.server.ResponseStatusException;
 
 class OrderServiceTest {
   private final PaymentOrderRepository repository =
       org.mockito.Mockito.mock(PaymentOrderRepository.class);
   private final OrderService service = new OrderService(repository);
+
+  @Test
+  void resolvesPublicAppIdBeforePersistingTheInternalProductCode() {
+    var channelConfiguration = org.mockito.Mockito.mock(PlatformChannelConfigurationClient.class);
+    var configuredService = new OrderService(repository, channelConfiguration, new ObjectMapper());
+    var command =
+        new OrderService.CreateOrderCommand(
+            "merchant-a",
+            "merchant-order-1",
+            "1001",
+            "CARD",
+            "US",
+            "USD",
+            new BigDecimal("10.00"),
+            "app-id-key-1",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+    var runtime =
+        new ChannelRuntimeContext(
+            "channel-a", "PROVIDER", "https://payments.example.test", "HMAC", Map.of(), Map.of(), 1);
+    var configuration =
+        new PlatformChannelConfigurationClient.ResolvedPaymentConfiguration(
+            runtime,
+            "pricing-a",
+            BigDecimal.ZERO,
+            BigDecimal.ZERO,
+            "INCLUSIVE",
+            "1");
+    when(channelConfiguration.productCodeByAppId("merchant-a", "1001"))
+        .thenReturn("CARD-US-USD");
+    when(channelConfiguration.productType("CARD-US-USD")).thenReturn("PAYIN");
+    when(channelConfiguration.currencyScale("USD")).thenReturn(2);
+    when(channelConfiguration.resolveConfiguration(any())).thenReturn(configuration);
+    when(repository.findByIdempotencyForProduct("merchant-a", "app-id-key-1", "CARD-US-USD"))
+        .thenReturn(Optional.empty());
+    when(repository.findByMerchantOrderForProduct("merchant-a", "merchant-order-1", "CARD-US-USD"))
+        .thenReturn(Optional.empty());
+    when(repository.insert(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var order = configuredService.createByAppId(command);
+
+    assertThat(order.merchantOrderNo()).isEqualTo("merchant-order-1");
+    assertThat(order.productCode()).isEqualTo("CARD-US-USD");
+    verify(channelConfiguration).productCodeByAppId("merchant-a", "1001");
+    var persisted = ArgumentCaptor.forClass(PaymentOrder.class);
+    verify(repository).insert(persisted.capture());
+    assertThat(persisted.getValue().merchantOrderNo()).isEqualTo("merchant-order-1");
+    assertThat(persisted.getValue().productCode()).isEqualTo("CARD-US-USD");
+  }
 
   @Test
   void duplicateMerchantOrderReturnsExistingOrder() {

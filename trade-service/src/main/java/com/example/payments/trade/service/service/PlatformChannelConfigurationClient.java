@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
 @Component
@@ -63,6 +64,44 @@ public class PlatformChannelConfigurationClient {
       return productType;
     } catch (RestClientException exception) {
       throw unavailable("无法读取产品类型");
+    }
+  }
+
+  public String productCodeByAppId(String merchantId, String appId) {
+    long parsed;
+    try {
+      if (appId == null || appId.isBlank() || !appId.matches("[0-9]{4,}")) {
+        throw new NumberFormatException();
+      }
+      parsed = Long.parseLong(appId);
+      if (parsed < 1000) throw new NumberFormatException();
+    } catch (NumberFormatException exception) {
+      throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "appId 无效");
+    }
+    try {
+      var response =
+          client
+              .get()
+              .uri(
+                  builder ->
+                      builder
+                          .path("/api/internal/v1/configurations/merchant-products/{appId}/product-code")
+                          .queryParam("merchantId", merchantId)
+                          .build(parsed))
+              .headers(headers -> headers.set("X-Internal-Token", internalToken))
+              .retrieve()
+              .body(new ParameterizedTypeReference<Map<String, String>>() {});
+      var productCode = response == null ? "" : response.get("productCode");
+      if (productCode == null || productCode.isBlank()) throw unavailable("商户产品不存在或已停用");
+      return productCode;
+    } catch (RestClientResponseException exception) {
+      if (exception.getStatusCode().is4xxClientError()) {
+        throw new ResponseStatusException(
+            HttpStatus.UNPROCESSABLE_ENTITY, "商户产品不存在或已停用");
+      }
+      throw unavailable("无法解析商户 appId");
+    } catch (RestClientException exception) {
+      throw unavailable("无法解析商户 appId");
     }
   }
 

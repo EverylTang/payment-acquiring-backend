@@ -4,9 +4,78 @@
 
 ## 认证与通用约定
 
-所有接口需要请求头 `X-Merchant-Id`、`X-Gateway-Token`。创建订单必须提供唯一的 `Idempotency-Key`。请求和响应使用 JSON，金额使用十进制定点数，币种使用 ISO 4217 代码。
+订单接口通过商户 API 凭证签名认证。商户请求需要携带以下请求头：
 
-下单请求的顶层字段固定为：`merchantOrderNo`、`productCode`、`payModel`、`country`、`currency`、`amount`、`expireAt`、`notifyUrl`、`returnUrl`、`customerReference`、`payoutDestinationRef`、`description`、`payer`、`channelParams`。以后新增渠道只能使用 `channelParams` 承载渠道专属参数，不新增顶层字段；公共字段的含义和类型保持不变。
+```http
+X-Merchant-Key-Id: <API凭证ID>
+X-Merchant-Timestamp: <Unix秒级时间戳>
+X-Merchant-Nonce: <每次请求唯一的随机字符串>
+X-Merchant-Signature: <签名结果>
+```
+
+创建订单还必须提供唯一的 `Idempotency-Key`。请求和响应使用 JSON，金额使用十进制定点数，币种使用 ISO 4217 代码。
+
+`X-Merchant-Id` 和 `X-Gateway-Token` 是网关转发到 Trade 服务时使用的内部请求头，商户无需传递，也不能使用它们代替商户签名。
+
+### 请求签名
+
+网关使用商户请求的原始 HTTP 请求内容构造待签名原文，格式如下，每一项使用一个换行符 (`\n`) 分隔：
+
+```text
+HTTP_METHOD
+RAW_PATH
+NORMALIZED_QUERY
+TIMESTAMP
+NONCE
+SHA256_RAW_BODY
+```
+
+字段规则：
+
+- `HTTP_METHOD` 使用大写 HTTP 方法，例如 `POST`、`GET`。
+- `RAW_PATH` 使用原始请求路径，例如 `/api/v1/payments/orders`。
+- `NORMALIZED_QUERY` 为空时必须保留空行；有 query 时按 `&` 切分，按字符串字典序排序，再用 `&` 拼接。参数值不做二次解码或重新编码。
+- `TIMESTAMP` 必须与 `X-Merchant-Timestamp` 完全一致，使用 Unix 秒级时间戳。
+- `NONCE` 必须与 `X-Merchant-Nonce` 完全一致，且同一个 API 凭证不能重复使用。
+- `SHA256_RAW_BODY` 是实际发送的原始请求体字节经过 SHA-256 后得到的小写十六进制字符串。签名后不得改变 JSON 的空格、字段顺序、数字格式或字符编码。
+
+签名计算方式：
+
+```text
+X-Merchant-Signature = Base64URL-NoPadding(
+    HMAC-SHA256(<商户API密钥>, <待签名原文>)
+)
+```
+
+服务端还会校验 API 凭证处于 `ACTIVE` 状态且未过期、请求源 IP 是否在白名单内，以及时间戳与服务端时间的偏差不超过 300 秒。签名校验成功后才会将请求转发到交易服务；nonce 会写入平台数据库用于防重放。
+
+当前 `Idempotency-Key` 用于订单幂等控制，不属于上述待签名原文；但它必须随创建订单请求一起发送，并在重试同一订单时保持不变。
+
+Node.js 签名示例（`body` 必须使用签名时的同一字符串发送）：
+
+```js
+import crypto from "node:crypto";
+
+const secret = "<商户API密钥>";
+const body = JSON.stringify({
+  merchantOrderNo: "M202409070001",
+  appId: "1000",
+  payModel: "CARD",
+  country: "US",
+  currency: "USD",
+  amount: 100.00
+});
+const timestamp = Math.floor(Date.now() / 1000).toString();
+const nonce = crypto.randomUUID();
+const method = "POST";
+const rawPath = "/api/v1/payments/orders";
+const normalizedQuery = "";
+const bodyHash = crypto.createHash("sha256").update(body, "utf8").digest("hex");
+const canonical = [method, rawPath, normalizedQuery, timestamp, nonce, bodyHash].join("\n");
+const signature = crypto.createHmac("sha256", secret).update(canonical, "utf8").digest("base64url");
+```
+
+下单请求的顶层字段固定为：`merchantOrderNo`、`appId`、`payModel`、`country`、`currency`、`amount`、`expireAt`、`notifyUrl`、`returnUrl`、`customerReference`、`payoutDestinationRef`、`description`、`payer`、`channelParams`。以后新增渠道只能使用 `channelParams` 承载渠道专属参数，不新增顶层字段；公共字段的含义和类型保持不变。`appId` 是商户产品绑定的公开自增标识，平台内部再解析为产品配置。
 
 ## 创建订单
 
@@ -15,7 +84,7 @@
 ```json
 {
   "merchantOrderNo": "M202409070001",
-  "productCode": "CARD_PAYIN",
+  "appId": "1000",
   "payModel": "CARD",
   "country": "US",
   "currency": "USD",
@@ -35,7 +104,7 @@
 
 `payer` 用于付款人通用资料，字段固定为 `userId`、`name`、`firstName`、`lastName`、`phone`、`email`。`channelParams` 是对象，键名和取值由已发布的渠道配置约束；不得在其中放置密钥、签名、卡号或其他敏感认证材料。
 
-字段约束：`merchantOrderNo` 最长 128 个字符，`productCode` 和 `payModel` 最长 64 个字符，`country` 为两位国家代码，`currency` 为三位 ISO 4217 代码，`amount` 最多 4 位小数且大于 0，`description` 最长 1000 个字符。`expireAt`、`notifyUrl`、`returnUrl`、`customerReference`、`payoutDestinationRef` 均为可选公共字段。
+字段约束：`merchantOrderNo` 最长 128 个字符，`appId` 为后台商户产品列表展示的从 `1000` 开始递增的数字字符串（示例 `1000` 仅用于说明，必须替换为当前商户实际 App ID），`payModel` 最长 64 个字符，`country` 为两位国家代码，`currency` 为三位 ISO 4217 代码，`amount` 最多 4 个小数位且大于 0，`description` 最长 1000 个字符。`expireAt`、`notifyUrl`、`returnUrl`、`customerReference`、`payoutDestinationRef` 均为可选公共字段。
 
 响应返回 `orderId`、金额、币种、订单状态和过期时间。创建成功不代表支付成功，商户应继续查询订单或等待异步通知。
 

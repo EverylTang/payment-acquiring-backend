@@ -34,6 +34,14 @@ public class ConfigurationController {
         merchantId, productCode, payModel, country, currency, amount);
   }
 
+  @GetMapping("/merchant-products/{appId}/product-code")
+  public Map<String, String> productCodeByAppId(
+      @PathVariable long appId, @RequestParam String merchantId) {
+    return Map.of(
+        "appId", Long.toString(appId),
+        "productCode", snapshotService.productCodeByAppId(merchantId, appId));
+  }
+
   @GetMapping("/channels/{channelId}/health")
   public Map<String, Object> channelHealth(@PathVariable String channelId) {
     return healthService.health(channelId);

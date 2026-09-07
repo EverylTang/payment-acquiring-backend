@@ -150,8 +150,10 @@ git push -u origin main
 curl -X POST http://127.0.0.1:8082/api/v1/payments/orders \\
   -H 'Content-Type: application/json' \\
   -H 'Idempotency-Key: demo-001' \\
-  -d '{"merchantOrderNo":"order-001","productCode":"default-pay","payModel":"CARD","country":"US","currency":"USD","amount":100.00,"channelParams":{}}'
+  -d '{"merchantOrderNo":"order-001","appId":"1000","payModel":"CARD","country":"US","currency":"USD","amount":100.00,"channelParams":{}}'
 ```
+
+`appId` 请替换为管理后台“商户产品”列表中当前商户实际显示的 App ID；历史绑定已统一从 `1000` 起重编号，新绑定继续按数据库自增生成。
 
 查询订单和模拟回调：
 

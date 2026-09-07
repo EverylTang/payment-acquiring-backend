@@ -352,6 +352,25 @@ CREATE TABLE IF NOT EXISTS merchant_product (
   UNIQUE KEY uk_merchant_product_id (binding_id),
   UNIQUE KEY uk_merchant_product_scope (merchant_id, product_code)
 );
+ALTER TABLE merchant_product COMMENT = '商户产品绑定，id 作为对外 appId';
+ALTER TABLE merchant_product AUTO_INCREMENT = 1000;
+
+-- Existing environments created before appId numbering was introduced must run the
+-- controlled migration below once. It preserves binding order and assigns 1000+ IDs.
+-- The migration is intentionally guarded so freshly initialized databases are unchanged.
+--
+-- CREATE TABLE merchant_product_app_id_migration_backup AS
+-- SELECT id AS old_app_id, binding_id, merchant_id, product_code, status, created_at, updated_at
+-- FROM merchant_product WHERE id < 1000;
+-- UPDATE merchant_product SET id = id + 1000000000 WHERE id < 1000;
+-- SET @next_app_id = 999;
+-- UPDATE merchant_product mp
+-- JOIN (
+--   SELECT old_id, (@next_app_id := @next_app_id + 1) AS new_id
+--   FROM (SELECT id AS old_id FROM merchant_product WHERE id >= 1000000000 ORDER BY created_at, id) ordered_ids
+-- ) ids ON ids.old_id = mp.id
+-- SET mp.id = ids.new_id;
+-- ALTER TABLE merchant_product AUTO_INCREMENT = 1000;
 
 CREATE TABLE IF NOT EXISTS channel_capability (
   id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
@@ -1130,7 +1149,7 @@ ALTER TABLE pricing_rule COMMENT = '费率定价规则';
 ALTER TABLE risk_policy COMMENT = '风控策略';
 ALTER TABLE operation_audit COMMENT = '平台操作审计记录';
 ALTER TABLE product_capability COMMENT = '产品支付能力';
-ALTER TABLE merchant_product COMMENT = '商户产品绑定';
+ALTER TABLE merchant_product COMMENT = '商户产品绑定，id 作为对外 appId';
 ALTER TABLE channel_capability COMMENT = '渠道支付能力';
 ALTER TABLE admin_menu COMMENT = '后台管理菜单';
 ALTER TABLE admin_permission COMMENT = '后台操作权限';

@@ -85,6 +85,17 @@ public class ConfigurationSnapshotService {
     return result;
   }
 
+  public String productCodeByAppId(String merchantId, long appId) {
+    if (merchantId == null || merchantId.isBlank() || appId < 1000) {
+      throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "appId 或商户标识无效");
+    }
+    var productCode = mapper.selectActiveProductCodeByAppId(merchantId, appId);
+    if (productCode == null || productCode.isBlank()) {
+      throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "商户产品不存在或已停用");
+    }
+    return productCode;
+  }
+
   public List<String> validate(long version) {
     var errors = new java.util.ArrayList<String>();
     if (mapper.countActiveRoutingRules(version) == 0) errors.add("至少需要一条路由规则");

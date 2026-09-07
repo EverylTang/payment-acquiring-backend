@@ -144,6 +144,7 @@ public class MerchantProductAdminService {
   }
 
   public record MerchantProductResponse(
+      String appId,
       String bindingId,
       String merchantId,
       String merchantName,

@@ -125,6 +125,16 @@ public class OrderService {
     }
   }
 
+  @Transactional
+  public PaymentOrder createByAppId(CreateOrderCommand command) {
+    if (channelConfiguration == null) {
+      throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "商户产品解析不可用");
+    }
+    var productCode =
+        channelConfiguration.productCodeByAppId(command.merchantId(), command.appId());
+    return create(command.withResolvedProductCode(productCode));
+  }
+
   private PaymentOrder createOrderInternal(CreateOrderCommand command) {
     var existing =
         repository
@@ -657,6 +667,31 @@ public class OrderService {
       Map<String, String> payer,
       Map<String, Object> channelParams,
       boolean expireAtProvided) {
+    /** The command's third value is the public appId until createByAppId resolves it. */
+    public String appId() {
+      return productCode;
+    }
+
+    public CreateOrderCommand withResolvedProductCode(String resolvedProductCode) {
+      return new CreateOrderCommand(
+          merchantId,
+          merchantOrderNo,
+          resolvedProductCode,
+          payModel,
+          country,
+          currency,
+          amount,
+          idempotencyKey,
+          expireAt,
+          notifyUrl,
+          returnUrl,
+          customerReference,
+          payoutDestinationRef,
+          description,
+          payer,
+          channelParams,
+          expireAtProvided);
+    }
     public CreateOrderCommand {
       if (expireAt == null) expireAt = Instant.now().plus(Duration.ofMinutes(30));
       payer = payer == null ? Map.of() : Map.copyOf(payer);

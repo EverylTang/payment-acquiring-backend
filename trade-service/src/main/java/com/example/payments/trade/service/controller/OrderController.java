@@ -38,11 +38,11 @@ public class OrderController {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Idempotency-Key is required");
     }
     var order =
-        orderService.create(
+        orderService.createByAppId(
             new OrderService.CreateOrderCommand(
                 merchantId,
                 request.merchantOrderNo(),
-                request.productCode(),
+                request.appId(),
                 request.payModel(),
                 request.country(),
                 request.currency(),

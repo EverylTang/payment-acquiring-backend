@@ -15,7 +15,7 @@ public final class OrderDtos {
 
   public record CreateOrderRequest(
       @NotBlank @Size(max = 128) String merchantOrderNo,
-      @NotBlank @Size(max = 64) String productCode,
+      @NotBlank @Size(min = 4, max = 32) @Pattern(regexp = "[0-9]{4,}") String appId,
       @NotBlank @Size(max = 64) String payModel,
       @Size(min = 2, max = 2) @Pattern(regexp = "[A-Za-z]{2}") String country,
       @NotBlank @Size(min = 3, max = 3) @Pattern(regexp = "[A-Za-z]{3}") String currency,

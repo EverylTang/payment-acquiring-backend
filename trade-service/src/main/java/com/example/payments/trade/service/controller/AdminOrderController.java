@@ -91,11 +91,11 @@ public class AdminOrderController {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Idempotency-Key is required");
     }
     return OrderDtos.OrderResponse.from(
-        orderService.create(
+        orderService.createByAppId(
             new OrderService.CreateOrderCommand(
                 request.merchantId(),
                 request.merchantOrderNo(),
-                request.productCode(),
+                request.appId(),
                 request.payModel(),
                 request.country(),
                 request.currency(),
@@ -139,7 +139,7 @@ public class AdminOrderController {
   public record AdminCreateOrderRequest(
       @jakarta.validation.constraints.NotBlank String merchantId,
       @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 128) String merchantOrderNo,
-      @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 64) String productCode,
+      @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(min = 4, max = 32) @jakarta.validation.constraints.Pattern(regexp = "[0-9]{4,}") String appId,
       @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 64) String payModel,
       @jakarta.validation.constraints.Size(min = 2, max = 2) @jakarta.validation.constraints.Pattern(regexp = "[A-Za-z]{2}") String country,
       @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(min = 3, max = 3) @jakarta.validation.constraints.Pattern(regexp = "[A-Za-z]{3}") String currency,
