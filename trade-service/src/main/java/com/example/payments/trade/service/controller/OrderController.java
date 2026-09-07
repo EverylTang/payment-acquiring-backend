@@ -1,7 +1,6 @@
 package com.example.payments.trade.service.controller;
 
 import com.example.payments.trade.service.service.OrderService;
-import com.example.payments.trade.service.service.PaymentAttemptService;
 import jakarta.validation.Valid;
 import java.time.Instant;
 import java.util.Map;
@@ -21,7 +20,6 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class OrderController {
   private final OrderService orderService;
-  private final PaymentAttemptService paymentAttemptService;
   private final GatewayRequestAuthorizer gatewayAuthorizer;
 
   @GetMapping("/health")
@@ -86,70 +84,6 @@ public class OrderController {
     gatewayAuthorizer.authorize(gatewayToken);
     owned(orderId, merchantId);
     return OrderDtos.MerchantOrderResponse.from(orderService.cancel(orderId));
-  }
-
-  @PostMapping("/{orderId}/attempts")
-  public OrderDtos.MerchantAttemptResponse createAttempt(
-      @PathVariable(name = "orderId") String orderId,
-      @RequestHeader("X-Merchant-Id") String merchantId,
-      @RequestHeader("X-Gateway-Token") String gatewayToken) {
-    gatewayAuthorizer.authorize(gatewayToken);
-    owned(orderId, merchantId);
-    var attempt = paymentAttemptService.create(orderService.requireActive(orderId));
-    return OrderDtos.MerchantAttemptResponse.from(attempt);
-  }
-
-  @GetMapping("/{orderId}/attempts/{attemptId}")
-  public OrderDtos.MerchantAttemptResponse getAttempt(
-      @PathVariable String orderId,
-      @PathVariable String attemptId,
-      @RequestHeader("X-Merchant-Id") String merchantId,
-      @RequestHeader("X-Gateway-Token") String gatewayToken) {
-    gatewayAuthorizer.authorize(gatewayToken);
-    owned(orderId, merchantId);
-    var attempt = paymentAttemptService.get(attemptId, orderId);
-    return attemptResponse(attempt);
-  }
-
-  @PostMapping("/{orderId}/attempts/{attemptId}/query")
-  public OrderDtos.MerchantAttemptResponse queryAttempt(
-      @PathVariable String orderId,
-      @PathVariable String attemptId,
-      @RequestHeader("X-Merchant-Id") String merchantId,
-      @RequestHeader("X-Gateway-Token") String gatewayToken) {
-    gatewayAuthorizer.authorize(gatewayToken);
-    owned(orderId, merchantId);
-    return attemptResponse(
-        paymentAttemptService.requestQuery(
-            paymentAttemptService.get(attemptId, orderId).attemptId()));
-  }
-
-  @PostMapping("/{orderId}/attempts/{attemptId}/cancel")
-  public OrderDtos.MerchantAttemptResponse cancelAttempt(
-      @PathVariable String orderId,
-      @PathVariable String attemptId,
-      @RequestHeader("X-Merchant-Id") String merchantId,
-      @RequestHeader("X-Gateway-Token") String gatewayToken) {
-    gatewayAuthorizer.authorize(gatewayToken);
-    owned(orderId, merchantId);
-    paymentAttemptService.get(attemptId, orderId);
-    return attemptResponse(paymentAttemptService.cancel(attemptId));
-  }
-
-  @PostMapping("/{orderId}/attempts/{attemptId}/retry")
-  public OrderDtos.MerchantAttemptResponse retryAttempt(
-      @PathVariable String orderId,
-      @PathVariable String attemptId,
-      @RequestHeader("X-Merchant-Id") String merchantId,
-      @RequestHeader("X-Gateway-Token") String gatewayToken) {
-    gatewayAuthorizer.authorize(gatewayToken);
-    var order = owned(orderId, merchantId);
-    return attemptResponse(paymentAttemptService.retry(attemptId, order));
-  }
-
-  private static OrderDtos.MerchantAttemptResponse attemptResponse(
-      com.example.payments.trade.service.domain.PaymentAttempt attempt) {
-    return OrderDtos.MerchantAttemptResponse.from(attempt);
   }
 
   private com.example.payments.trade.service.domain.PaymentOrder owned(

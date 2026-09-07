@@ -835,30 +835,6 @@ ALTER TABLE payment_order DROP INDEX IF EXISTS uk_payment_order_idempotency;
 ALTER TABLE payment_order ADD UNIQUE KEY uk_payment_order_merchant_order (merchant_id, order_type, merchant_order_no);
 ALTER TABLE payment_order ADD UNIQUE KEY uk_payment_order_idempotency (merchant_id, order_type, idempotency_key);
 
-CREATE TABLE IF NOT EXISTS payment_attempt (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
-  attempt_id VARCHAR(64) NOT NULL COMMENT '尝试ID',
-  order_id VARCHAR(64) NOT NULL COMMENT '订单ID',
-  channel_id VARCHAR(64) NOT NULL COMMENT '渠道ID',
-  channel_request_no VARCHAR(128) NOT NULL COMMENT '渠道请求号',
-  attempt_no INT NOT NULL COMMENT '尝试序号',
-  status VARCHAR(32) NOT NULL COMMENT '业务状态',
-  request_summary JSON COMMENT '请求摘要',
-  response_summary JSON COMMENT '响应摘要',
-  failure_code VARCHAR(64) COMMENT '失败编码',
-  started_at DATETIME(3) COMMENT '开始时间',
-  completed_at DATETIME(3) COMMENT '完成时间',
-  version BIGINT NOT NULL DEFAULT 0 COMMENT '版本号',
-  UNIQUE KEY uk_attempt_id (attempt_id),
-  UNIQUE KEY uk_channel_request (channel_id, channel_request_no),
-  KEY idx_attempt_order (order_id, attempt_no)
-);
-
-ALTER TABLE payment_attempt
-  ADD COLUMN IF NOT EXISTS payment_url VARCHAR(2048) NULL COMMENT '支付跳转地址' AFTER failure_code;
-ALTER TABLE payment_attempt
-  ADD COLUMN IF NOT EXISTS qr_code TEXT NULL COMMENT '支付二维码原文' AFTER payment_url;
-
 -- Provider contracts may accept four fractional digits. Channel settings still enforce the
 -- provider/currency-specific scale (for example TWD remains integer-only).
 ALTER TABLE pay_platform.pricing_rule
@@ -881,20 +857,6 @@ ALTER TABLE payment_order
   MODIFY COLUMN net_amount DECIMAL(20, 4) NOT NULL;
 
 -- SOURCE: consolidated trade-service V2
-
-CREATE TABLE IF NOT EXISTS payment_callback_record (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
-  callback_id VARCHAR(128) NOT NULL COMMENT '回调ID',
-  attempt_id VARCHAR(64) COMMENT '尝试ID',
-  channel_order_id VARCHAR(128) COMMENT '渠道订单号',
-  raw_payload TEXT NOT NULL COMMENT '原始回调数据',
-  signature VARCHAR(256) NOT NULL COMMENT '签名',
-  status VARCHAR(32) NOT NULL COMMENT '业务状态',
-  received_at DATETIME(3) NOT NULL COMMENT '接收时间',
-  processed_at DATETIME(3) COMMENT '处理时间',
-  UNIQUE KEY uk_callback_id (callback_id),
-  KEY idx_callback_attempt (attempt_id)
-);
 
 -- SOURCE: consolidated trade-service V3
 
@@ -957,39 +919,6 @@ ALTER TABLE payment_order
   ADD KEY idx_payment_order_expiration (status, expire_at);
 
 -- SOURCE: consolidated trade-service V10
-CREATE TABLE IF NOT EXISTS expired_payment_success_exception (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
-  exception_id VARCHAR(96) NOT NULL COMMENT '异常ID',
-  order_id VARCHAR(64) NOT NULL COMMENT '本地已过期订单',
-  attempt_id VARCHAR(64) NOT NULL COMMENT '渠道成功尝试',
-  channel_id VARCHAR(64) NOT NULL COMMENT '渠道ID',
-  channel_order_id VARCHAR(128) NOT NULL COMMENT '渠道订单号',
-  amount DECIMAL(20, 2) NOT NULL COMMENT '订单金额',
-  currency VARCHAR(3) NOT NULL COMMENT '币种',
-  status VARCHAR(16) NOT NULL COMMENT 'OPEN/RESOLVED',
-  detected_at DATETIME(3) NOT NULL COMMENT '发现时间',
-  resolution VARCHAR(512) NULL COMMENT '人工处理说明',
-  resolved_by VARCHAR(128) NULL COMMENT '处理人',
-  resolved_at DATETIME(3) NULL COMMENT '处理时间',
-  UNIQUE KEY uk_expired_success_exception_id (exception_id),
-  UNIQUE KEY uk_expired_success_attempt (attempt_id),
-  KEY idx_expired_success_status_detected (status, detected_at)
-);
-
--- SOURCE: consolidated trade-service V7
-ALTER TABLE payment_attempt
-  ADD COLUMN query_count INT NOT NULL DEFAULT 0 AFTER version,
-  ADD COLUMN next_query_at DATETIME(3) NULL AFTER query_count,
-  ADD COLUMN last_query_at DATETIME(3) NULL AFTER next_query_at,
-  ADD COLUMN query_lock_owner VARCHAR(128) NULL AFTER last_query_at,
-  ADD COLUMN query_lock_until DATETIME(3) NULL AFTER query_lock_owner,
-  ADD COLUMN query_claim_token VARCHAR(128) NULL AFTER query_lock_until,
-  ADD KEY idx_attempt_query_schedule (status, next_query_at, query_lock_until);
-
-UPDATE payment_attempt
-SET next_query_at = DATE_ADD(started_at, INTERVAL 5 MINUTE)
-WHERE status = 'PROCESSING' AND next_query_at IS NULL;
-
 -- SOURCE: consolidated trade-service V8
 CREATE TABLE IF NOT EXISTS payment_refund (
   id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
@@ -1085,7 +1014,6 @@ CREATE TABLE IF NOT EXISTS payment_event_consumption (
   event_id VARCHAR(128) NOT NULL COMMENT '事件ID',
   event_type VARCHAR(64) NOT NULL COMMENT '事件类型',
   order_id VARCHAR(64) NOT NULL COMMENT '订单ID',
-  attempt_id VARCHAR(64) COMMENT '尝试ID',
   merchant_id VARCHAR(64) NOT NULL COMMENT '商户ID',
   amount DECIMAL(20, 4) NOT NULL COMMENT '金额',
   currency VARCHAR(3) NOT NULL COMMENT '币种',
@@ -1215,8 +1143,6 @@ ALTER TABLE admin_role_data_scope COMMENT = '角色数据范围';
 ALTER TABLE admin_user_merchant_scope COMMENT = '管理员商户数据范围';
 
 USE pay_trade;
-ALTER TABLE payment_attempt COMMENT = '支付渠道尝试记录';
-ALTER TABLE payment_callback_record COMMENT = '支付渠道回调记录';
 ALTER TABLE payment_outbox_event COMMENT = '支付事件发件箱';
 ALTER TABLE payment_outbox_operation_audit COMMENT = '发件箱人工操作审计';
 ALTER TABLE payment_refund COMMENT = '退款申请与执行记录';

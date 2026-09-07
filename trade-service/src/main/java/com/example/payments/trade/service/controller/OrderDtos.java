@@ -1,6 +1,5 @@
 package com.example.payments.trade.service.controller;
 
-import com.example.payments.trade.service.domain.PaymentAttempt;
 import com.example.payments.trade.service.domain.PaymentOrder;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -26,7 +25,7 @@ public final class OrderDtos {
       String description,
       Payer payer) {}
 
-  /** Channel-required payer data. It is never returned by merchant order or attempt projections. */
+  /** Channel-required payer data. It is never returned by merchant order projections. */
   public record Payer(
       String userId, String name, String firstName, String lastName, String phone, String email) {
     public java.util.Map<String, String> asMap() {
@@ -63,29 +62,6 @@ public final class OrderDtos {
     }
   }
 
-  /**
-   * Merchant-facing attempt projection. Channel snapshots are retained for protected operations.
-   */
-  public record MerchantAttemptResponse(
-      String attemptId,
-      String orderId,
-      String channelOrderId,
-      String status,
-      String failureCode,
-      String paymentUrl,
-      String qrCode) {
-    public static MerchantAttemptResponse from(PaymentAttempt attempt) {
-      return new MerchantAttemptResponse(
-          attempt.attemptId(),
-          attempt.orderId(),
-          attempt.channelRequestNo(),
-          attempt.status().name(),
-          attempt.failureCode(),
-          attempt.paymentUrl(),
-          attempt.qrCode());
-    }
-  }
-
   public record OrderResponse(
       String orderId,
       String merchantId,
@@ -102,12 +78,6 @@ public final class OrderDtos {
       String feeBearer,
       String status,
       String paymentToken,
-      String channelId,
-      String channelOrderId,
-      String channelStatus,
-      String channelResponseSnapshot,
-      String paymentUrl,
-      String qrCode,
       String merchantRequestSnapshot,
       String routeSnapshot,
       String pricingSnapshot,
@@ -125,10 +95,6 @@ public final class OrderDtos {
       Instant callbackLastNotifiedAt,
       String callbackLastError) {
     public static OrderResponse from(PaymentOrder order) {
-      return from(order, null);
-    }
-
-    public static OrderResponse from(PaymentOrder order, PaymentAttempt channel) {
       return new OrderResponse(
           order.orderId(),
           order.merchantId(),
@@ -145,12 +111,6 @@ public final class OrderDtos {
           order.feeBearer(),
           order.status().name(),
           order.paymentToken(),
-          channel == null ? null : channel.channelId(),
-          channel == null ? null : channel.channelRequestNo(),
-          channel == null ? null : channel.status().name(),
-          channel == null ? null : channel.responseSnapshot(),
-          channel == null ? null : channel.paymentUrl(),
-          channel == null ? null : channel.qrCode(),
           order.merchantRequestSnapshot(),
           order.routeSnapshot(),
           order.pricingSnapshot(),

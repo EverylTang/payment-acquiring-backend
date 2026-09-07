@@ -6,7 +6,6 @@
     <result property="eventId" column="event_id" />
     <result property="eventType" column="event_type" />
     <result property="orderId" column="order_id" />
-    <result property="attemptId" column="attempt_id" />
     <result property="merchantId" column="merchant_id" />
     <result property="amount" column="amount" />
     <result property="currency" column="currency" />

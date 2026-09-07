@@ -2,7 +2,6 @@ package com.example.payments.trade.service.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.payments.trade.service.domain.RefundStatus;
-import com.example.payments.trade.service.mapper.PaymentAttemptMapper;
 import com.example.payments.trade.service.mapper.PaymentOutboxEventRepository;
 import com.example.payments.trade.service.mapper.PaymentRefundMapper;
 import com.example.payments.trade.service.mapper.RefundAttemptMapper;
@@ -35,7 +34,6 @@ public class RefundService {
   private final PaymentOutboxEventRepository outbox;
   private final RefundCallbackRecordMapper callbackMapper;
   private final RefundAttemptMapper attemptMapper;
-  private final PaymentAttemptMapper paymentAttemptMapper;
   private final MeterRegistry metrics;
   private final PaymentSuccessEventSigner eventSigner;
   private final ObjectMapper objectMapper;
@@ -140,8 +138,8 @@ public class RefundService {
                           .eq(RefundAttemptEntity::getRefundId, refund.getRefundId()))
                   .intValue()
               + 1;
-      var paymentAttempt = successfulPaymentAttempt(refund.getOrderId());
-      var runtime = channelConfiguration.resolve(paymentAttempt.getChannelId());
+      var order = orderService.get(refund.getOrderId());
+      var runtime = channelConfiguration.resolve(order);
       var channel = channelAdapters.required(runtime.provider(), runtime.signatureProfile());
       var attempt = new RefundAttemptEntity();
       attempt.setAttemptId("refund-attempt-" + UUID.randomUUID());
@@ -155,7 +153,7 @@ public class RefundService {
           "{\"orderId\":\""
               + refund.getOrderId()
               + "\",\"channelOrderId\":\""
-              + paymentAttempt.getChannelRequestNo()
+                  + order.paymentToken()
               + "\"}");
       attemptMapper.insert(attempt);
       var result =
@@ -163,7 +161,7 @@ public class RefundService {
               new PaymentChannelAdapter.PaymentRefundRequest(
                   refund.getRefundId(),
                   refund.getOrderId(),
-                  paymentAttempt.getChannelRequestNo(),
+                  order.paymentToken(),
                   refund.getAmount().toPlainString(),
                   refund.getCurrency(),
                   runtime));
@@ -253,8 +251,8 @@ public class RefundService {
       long timestamp,
       String nonce) {
     var refund = get(refundId);
-    var paymentAttempt = successfulPaymentAttempt(refund.getOrderId());
-    var runtime = channelConfiguration.resolve(paymentAttempt.getChannelId());
+    var order = orderService.get(refund.getOrderId());
+    var runtime = channelConfiguration.resolve(order);
     var channel = channelAdapters.required(runtime.provider(), runtime.signatureProfile());
     var verified =
         channel.verifyRefundCallback(
@@ -309,14 +307,6 @@ public class RefundService {
     callbackMapper.updateById(record);
     if (RefundStatus.SUCCESS.name().equals(refund.getStatus())) publishReversal(refund);
     return refund;
-  }
-
-  private PaymentAttemptEntity successfulPaymentAttempt(String orderId) {
-    var attempt = paymentAttemptMapper.findLatestSuccessfulByOrderId(orderId);
-    if (attempt == null) {
-      throw new IllegalStateException("退款缺少成功支付渠道尝试");
-    }
-    return attempt;
   }
 
   private static String sha256(String value) {

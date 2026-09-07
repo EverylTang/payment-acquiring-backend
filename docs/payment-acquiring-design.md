@@ -24,7 +24,7 @@
 | --- | ---: | --- |
 | `gateway-service` | 8080 | 统一入口、路由、内部接口保护、请求头清洗和请求 ID 透传 |
 | `platform-service` | 8081 | 管理员认证、RBAC、商户/产品/渠道配置、规则发布与快照 |
-| `trade-service` | 8082 | 订单、Payment Attempt、渠道适配、回调、Outbox 与消息发布 |
+| `trade-service` | 8082 | 订单、订单处理、渠道适配、回调、Outbox 与消息发布 |
 | `fund-service` | 8083 | 支付成功入账、退款冲正、消费幂等、对账与资金台账 |
 
 主支付链路：
@@ -32,9 +32,9 @@
 ```text
 管理员认证与配置发布
   -> Gateway 鉴权与路由
-  -> Trade 创建订单与 Payment Attempt
+  -> Trade 创建订单与 订单处理
   -> 渠道执行、查询、取消和签名回调
-  -> Attempt 协调订单状态
+  -> 订单处理 协调订单状态
   -> PAYMENT_SUCCEEDED 同事务写入 Outbox
   -> RocketMQ 至少一次投递
   -> Fund 幂等写入 ledger_entry
@@ -46,7 +46,7 @@
 
 本地依赖为 MySQL 8.4、Redis 7.2、Nacos 2.3.2、RocketMQ 5.2.0 和 MinIO。基础设施由 Docker 或平台独立维护，应用通过 Nacos 和服务端口连接；仓库不保存真实密码、渠道密钥或商户 API Key。
 
-渠道运行配置统一保存在 `channel.config_json`：`settings` 是不预设字段的自定义接入参数 JSON；`credentials` 保存商户号、应用标识、加签验签密钥及其他敏感渠道值，并由后台页面直接管理和回显。签名方案保存为 `signature_profile`，签名密钥角色可在 `credentials.signatureSecretRole` 配置，默认为 `requestSigningKey`。凭据不会写入操作审计或应用日志；支付尝试快照按现有运行协议保存创建支付所需的凭据快照。内部快照调用要求平台与交易服务使用相同的 `GATEWAY_INTERNAL_TOKEN`。
+渠道运行配置统一保存在 `channel.config_json`：`settings` 是不预设字段的自定义接入参数 JSON；`credentials` 保存商户号、应用标识、加签验签密钥及其他敏感渠道值，并由后台页面直接管理和回显。签名方案保存为 `signature_profile`，签名密钥角色可在 `credentials.signatureSecretRole` 配置，默认为 `requestSigningKey`。凭据不会写入操作审计或应用日志；订单渠道处理快照按现有运行协议保存创建支付所需的凭据快照。内部快照调用要求平台与交易服务使用相同的 `GATEWAY_INTERNAL_TOKEN`。
 
 签名方案由渠道管理下拉框受控选择，当前支持 `NONE`、`MD5_KEY_SUFFIX_V1`、`SHA256_KEY_SUFFIX_V1`、`HMAC_SHA256_V1`、`HMAC_SHA512_V1`、`RSA_SHA256_V1` 与模拟渠道兼容方案。交易服务在调用适配器前自动按字典序构造 `key=value` 待签名串，并从 `requestSigningKey`（或配置的 `signatureSecretRole`）读取 KMS 凭据。`signatureFields` 可指定逗号分隔的待签名字段，`signatureFieldName` 可指定渠道请求中的签名字段名；渠道适配器负责将生成的签名放入渠道要求的位置。渠道专属的字段编码、时间戳、嵌套参数及回调验签必须以服务商文档为准。
 
@@ -70,7 +70,7 @@ Nacos 默认约定：
 商户中心：商户资料、联系人、凭证、产品绑定和关联查询
 产品中心：逻辑产品、产品能力、国家/币种范围、商户产品
 运营配置：渠道、路由、费率、风控、草稿、审批、发布、回滚
-运营处置：订单、Attempt、回调、Outbox、消费记录、退款、对账差异
+运营处置：订单、订单处理、回调、Outbox、消费记录、退款、对账差异
 ```
 
 产品范围由以下模型分层，避免产品定义与商户专属配置耦合：
@@ -137,11 +137,11 @@ admin_user <-> admin_role <-> admin_menu
                     -> 驳回或撤回
 ```
 
-每次变更记录操作者、角色、请求 ID、对象类型和 ID、操作、前后摘要、结果、失败原因与时间。敏感字段只记录脱敏摘要。后台不直接修改订单、Attempt 或账务表，所有处置必须调用领域服务。
+每次变更记录操作者、角色、请求 ID、对象类型和 ID、操作、前后摘要、结果、失败原因与时间。敏感字段只记录脱敏摘要。后台不直接修改订单、订单处理 或账务表，所有处置必须调用领域服务。
 
 ## 4. 交易与资金设计
 
-### 4.1 订单、Attempt 与渠道
+### 4.1 订单、订单处理 与渠道
 
 订单状态：
 
@@ -150,20 +150,20 @@ CREATED -> PAYING -> SUCCESS / FAILED / UNKNOWN / CANCELED
 UNKNOWN -> PAYING / SUCCESS / FAILED / CANCELED
 ```
 
-Attempt 状态：
+订单处理 状态：
 
 ```text
 CREATED -> PROCESSING -> SUCCESS / FAILED / TIMEOUT / CANCELED / UNKNOWN
 UNKNOWN -> PROCESSING / SUCCESS / FAILED / TIMEOUT / CANCELED
 ```
 
-终态不得被后续结果覆盖。状态更新使用版本号 CAS；CAS 失败时重新读取真实状态，避免竞争线程以过期结果协调订单。真实渠道接入时应把“创建 Attempt、外部调用、条件更新”拆分，禁止在数据库事务中持有长时间网络调用。
+终态不得被后续结果覆盖。状态更新使用版本号 CAS；CAS 失败时重新读取真实状态，避免竞争线程以过期结果协调订单。真实渠道接入时应把“创建 订单处理、外部调用、条件更新”拆分，禁止在数据库事务中持有长时间网络调用。
 
-渠道适配器统一提供创建、查询、取消、退款与回调验签能力。真实渠道必须使用供应商协议规定的签名、时间戳、nonce 和防重放策略；模拟渠道用于开发验证，不替代供应商协议验收。
+渠道适配器仅为退款流程提供渠道路由和回调验签能力。真实渠道必须使用供应商协议规定的签名、时间戳、nonce 和防重放策略。
 
 ### 4.2 Outbox、消息与资金幂等
 
-Attempt 成功后，在同一事务完成 Attempt 条件更新、订单成功协调和 `PAYMENT_SUCCEEDED` Outbox 写入。Outbox 以事件唯一键、条件 claim、过期锁恢复、claim token、有限重试、指数退避和 `DEAD` 状态保障多实例投递。
+订单处理 成功后，在同一事务完成 订单处理 条件更新、订单成功协调和 `PAYMENT_SUCCEEDED` Outbox 写入。Outbox 以事件唯一键、条件 claim、过期锁恢复、claim token、有限重试、指数退避和 `DEAD` 状态保障多实例投递。
 
 RocketMQ 采用至少一次投递。Fund 保存消费记录、payload 摘要、处理状态、失败原因与 processing lease；重复事件校验 payload，重复幂等键校验订单、商户、金额、币种和分录字段，冲突不能被视为成功。
 
@@ -178,7 +178,7 @@ PAYMENT_SUCCEEDED
 
 ### 4.3 退款、对账与运营处置
 
-退款支持全额、部分和多次部分退款，使用幂等键与累计退款金额控制并发上限。退款 Attempt、回调去重、查询重试、可靠事件和 Fund 冲正沿用支付成功链路的可靠性模型。
+退款支持全额、部分和多次部分退款，使用幂等键与累计退款金额控制并发上限。退款 订单处理、回调去重、查询重试、可靠事件和 Fund 冲正沿用支付成功链路的可靠性模型。
 
 渠道账单支持上传或定时下载，原始文件保存在 MinIO 并记录哈希、日期、渠道、版本与导入状态。日对账按订单号、渠道订单号、商户、金额、币种和状态匹配，差异类型为：
 
@@ -224,37 +224,37 @@ Controller 只处理协议和鉴权编排；业务规则在应用服务和领域
 
 ## 6. 当前状态与验收
 
-当前主体能力已覆盖平台配置、订单与 Attempt、模拟渠道、Outbox、RocketMQ 投递、Fund 幂等入账、退款/冲正基础、账单摘要导入和运营处置页面。自动化测试已覆盖状态机、模拟渠道、Outbox 成功与失败分支、Fund 正常和重复消费、payload 冲突及未知事件版本等核心分支。
+当前主体能力已覆盖平台配置、订单与 订单处理、模拟渠道、Outbox、RocketMQ 投递、Fund 幂等入账、退款/冲正基础、账单摘要导入和运营处置页面。自动化测试已覆盖状态机、模拟渠道、Outbox 成功与失败分支、Fund 正常和重复消费、payload 冲突及未知事件版本等核心分支。
 
 仍需完成的 P0 验收：
 
-1. 真实 MySQL 下 Attempt 并发 CAS、Outbox 多实例 claim、锁过期与 claim token 边界。
+1. 真实 MySQL 下 订单处理 并发 CAS、Outbox 多实例 claim、锁过期与 claim token 边界。
 2. 真实 RocketMQ 下最大重试、DLQ、人工重放、Broker 停止恢复及 Trade/Fund 重启恢复。
 3. Gateway、Trade 与 Fund 管理接口的内部凭证、角色边界和生产端口隔离测试。
 4. 新环境空库初始化、数据库发布 Job、备份回滚和版本校验流程。
 
-P1 收尾包括模拟渠道状态持久化、Attempt 调度集成测试、稳定事件 DTO、请求/追踪 ID 全链路透传、真实渠道签名适配与账单文件版本管理。
+P1 收尾包括模拟渠道状态持久化、订单处理 调度集成测试、稳定事件 DTO、请求/追踪 ID 全链路透传、真实渠道签名适配与账单文件版本管理。
 
-生产化指标至少覆盖 Outbox 待发布数与最老年龄、发布重试和 DEAD、消费堆积与 DLQ、支付成功未入账、Attempt 超时、退款成功未冲正、对账差异数量和处理时长。Prometheus、Grafana、OpenTelemetry、告警、密钥管理、多实例故障恢复和容量测试在上线前完成。
+生产化指标至少覆盖 Outbox 待发布数与最老年龄、发布重试和 DEAD、消费堆积与 DLQ、支付成功未入账、订单处理 超时、退款成功未冲正、对账差异数量和处理时长。Prometheus、Grafana、OpenTelemetry、告警、密钥管理、多实例故障恢复和容量测试在上线前完成。
 
 ## 7. 里程碑
 
 | 里程碑 | 目标 | 完成标准 |
 | --- | --- | --- |
-| M2.1 | Attempt 并发与 Outbox 抢占 | 状态一致、事件仅单实例持有 |
+| M2.1 | 订单处理 并发与 Outbox 抢占 | 状态一致、事件仅单实例持有 |
 | M2.2 | 死信、消费记录与人工补偿 | 失败可查询、可重放、可审计 |
 | M2.3 | 支付成功到入账端到端验收 | 自动化链路通过并可故障恢复 |
 | M3.1 | 退款与资金冲正 | 全额/部分退款和冲正闭环 |
 | M3.2 | 渠道账单与日对账 | 平账与差异单自动生成 |
 | M3.3 | 运营处置与可观测性 | 审批、审计、告警和人工处置闭环 |
 
-验收顺序：权限与数据范围、配置发布、订单与 Attempt 并发、回调签名与去重、Outbox 和管理接口边界、消息消费与资金幂等、故障恢复、退款与对账、可观测性与容量。
+验收顺序：权限与数据范围、配置发布、订单与 订单处理 并发、回调签名与去重、Outbox 和管理接口边界、消息消费与资金幂等、故障恢复、退款与对账、可观测性与容量。
 
 ## 8. 相关入口
 
 - `docs/database/payment-acquiring-complete.sql`：唯一新环境数据库初始化入口。
 - `README.md`：构建、运行和接口示例。
-- `trade-service/.../PaymentAttemptService.java`：Attempt 生命周期和订单协调。
+- `trade-service/.../Payment订单处理Service.java`：订单处理 生命周期和订单协调。
 - `trade-service/.../PaymentOutboxPublisher.java`：Outbox 发布。
 - `fund-service/.../PaymentSuccessEventConsumer.java`：支付成功事件消费。
 - `fund-service/.../LedgerEntryApplicationService.java`：统一幂等入账。

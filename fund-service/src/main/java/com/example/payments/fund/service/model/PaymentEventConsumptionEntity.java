@@ -14,7 +14,6 @@ public class PaymentEventConsumptionEntity {
   private String eventId;
   private String eventType;
   private String orderId;
-  private String attemptId;
   private String merchantId;
   private BigDecimal amount;
   private String currency;
@@ -61,14 +60,6 @@ public class PaymentEventConsumptionEntity {
 
   public void setOrderId(String value) {
     orderId = value;
-  }
-
-  public String getAttemptId() {
-    return attemptId;
-  }
-
-  public void setAttemptId(String value) {
-    attemptId = value;
   }
 
   public String getMerchantId() {

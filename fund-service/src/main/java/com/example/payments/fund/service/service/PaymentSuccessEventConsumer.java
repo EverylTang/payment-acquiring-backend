@@ -167,7 +167,6 @@ public class PaymentSuccessEventConsumer implements RocketMQListener<String> {
     record.setEventId(eventId);
     record.setEventType(EVENT_TYPE);
     record.setOrderId(orderId);
-    record.setAttemptId(event.path("attemptId").textValue());
     record.setMerchantId(merchantId);
     record.setAmount(amount);
     record.setCurrency(currency);

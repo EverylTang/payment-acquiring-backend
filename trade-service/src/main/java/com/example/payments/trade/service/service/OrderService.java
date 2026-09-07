@@ -4,7 +4,6 @@ import com.example.payments.trade.service.config.OrderExpirationProperties;
 import com.example.payments.trade.service.domain.OrderStatus;
 import com.example.payments.trade.service.domain.OrderType;
 import com.example.payments.trade.service.domain.PaymentOrder;
-import com.example.payments.trade.service.mapper.PaymentAttemptRepository;
 import com.example.payments.trade.service.mapper.PaymentOrderRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,7 +30,6 @@ public class OrderService {
   private final MerchantCallbackUrlPolicy callbackUrlPolicy;
   private final MerchantNotificationOutboxService merchantNotificationOutboxService;
   private final OrderExpirationProperties expirationProperties;
-  private final PaymentAttemptRepository attemptRepository;
   private final RedisDistributedLockService lockService;
 
   @Autowired
@@ -43,7 +41,6 @@ public class OrderService {
       MerchantCallbackUrlPolicy callbackUrlPolicy,
       MerchantNotificationOutboxService merchantNotificationOutboxService,
       OrderExpirationProperties expirationProperties,
-      PaymentAttemptRepository attemptRepository,
       RedisDistributedLockService lockService) {
     this.repository = repository;
     this.channelConfiguration = channelConfiguration;
@@ -52,7 +49,6 @@ public class OrderService {
     this.callbackUrlPolicy = callbackUrlPolicy;
     this.merchantNotificationOutboxService = merchantNotificationOutboxService;
     this.expirationProperties = expirationProperties;
-    this.attemptRepository = attemptRepository;
     this.lockService = lockService;
   }
 
@@ -72,7 +68,6 @@ public class OrderService {
         callbackUrlPolicy,
         merchantNotificationOutboxService,
         expirationProperties,
-        null,
         null);
   }
 
@@ -85,7 +80,6 @@ public class OrderService {
         new MerchantCallbackUrlPolicy(false),
         null,
         OrderExpirationProperties.defaults(),
-        null,
         null);
   }
 
@@ -101,7 +95,6 @@ public class OrderService {
         new MerchantCallbackUrlPolicy(false),
         null,
         OrderExpirationProperties.defaults(),
-        null,
         null);
   }
 
@@ -360,10 +353,6 @@ public class OrderService {
     }
     if (!current.expireAt().isAfter(Instant.now())) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "expired order cannot be canceled");
-    }
-    if (attemptRepository != null && attemptRepository.hasOpenAttemptByOrderId(orderId)) {
-      throw new ResponseStatusException(
-          HttpStatus.CONFLICT, "payment attempt is still pending channel reconciliation");
     }
     repository.updateStatus(orderId, current.status(), OrderStatus.CANCELED, null);
     return get(orderId);

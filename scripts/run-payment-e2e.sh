@@ -9,10 +9,10 @@ payload=$(printf '{"merchantId":"%s","merchantOrderNo":"%s","productCode":"CARD-
 order=$(curl -fsS -X POST "$TRADE_BASE_URL/api/v1/payments/orders" -H 'Content-Type: application/json' -H "Idempotency-Key: $order_id" -d "$payload")
 created_order_id=$(printf '%s' "$order" | sed -n 's/.*"orderId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
 test -n "$created_order_id"
-attempt=$(curl -fsS -X POST "$TRADE_BASE_URL/api/v1/payments/orders/$created_order_id/attempts?behavior=SUCCESS")
-printf '%s\n' "$attempt" | rg -q 'SUCCESS'
+status=$(curl -fsS "$TRADE_BASE_URL/api/v1/payments/orders/$created_order_id/status")
+printf '%s\n' "$status" | rg -q 'orderId'
 sleep "${E2E_SETTLE_WAIT_SECONDS:-3}"
-printf 'payment e2e order accepted and attempt succeeded: %s\n' "$created_order_id"
+printf 'payment e2e order accepted: %s\n' "$created_order_id"
 if command -v docker >/dev/null && docker inspect "${MYSQL_CONTAINER:-local-mysql}" >/dev/null 2>&1; then
   mysql_password="${MYSQL_ROOT_PASSWORD:-root123456}"
   outbox_status=$(docker exec "${MYSQL_CONTAINER:-local-mysql}" mysql -uroot "-p${mysql_password}" -Nse "SELECT COUNT(*) FROM pay_trade.payment_outbox_event WHERE aggregate_id='${created_order_id}' AND event_type='PAYMENT_SUCCEEDED'")

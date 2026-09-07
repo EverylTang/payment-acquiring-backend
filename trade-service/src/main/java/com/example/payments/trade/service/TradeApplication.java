@@ -1,6 +1,5 @@
 package com.example.payments.trade.service;
 
-import com.example.payments.trade.service.config.AttemptQueryProperties;
 import com.example.payments.trade.service.config.OrderExpirationProperties;
 import com.example.payments.trade.service.config.OutboxProperties;
 import org.springframework.boot.SpringApplication;
@@ -12,7 +11,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @EnableConfigurationProperties({
   OutboxProperties.class,
-  AttemptQueryProperties.class,
   OrderExpirationProperties.class
 })
 public class TradeApplication {

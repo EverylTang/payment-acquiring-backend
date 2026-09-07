@@ -2,7 +2,6 @@ package com.example.payments.trade.service.controller;
 
 import com.example.payments.trade.service.service.MerchantNotificationOutboxService;
 import com.example.payments.trade.service.service.OrderService;
-import com.example.payments.trade.service.service.PaymentAttemptService;
 import jakarta.validation.Valid;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -23,7 +22,6 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class AdminOrderController {
   private final OrderService orderService;
-  private final PaymentAttemptService paymentAttemptService;
   private final MerchantNotificationOutboxService merchantNotificationOutboxService;
   private final AdminRequestAuthorizer authorizer;
 
@@ -78,9 +76,7 @@ public class AdminOrderController {
       @RequestHeader("X-User-Id") String operator,
       @RequestHeader("X-Permissions") String permissions) {
     authorizer.authorize(gatewayToken, operator, permissions, "order:list");
-    var order = orderService.get(orderId);
-    return OrderDtos.OrderResponse.from(
-        order, paymentAttemptService.latestForOrder(order.orderId()).orElse(null));
+    return OrderDtos.OrderResponse.from(orderService.get(orderId));
   }
 
   @PostMapping
@@ -135,72 +131,6 @@ public class AdminOrderController {
     authorizer.authorize(gatewayToken, operator, permissions, "order:notify");
     return OrderDtos.OrderResponse.from(
         merchantNotificationOutboxService.resend(orderId, operator, request.reason(), requestId));
-  }
-
-  @PostMapping("/{orderId}/attempts")
-  public Map<String, Object> createAttempt(
-      @PathVariable String orderId,
-      @RequestHeader("X-Gateway-Token") String gatewayToken,
-      @RequestHeader("X-User-Id") String operator,
-      @RequestHeader("X-Permissions") String permissions) {
-    authorizer.authorize(gatewayToken, operator, permissions, "order:manage");
-    var attempt = paymentAttemptService.create(orderService.requireActive(orderId));
-    return attemptResponse(attempt);
-  }
-
-  @PostMapping("/{orderId}/attempts/{attemptId}/query")
-  public Map<String, Object> queryAttempt(
-      @PathVariable String orderId,
-      @PathVariable String attemptId,
-      @RequestHeader("X-Gateway-Token") String gatewayToken,
-      @RequestHeader("X-User-Id") String operator,
-      @RequestHeader("X-Permissions") String permissions) {
-    authorizer.authorize(gatewayToken, operator, permissions, "order:manage");
-    return attemptResponse(
-        paymentAttemptService.requestQuery(
-            paymentAttemptService.get(attemptId, orderId).attemptId()));
-  }
-
-  @PostMapping("/{orderId}/attempts/{attemptId}/cancel")
-  public Map<String, Object> cancelAttempt(
-      @PathVariable String orderId,
-      @PathVariable String attemptId,
-      @RequestHeader("X-Gateway-Token") String gatewayToken,
-      @RequestHeader("X-User-Id") String operator,
-      @RequestHeader("X-Permissions") String permissions) {
-    authorizer.authorize(gatewayToken, operator, permissions, "order:manage");
-    paymentAttemptService.get(attemptId, orderId);
-    return attemptResponse(paymentAttemptService.cancel(attemptId));
-  }
-
-  @PostMapping("/{orderId}/attempts/{attemptId}/retry")
-  public Map<String, Object> retryAttempt(
-      @PathVariable String orderId,
-      @PathVariable String attemptId,
-      @RequestHeader("X-Gateway-Token") String gatewayToken,
-      @RequestHeader("X-User-Id") String operator,
-      @RequestHeader("X-Permissions") String permissions) {
-    authorizer.authorize(gatewayToken, operator, permissions, "order:manage");
-    return attemptResponse(paymentAttemptService.retry(attemptId, orderService.get(orderId)));
-  }
-
-  private static Map<String, Object> attemptResponse(
-      com.example.payments.trade.service.domain.PaymentAttempt attempt) {
-    return Map.ofEntries(
-        Map.entry("attemptId", attempt.attemptId()),
-        Map.entry("orderId", attempt.orderId()),
-        Map.entry("channelId", attempt.channelId()),
-        Map.entry("channelOrderId", attempt.channelRequestNo()),
-        Map.entry("attemptNo", attempt.attemptNo()),
-        Map.entry("status", attempt.status().name()),
-        Map.entry("failureCode", attempt.failureCode() == null ? "" : attempt.failureCode()),
-        Map.entry("paymentUrl", attempt.paymentUrl() == null ? "" : attempt.paymentUrl()),
-        Map.entry("qrCode", attempt.qrCode() == null ? "" : attempt.qrCode()),
-        Map.entry(
-            "requestSnapshot", attempt.requestSnapshot() == null ? "" : attempt.requestSnapshot()),
-        Map.entry(
-            "responseSnapshot",
-            attempt.responseSnapshot() == null ? "" : attempt.responseSnapshot()));
   }
 
   public record ResendNotificationRequest(@jakarta.validation.constraints.NotBlank String reason) {}
