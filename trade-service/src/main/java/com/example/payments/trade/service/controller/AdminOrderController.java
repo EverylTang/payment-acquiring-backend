@@ -4,6 +4,7 @@ import com.example.payments.trade.service.service.MerchantNotificationOutboxServ
 import com.example.payments.trade.service.service.OrderService;
 import com.example.payments.trade.service.service.PaymentAttemptService;
 import jakarta.validation.Valid;
+import java.time.LocalDateTime;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -29,16 +30,36 @@ public class AdminOrderController {
   @GetMapping
   public Map<String, Object> list(
       @RequestParam(required = false) String merchantId,
+      @RequestParam(required = false) String merchantOrderNo,
+      @RequestParam(required = false) String orderId,
+      @RequestParam(required = false) String productCode,
       @RequestParam(required = false) String status,
       @RequestParam(required = false) String currency,
       @RequestParam(required = false) String orderType,
+      @RequestParam(required = false) LocalDateTime createdFrom,
+      @RequestParam(required = false) LocalDateTime createdTo,
+      @RequestParam(required = false) LocalDateTime paidFrom,
+      @RequestParam(required = false) LocalDateTime paidTo,
       @RequestParam(defaultValue = "1") int page,
       @RequestParam(defaultValue = "20") int pageSize,
       @RequestHeader("X-Gateway-Token") String gatewayToken,
       @RequestHeader("X-User-Id") String operator,
       @RequestHeader("X-Permissions") String permissions) {
     authorizer.authorize(gatewayToken, operator, permissions, "order:list");
-    return orderService.list(merchantId, status, currency, orderType, page, pageSize);
+    return orderService.list(
+        merchantId,
+        merchantOrderNo,
+        orderId,
+        productCode,
+        status,
+        currency,
+        orderType,
+        createdFrom,
+        createdTo,
+        paidFrom,
+        paidTo,
+        page,
+        pageSize);
   }
 
   @GetMapping("/statistics")

@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -235,11 +236,38 @@ public class OrderService {
   }
 
   public Map<String, Object> list(
-      String merchantId, String status, String currency, String orderType, int page, int pageSize) {
+      String merchantId,
+      String merchantOrderNo,
+      String orderId,
+      String productCode,
+      String status,
+      String currency,
+      String orderType,
+      LocalDateTime createdFrom,
+      LocalDateTime createdTo,
+      LocalDateTime paidFrom,
+      LocalDateTime paidTo,
+      int page,
+      int pageSize) {
     if (page < 1 || pageSize < 1 || pageSize > 100)
       throw new IllegalArgumentException("invalid pagination");
     var items =
-        repository.search(merchantId, status, currency, orderType, page, pageSize).stream()
+        repository
+            .search(
+                merchantId,
+                merchantOrderNo,
+                orderId,
+                productCode,
+                status,
+                currency,
+                orderType,
+                createdFrom,
+                createdTo,
+                paidFrom,
+                paidTo,
+                page,
+                pageSize)
+            .stream()
             .map(com.example.payments.trade.service.controller.OrderDtos.OrderResponse::from)
             .toList();
     return Map.of(
@@ -250,7 +278,18 @@ public class OrderService {
         "pageSize",
         pageSize,
         "total",
-        repository.count(merchantId, status, currency, orderType));
+        repository.count(
+            merchantId,
+            merchantOrderNo,
+            orderId,
+            productCode,
+            status,
+            currency,
+            orderType,
+            createdFrom,
+            createdTo,
+            paidFrom,
+            paidTo));
   }
 
   public Map<String, Object> statistics() {

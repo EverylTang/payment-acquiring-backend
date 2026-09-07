@@ -500,13 +500,13 @@ VALUES
   (0, 'merchant-product', '商户产品', 'PAGE', '/merchant-products', 'merchant-products', 'Link', 50, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'routing', '路由与渠道', 'PAGE', '/routing', 'routing', 'Network', 60, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'pricing', '费率管理', 'PAGE', '/pricing', 'pricing', 'CircleDollarSign', 70, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  (0, 'settlement', '结算管理', 'PAGE', '/settlement', 'settlement', 'CircleDollarSign', 75, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  (0, 'merchant-funds', '商户资金', 'PAGE', '/merchant-funds', 'merchant-funds', 'WalletCards', 76, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'releases', '版本发布', 'PAGE', '/releases', 'releases', 'Layers3', 80, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'risk', '风控工作台', 'PAGE', '/risk', 'risk', 'ShieldCheck', 90, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'trade', '订单管理', 'PAGE', '/orders', 'orders', 'WalletCards', 100, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   (0, 'operations', '运营处置', 'PAGE', '/operations', 'operations', 'ShieldCheck', 110, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
-  (0, 'system', '系统管理', 'DIRECTORY', NULL, NULL, 'Settings2', 120, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
+  (0, 'settlement', '结算管理', 'PAGE', '/settlement', 'settlement', 'CircleDollarSign', 120, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  (0, 'merchant-funds', '商户资金', 'PAGE', '/merchant-funds', 'merchant-funds', 'WalletCards', 130, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  (0, 'system', '系统管理', 'DIRECTORY', NULL, NULL, 'Settings2', 140, TRUE, 'ACTIVE', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
 UPDATE admin_menu
 SET menu_name = '订单管理', updated_at = CURRENT_TIMESTAMP(3)
@@ -1260,17 +1260,19 @@ SET sort_order = CASE menu_code
   WHEN 'risk' THEN 90
   WHEN 'trade' THEN 100
   WHEN 'operations' THEN 110
-  WHEN 'system' THEN 120
-  WHEN 'system:user' THEN 121
-  WHEN 'system:role' THEN 122
-  WHEN 'system:menu' THEN 123
+  WHEN 'settlement' THEN 120
+  WHEN 'merchant-funds' THEN 130
+  WHEN 'system' THEN 140
+  WHEN 'system:user' THEN 141
+  WHEN 'system:role' THEN 142
+  WHEN 'system:menu' THEN 143
   ELSE sort_order
 END,
 updated_at = CURRENT_TIMESTAMP(3)
 WHERE menu_code IN (
   'dashboard', 'merchant', 'product', 'master-data', 'merchant-product',
-  'routing', 'pricing', 'releases', 'risk', 'trade', 'operations', 'system',
-  'system:user', 'system:role', 'system:menu'
+  'routing', 'pricing', 'releases', 'risk', 'trade', 'operations', 'settlement',
+  'merchant-funds', 'system', 'system:user', 'system:role', 'system:menu'
 );
 UPDATE admin_menu SET menu_name = '费率管理', updated_at = CURRENT_TIMESTAMP(3) WHERE menu_code = 'pricing';
 

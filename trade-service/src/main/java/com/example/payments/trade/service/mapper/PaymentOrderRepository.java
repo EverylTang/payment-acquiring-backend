@@ -121,37 +121,86 @@ public class PaymentOrderRepository {
   }
 
   public List<PaymentOrder> search(
-      String merchantId, String status, String currency, String orderType, int page, int pageSize) {
+      String merchantId,
+      String merchantOrderNo,
+      String orderId,
+      String productCode,
+      String status,
+      String currency,
+      String orderType,
+      LocalDateTime createdFrom,
+      LocalDateTime createdTo,
+      LocalDateTime paidFrom,
+      LocalDateTime paidTo,
+      int page,
+      int pageSize) {
     var wrapper =
         new LambdaQueryWrapper<PaymentOrderEntity>()
             .eq(
                 merchantId != null && !merchantId.isBlank(),
                 PaymentOrderEntity::getMerchantId,
                 merchantId)
+            .like(
+                merchantOrderNo != null && !merchantOrderNo.isBlank(),
+                PaymentOrderEntity::getMerchantOrderNo,
+                merchantOrderNo)
+            .eq(orderId != null && !orderId.isBlank(), PaymentOrderEntity::getOrderId, orderId)
+            .eq(
+                productCode != null && !productCode.isBlank(),
+                PaymentOrderEntity::getProductCode,
+                productCode)
             .eq(status != null && !status.isBlank(), PaymentOrderEntity::getStatus, status)
             .eq(currency != null && !currency.isBlank(), PaymentOrderEntity::getCurrency, currency)
             .eq(
                 orderType != null && !orderType.isBlank(),
                 PaymentOrderEntity::getOrderType,
                 orderType)
+            .ge(createdFrom != null, PaymentOrderEntity::getCreatedAt, createdFrom)
+            .le(createdTo != null, PaymentOrderEntity::getCreatedAt, createdTo)
+            .ge(paidFrom != null, PaymentOrderEntity::getPaidAt, paidFrom)
+            .le(paidTo != null, PaymentOrderEntity::getPaidAt, paidTo)
             .orderByDesc(PaymentOrderEntity::getCreatedAt)
             .last("LIMIT " + pageSize + " OFFSET " + ((page - 1) * pageSize));
     return mapper.selectList(wrapper).stream().map(this::toDomain).toList();
   }
 
-  public long count(String merchantId, String status, String currency, String orderType) {
+  public long count(
+      String merchantId,
+      String merchantOrderNo,
+      String orderId,
+      String productCode,
+      String status,
+      String currency,
+      String orderType,
+      LocalDateTime createdFrom,
+      LocalDateTime createdTo,
+      LocalDateTime paidFrom,
+      LocalDateTime paidTo) {
     var wrapper =
         new LambdaQueryWrapper<PaymentOrderEntity>()
             .eq(
                 merchantId != null && !merchantId.isBlank(),
                 PaymentOrderEntity::getMerchantId,
                 merchantId)
+            .like(
+                merchantOrderNo != null && !merchantOrderNo.isBlank(),
+                PaymentOrderEntity::getMerchantOrderNo,
+                merchantOrderNo)
+            .eq(orderId != null && !orderId.isBlank(), PaymentOrderEntity::getOrderId, orderId)
+            .eq(
+                productCode != null && !productCode.isBlank(),
+                PaymentOrderEntity::getProductCode,
+                productCode)
             .eq(status != null && !status.isBlank(), PaymentOrderEntity::getStatus, status)
             .eq(currency != null && !currency.isBlank(), PaymentOrderEntity::getCurrency, currency)
             .eq(
                 orderType != null && !orderType.isBlank(),
                 PaymentOrderEntity::getOrderType,
                 orderType);
+    wrapper.ge(createdFrom != null, PaymentOrderEntity::getCreatedAt, createdFrom);
+    wrapper.le(createdTo != null, PaymentOrderEntity::getCreatedAt, createdTo);
+    wrapper.ge(paidFrom != null, PaymentOrderEntity::getPaidAt, paidFrom);
+    wrapper.le(paidTo != null, PaymentOrderEntity::getPaidAt, paidTo);
     return mapper.selectCount(wrapper);
   }
 
