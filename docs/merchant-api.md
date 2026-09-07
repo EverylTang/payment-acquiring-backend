@@ -77,6 +77,15 @@ const canonical = [method, rawPath, normalizedQuery, timestamp, nonce, bodyHash]
 const signature = crypto.createHmac("sha256", secret).update(canonical, "utf8").digest("base64url");
 ```
 
+仓库同时提供 Java 测试类 [`MerchantOrderSignatureGeneratorTest.java`](../platform-service/src/test/java/com/example/payments/platform/service/client/MerchantOrderSignatureGeneratorTest.java)，可生成完整请求参数和签名测试向量。将测试类中的测试凭证替换为本地凭证后运行：
+
+```bash
+cd payment-acquiring-backend
+mvn -pl platform-service -Dtest=MerchantOrderSignatureGeneratorTest test
+```
+
+测试输出中的 `body` 必须作为实际 HTTP 请求体原样发送；输出的 `headers` 可直接映射为请求头。测试类中的 `Idempotency-Key` 仅用于幂等控制，不参与签名原文。
+
 下单请求的顶层字段固定为：`merchantOrderNo`、`appId`、`payModel`、`country`、`currency`、`amount`、`expireAt`、`notifyUrl`、`returnUrl`、`customerReference`、`payoutDestinationRef`、`description`、`payer`、`channelParams`。以后新增渠道只能使用 `channelParams` 承载渠道专属参数，不新增顶层字段；公共字段的含义和类型保持不变。`appId` 是商户产品绑定的公开自增标识，平台内部再解析为产品配置。
 
 ## 创建订单
