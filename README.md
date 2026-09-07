@@ -26,7 +26,7 @@ payment-acquiring-backend/
 └── .gitignore
 ```
 
-商户对接请阅读 [`docs/merchant-api.md`](docs/merchant-api.md)，其中包含公网接口、请求签名、异步通知和幂等处理约定。
+商户对接请先阅读 [`docs/merchant-onboarding.md`](docs/merchant-onboarding.md) 了解管理后台开通顺序，再阅读 [`docs/merchant-api.md`](docs/merchant-api.md) 获取公网接口、请求签名、异步通知和幂等处理约定。
 
 ## 构建
 
