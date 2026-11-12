@@ -6,9 +6,9 @@ import java.time.LocalDate;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,7 +36,14 @@ public class AdminSettlementController {
     authorizer.authorize(token, operator, permissions, "settlement:rule:list");
     var result = service.listRules(page, pageSize, merchantId, productCode, currency, status);
     return Map.of(
-        "items", result.items(), "page", result.page(), "pageSize", result.pageSize(), "total", result.total());
+        "items",
+        result.items(),
+        "page",
+        result.page(),
+        "pageSize",
+        result.pageSize(),
+        "total",
+        result.total());
   }
 
   @PostMapping("/rules")
@@ -86,5 +93,6 @@ public class AdminSettlementController {
   }
 
   public record BatchRequest(LocalDate settlementDate) {}
+
   public record StatusRequest(String status) {}
 }

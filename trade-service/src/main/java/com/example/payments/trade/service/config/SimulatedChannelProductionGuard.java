@@ -6,10 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
-/**
- * Rejects simulation secrets outside the explicitly non-production execution
- * profiles.
- */
+/** Rejects simulation secrets outside the explicitly non-production execution profiles. */
 @Component
 public class SimulatedChannelProductionGuard {
   private final Environment environment;
@@ -24,9 +21,11 @@ public class SimulatedChannelProductionGuard {
 
   @PostConstruct
   void rejectSimulatedChannelConfiguration() {
-    boolean simulationProfile = Arrays.stream(environment.getActiveProfiles())
-        .anyMatch(
-            profile -> "local".equals(profile) || "dev".equals(profile) || "test".equals(profile));
+    boolean simulationProfile =
+        Arrays.stream(environment.getActiveProfiles())
+            .anyMatch(
+                profile ->
+                    "local".equals(profile) || "dev".equals(profile) || "test".equals(profile));
     if (!simulationProfile && !simulatedSigningSecret.isBlank()) {
       throw new IllegalStateException(
           "SIMULATED channel signing material is only permitted in local, dev or test profiles");

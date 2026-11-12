@@ -35,8 +35,7 @@ public class ConfigurationSnapshotService {
             .orElseThrow(() -> unavailable("产品类型无效"));
 
     var product =
-        java.util.Optional.ofNullable(
-                mapper.selectProductCapability(productCode, payModel, amount))
+        java.util.Optional.ofNullable(mapper.selectProductCapability(productCode, payModel, amount))
             .orElseThrow(() -> unavailable("产品能力不支持当前交易"));
 
     var channelPaymentMethod = product.channelPaymentMethod();

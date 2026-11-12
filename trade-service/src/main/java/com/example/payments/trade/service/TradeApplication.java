@@ -9,10 +9,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableScheduling
-@EnableConfigurationProperties({
-  OutboxProperties.class,
-  OrderExpirationProperties.class
-})
+@EnableConfigurationProperties({OutboxProperties.class, OrderExpirationProperties.class})
 public class TradeApplication {
   public static void main(String[] args) {
     SpringApplication.run(TradeApplication.class, args);

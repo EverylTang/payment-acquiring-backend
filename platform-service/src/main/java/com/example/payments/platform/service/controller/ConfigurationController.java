@@ -30,8 +30,7 @@ public class ConfigurationController {
       @RequestParam(defaultValue = "US") String country,
       @RequestParam String currency,
       @RequestParam(defaultValue = "1.00") BigDecimal amount) {
-    return snapshotService.snapshot(
-        merchantId, productCode, payModel, country, currency, amount);
+    return snapshotService.snapshot(merchantId, productCode, payModel, country, currency, amount);
   }
 
   @GetMapping("/merchant-products/{appId}/product-code")

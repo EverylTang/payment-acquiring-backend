@@ -153,7 +153,7 @@ public class RefundService {
           "{\"orderId\":\""
               + refund.getOrderId()
               + "\",\"channelOrderId\":\""
-                  + order.paymentToken()
+              + order.paymentToken()
               + "\"}");
       attemptMapper.insert(attempt);
       var result =

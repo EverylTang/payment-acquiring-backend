@@ -39,5 +39,4 @@ public interface PaymentChannelAdapter {
 
   record PaymentRefundCallback(
       String callbackId, String refundId, String status, String rawPayload) {}
-
 }

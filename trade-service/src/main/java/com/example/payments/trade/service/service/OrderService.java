@@ -545,7 +545,8 @@ public class OrderService {
   }
 
   private boolean channelParamsMatches(PaymentOrder existing, Map<String, Object> channelParams) {
-    if (existing.merchantRequestSnapshot() == null || existing.merchantRequestSnapshot().isBlank()) {
+    if (existing.merchantRequestSnapshot() == null
+        || existing.merchantRequestSnapshot().isBlank()) {
       return channelParams.isEmpty();
     }
     try {
@@ -692,6 +693,7 @@ public class OrderService {
           channelParams,
           expireAtProvided);
     }
+
     public CreateOrderCommand {
       if (expireAt == null) expireAt = Instant.now().plus(Duration.ofMinutes(30));
       payer = payer == null ? Map.of() : Map.copyOf(payer);

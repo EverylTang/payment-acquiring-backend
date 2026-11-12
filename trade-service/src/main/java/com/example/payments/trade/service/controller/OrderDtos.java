@@ -29,7 +29,8 @@ public final class OrderDtos {
       Payer payer,
       java.util.Map<String, Object> channelParams) {
     public CreateOrderRequest {
-      channelParams = channelParams == null ? java.util.Map.of() : java.util.Map.copyOf(channelParams);
+      channelParams =
+          channelParams == null ? java.util.Map.of() : java.util.Map.copyOf(channelParams);
     }
   }
 

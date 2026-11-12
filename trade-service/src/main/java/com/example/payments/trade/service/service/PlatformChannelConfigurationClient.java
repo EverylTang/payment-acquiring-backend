@@ -85,7 +85,8 @@ public class PlatformChannelConfigurationClient {
               .uri(
                   builder ->
                       builder
-                          .path("/api/internal/v1/configurations/merchant-products/{appId}/product-code")
+                          .path(
+                              "/api/internal/v1/configurations/merchant-products/{appId}/product-code")
                           .queryParam("merchantId", merchantId)
                           .build(parsed))
               .headers(headers -> headers.set("X-Internal-Token", internalToken))
@@ -96,8 +97,7 @@ public class PlatformChannelConfigurationClient {
       return productCode;
     } catch (RestClientResponseException exception) {
       if (exception.getStatusCode().is4xxClientError()) {
-        throw new ResponseStatusException(
-            HttpStatus.UNPROCESSABLE_ENTITY, "商户产品不存在或已停用");
+        throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "商户产品不存在或已停用");
       }
       throw unavailable("无法解析商户 appId");
     } catch (RestClientException exception) {

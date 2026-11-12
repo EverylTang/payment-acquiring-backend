@@ -4,9 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.payments.fund.service.mapper.*;
 import com.example.payments.fund.service.model.*;
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.DayOfWeek;
 import java.time.temporal.TemporalAdjusters;
 import java.util.HashSet;
 import java.util.List;
@@ -254,7 +254,8 @@ public class MerchantSettlementService {
   private static LocalDate nextMultiWeekday(LocalDate date, MerchantSettlementRuleEntity rule) {
     int interval = rule.getCycleInterval() == null ? 2 : rule.getCycleInterval();
     LocalDate candidate = nextWeekday(date, requiredSettlementDay(rule, 7));
-    LocalDate anchor = rule.getEffectiveDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+    LocalDate anchor =
+        rule.getEffectiveDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
     LocalDate candidateWeek = candidate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
     long weeks = java.time.temporal.ChronoUnit.WEEKS.between(anchor, candidateWeek);
     long remainder = Math.floorMod(weeks, interval);
@@ -357,7 +358,12 @@ public class MerchantSettlementService {
   }
 
   public Page<MerchantSettlementRuleEntity> listRules(
-      int page, int pageSize, String merchantId, String productCode, String currency, String status) {
+      int page,
+      int pageSize,
+      String merchantId,
+      String productCode,
+      String currency,
+      String status) {
     int safePage = Math.max(page, 1);
     int safePageSize = pageSize <= 0 ? DEFAULT_PAGE_SIZE : Math.min(pageSize, MAX_PAGE_SIZE);
     String normalizedMerchantId = normalize(merchantId);
